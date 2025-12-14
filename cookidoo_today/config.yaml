@@ -2,7 +2,7 @@ name: "Cookidoo Today"
 description: "Pobiera plan przepisów z Cookidoo (dzień + tydzień) i scrapuje obrazki."
 version: "0.1.0"
 slug: "cookidoo_today"
-url: "https://github.com/TWOJ_LOGIN/cookidoo-ha-addons"
+url: "https://github.com/czajakamil/ha-addons/cookidoo_today"
 arch:
   - aarch64
   - amd64
@@ -30,4 +30,4 @@ schema:
   email: str
   password: password
   country: str
-  refresh_minutes: int(1, 1440)
+  refresh_minutes: int(1,1440)
