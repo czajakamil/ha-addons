@@ -1,0 +1,13 @@
+configuration:
+  email:
+    name: Email
+    description: Cookidoo login email
+  password:
+    name: Password
+    description: Cookidoo password
+  country:
+    name: Country
+    description: Localization country code (e.g. pl)
+  refresh_minutes:
+    name: Refresh interval (minutes)
+    description: How often to refresh data

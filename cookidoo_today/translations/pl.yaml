@@ -1,0 +1,13 @@
+configuration:
+  email:
+    name: E-mail
+    description: Login do Cookidoo
+  password:
+    name: Hasło
+    description: Hasło do Cookidoo
+  country:
+    name: Kraj
+    description: Kod kraju lokalizacji (np. pl)
+  refresh_minutes:
+    name: Odświeżanie (min)
+    description: Co ile minut odświeżać dane
