@@ -1,0 +1,38 @@
+name: "Health App API"
+slug: "health_app_api"
+description: "FastAPI API do zapisu metryk zdrowia (Postgres)."
+version: "0.1.0"
+init: false
+
+arch:
+  - amd64
+  - aarch64
+  - armv7
+  - armhf
+  - i386
+
+startup: services
+boot: auto
+
+ports:
+  8000/tcp: 8000
+ports_description:
+  8000/tcp: "HTTP API (FastAPI)"
+
+webui: "http://[HOST]:[PORT:8000]/docs"
+
+options:
+  pg_host: ""
+  pg_port: 5432
+  pg_db: ""
+  pg_user: ""
+  pg_password: ""
+  pg_sslmode: "disable"
+
+schema:
+  pg_host: str
+  pg_port: port
+  pg_db: str
+  pg_user: str
+  pg_password: password
+  pg_sslmode: list(disable|prefer|require|verify-ca|verify-full)
