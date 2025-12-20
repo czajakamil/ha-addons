@@ -1,17 +1,15 @@
 ARG BUILD_FROM
-FROM $BUILD_FROM
+FROM ${BUILD_FROM}
 
 WORKDIR /app
 
-# Python + pip
 RUN apk add --no-cache python3 py3-pip \
-    && pip3 install --no-cache-dir --upgrade pip
+    && python3 -m venv /opt/venv
 
-# Jeśli w requirements masz "psycopg2" (nie binary), to dorzuć to:
-# RUN apk add --no-cache gcc musl-dev postgresql-dev
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt /app/requirements.txt
-RUN pip3 install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY app /app/app
 
