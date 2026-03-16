@@ -1,7 +1,7 @@
 name: "CatPrint"
 slug: "catprint"
 description: "Serwer REST do drukowania na termicznej drukarce BLE (GOTOOGO C15 / MXW01). Obsługuje kolejkę wydruków – gdy drukarka jest wyłączona, zadania czekają i drukują się automatycznie po włączeniu."
-version: "1.0.0"
+version: "1.0.1"
 url: "https://github.com/czajakamil/ha-addons/tree/main/catprint"
 init: false
 
@@ -13,6 +13,7 @@ startup: application
 boot: auto
 
 bluetooth: true
+host_dbus: true
 
 ports:
   5123/tcp: 5123
