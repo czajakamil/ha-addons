@@ -6,6 +6,7 @@ WORKDIR /app
 # System deps for BLE (BlueZ + D-Bus) and fonts
 RUN apk add --no-cache \
     bluez \
+    bluez-deprecated \
     dbus \
     ttf-dejavu
 

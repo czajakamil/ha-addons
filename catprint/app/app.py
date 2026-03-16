@@ -882,6 +882,82 @@ def api_print_notification():
         return jsonify({"status": "queued", "message": str(e), "job_id": job_id}), 202
 
 
+# ---- Diagnostics ----
+
+@app.route("/api/diag/ble", methods=["POST"])
+def api_diag_ble():
+    """Low-level BLE diagnostics — tests connection at different layers."""
+    import subprocess
+    addr = printer_state.get("address") or request.json.get("address", "") if request.data else ""
+    results = {}
+
+    # 1. Check adapter info
+    try:
+        r = subprocess.run(["hciconfig", "hci0"], capture_output=True, text=True, timeout=5)
+        results["hciconfig"] = r.stdout.strip()
+    except Exception as e:
+        results["hciconfig"] = f"error: {e}"
+
+    # 2. Kernel BT messages
+    try:
+        r = subprocess.run(["dmesg"], capture_output=True, text=True, timeout=5)
+        bt_lines = [l for l in r.stdout.splitlines() if "blue" in l.lower() or "bt" in l.lower() or "hci" in l.lower()]
+        results["dmesg_bt"] = bt_lines[-15:] if bt_lines else ["no bluetooth kernel messages"]
+    except Exception as e:
+        results["dmesg_bt"] = [f"error: {e}"]
+
+    # 3. Try bluetoothctl connect directly
+    if addr:
+        try:
+            # First scan to register device
+            log.info(f"[diag] bluetoothctl scan on...")
+            scan_proc = subprocess.run(
+                ["bluetoothctl", "--timeout", "8", "scan", "on"],
+                capture_output=True, text=True, timeout=12,
+            )
+            results["bluetoothctl_scan"] = scan_proc.stdout.strip()[-500:]
+
+            log.info(f"[diag] bluetoothctl connect {addr}...")
+            conn_proc = subprocess.run(
+                ["bluetoothctl", "connect", addr],
+                capture_output=True, text=True, timeout=15,
+            )
+            results["bluetoothctl_connect"] = {
+                "stdout": conn_proc.stdout.strip()[-500:],
+                "stderr": conn_proc.stderr.strip()[-500:],
+                "rc": conn_proc.returncode,
+            }
+
+            # Disconnect after test
+            subprocess.run(["bluetoothctl", "disconnect", addr],
+                           capture_output=True, timeout=5)
+        except subprocess.TimeoutExpired:
+            results["bluetoothctl_connect"] = "TIMEOUT after 15s"
+        except Exception as e:
+            results["bluetoothctl_connect"] = f"error: {e}"
+
+    # 4. Try raw HCI LE connection
+    if addr:
+        try:
+            r = subprocess.run(
+                ["hcitool", "lecc", addr],
+                capture_output=True, text=True, timeout=10,
+            )
+            results["hcitool_lecc"] = {
+                "stdout": r.stdout.strip(),
+                "stderr": r.stderr.strip(),
+                "rc": r.returncode,
+            }
+        except subprocess.TimeoutExpired:
+            results["hcitool_lecc"] = "TIMEOUT"
+        except FileNotFoundError:
+            results["hcitool_lecc"] = "hcitool not found"
+        except Exception as e:
+            results["hcitool_lecc"] = f"error: {e}"
+
+    return jsonify(results)
+
+
 # ---- Queue ----
 
 @app.route("/api/queue", methods=["GET"])
