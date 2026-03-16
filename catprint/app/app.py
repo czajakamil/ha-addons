@@ -239,7 +239,7 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     printer_state["status"] = "connecting"
 
     try:
-        async with BleakClient(addr, timeout=20.0) as client:
+        async with BleakClient(addr, timeout=40.0) as client:
             printer_state["status"] = "printing"
             chunk_size = max(client.mtu_size - 3, 20)
             log.info(f"Connected. MTU: {client.mtu_size}, rows: {rows}")
