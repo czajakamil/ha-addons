@@ -279,7 +279,9 @@ def _trust_device(addr: str) -> None:
         log.debug(f"Trust failed (non-critical): {e}")
 
 
-async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
+async def send_to_printer(bitmap_data: bytes, address: str = None,
+                          max_retries: int = BLE_CONNECT_RETRIES,
+                          connect_timeout: float = 60.0) -> bool:
     """Send raw bitmap data to MXW01 printer over BLE."""
     global _last_ble_device
     if not HAS_BLEAK:
@@ -298,8 +300,8 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     printer_state["status"] = "connecting"
 
     last_err = None
-    for attempt in range(1, BLE_CONNECT_RETRIES + 1):
-        log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
+    for attempt in range(1, max_retries + 1):
+        log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{max_retries}]")
 
         if IS_LINUX and attempt > 1:
             # On retry: reset adapter + clear cache before rescan
@@ -326,7 +328,7 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
             log.info("Using BLEDevice object for connection (BlueZ optimized)")
 
         try:
-            async with BleakClient(connect_target, timeout=60.0) as client:
+            async with BleakClient(connect_target, timeout=connect_timeout) as client:
                 printer_state["status"] = "printing"
                 chunk_size = max(client.mtu_size - 3, 20)
                 log.info(f"Connected. MTU: {client.mtu_size}, rows: {rows}")
@@ -376,7 +378,7 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
 
         except Exception as e:
             last_err = e
-            log.warning(f"Attempt {attempt}/{BLE_CONNECT_RETRIES} failed [{type(e).__name__}]: {e!r}")
+            log.warning(f"Attempt {attempt}/{max_retries} failed [{type(e).__name__}]: {e!r}")
             _last_ble_device = None  # force fresh scan on next attempt
             if attempt < BLE_CONNECT_RETRIES:
                 await asyncio.sleep(2.0)
@@ -385,7 +387,7 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     # All retries exhausted
     printer_state["status"] = "error"
     printer_state["error"] = str(last_err) or repr(last_err)
-    log.error(f"Print failed after {BLE_CONNECT_RETRIES} attempts: {last_err!r}")
+    log.error(f"Print failed after {max_retries} attempts: {last_err!r}")
     raise last_err
 
 
@@ -509,7 +511,10 @@ async def _drain_queue(address: str) -> int:
     printed = 0
     for job in jobs:
         try:
-            await send_to_printer(bytes(job["bitmap_data"]), address=address)
+            # Background drain uses fewer retries and shorter timeout
+            # to avoid holding the BLE lock for minutes
+            await send_to_printer(bytes(job["bitmap_data"]), address=address,
+                                  max_retries=1, connect_timeout=20.0)
             mark_job_printed(job["id"])
             log_print(job["type"], job["summary"])
             printed += 1
