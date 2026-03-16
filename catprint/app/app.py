@@ -289,8 +289,8 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
 
     except Exception as e:
         printer_state["status"] = "error"
-        printer_state["error"] = str(e)
-        log.error(f"Print failed: {e}")
+        printer_state["error"] = str(e) or repr(e)
+        log.error(f"Print failed [{type(e).__name__}]: {e!r}")
         raise
 
 
@@ -420,8 +420,8 @@ async def _drain_queue(address: str) -> int:
             printed += 1
             log.info(f"Queue job {job['id']} ({job['type']}) printed OK")
         except Exception as e:
-            mark_job_failed(job["id"], str(e))
-            log.error(f"Queue job {job['id']} failed: {e}")
+            mark_job_failed(job["id"], str(e) or repr(e))
+            log.error(f"Queue job {job['id']} failed [{type(e).__name__}]: {e!r}")
             break  # printer likely disconnected, stop
     return printed
 
