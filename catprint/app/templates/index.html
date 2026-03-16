@@ -569,6 +569,22 @@
             white-space: nowrap;
         }
 
+        .history-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 99px;
+            margin-top: 5px;
+            letter-spacing: 0.03em;
+        }
+        .history-status.printed  { background: rgba(52,199,89,0.15);  color: #34C759; }
+        .history-status.pending  { background: rgba(245,166,35,0.15);  color: #F5A623; }
+        .history-status.failed   { background: rgba(255,69,58,0.15);   color: #FF453A; }
+
         .history-empty {
             text-align: center;
             padding: 48px 0;
@@ -1246,9 +1262,11 @@ async function deleteSelectedTemplate() {
 const TYPE_ICONS  = { text: '📝', image: '🖼', qr: '▣', shopping_list: '🛒', notification: '🔔' };
 const TYPE_LABELS = { text: 'Tekst', image: 'Obraz', qr: 'QR Kod', shopping_list: 'Lista zakupów', notification: 'Powiadomienie' };
 
+const STATUS_LABEL = { printed: '✓ wydrukowano', pending: '⏳ w kolejce', failed: '✕ błąd' };
+
 async function loadHistory() {
     try {
-        const res = await fetch('/api/history?limit=50');
+        const res = await fetch('/api/queue?status=all');
         const items = await res.json();
         const list = document.getElementById('historyList');
         list.innerHTML = '';
@@ -1273,18 +1291,21 @@ async function loadHistory() {
             summary.className = 'history-summary';
             summary.textContent = item.summary;
 
+            const badge = document.createElement('span');
+            badge.className = 'history-status ' + (item.status || 'pending');
+            badge.textContent = STATUS_LABEL[item.status] || item.status;
+
             const sub = document.createElement('div');
             sub.className = 'history-sub';
-            const parts = [TYPE_LABELS[item.type] || item.type];
-            if (item.rows) parts.push(item.rows + ' wierszy');
-            if (item.font_size) parts.push(item.font_size + 'px');
-            sub.textContent = parts.join(' · ');
+            sub.textContent = TYPE_LABELS[item.type] || item.type;
+            if (item.status === 'failed' && item.error) sub.textContent += ' · ' + item.error.slice(0, 60);
 
-            meta.append(summary, sub);
+            meta.append(summary, badge, sub);
 
             const time = document.createElement('div');
             time.className = 'history-time';
-            const d = new Date(item.created_at);
+            const dateStr = item.printed_at || item.created_at;
+            const d = new Date(dateStr);
             time.textContent = d.toLocaleString('pl-PL', {
                 day: 'numeric', month: 'short',
                 hour: '2-digit', minute: '2-digit'
