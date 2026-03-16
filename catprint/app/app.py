@@ -289,17 +289,18 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
         log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
 
         if IS_LINUX and attempt > 1:
-            # On retry: reset adapter + clear cache + fresh scan
+            # On retry: reset adapter + clear cache before rescan
             _reset_adapter()
             _clear_bluez_cache(addr)
             await asyncio.sleep(1.0)
-            log.info("Fresh BLE scan for device object...")
+
+        if IS_LINUX:
+            # ALWAYS scan on the current event loop — BLEDevice objects from
+            # a different event loop (e.g. background scanner thread) have
+            # stale D-Bus paths that cause "device not found".
+            log.info("Fresh BLE scan on current event loop...")
+            _last_ble_device = None
             await scan_for_printer(timeout=10.0)
-        elif IS_LINUX and attempt == 1:
-            # First attempt: only do fresh scan if we don't have a device object
-            if _last_ble_device is None or _last_ble_device.address != addr:
-                log.info("Fresh BLE scan for device object...")
-                await scan_for_printer(timeout=10.0)
 
         # Prefer BLEDevice object on Linux (avoids D-Bus address resolution timeout)
         connect_target = addr
