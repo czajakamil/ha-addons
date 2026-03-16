@@ -432,12 +432,13 @@ def _scanner_loop() -> None:
     while True:
         time.sleep(10)
 
-        # Skip if printer is currently in use
-        if printer_state["status"] in ("printing", "connecting"):
-            continue
-
         # Skip if nothing to print
         if not get_pending_jobs():
+            continue
+
+        # Try to acquire BLE lock — skip cycle if another operation is running
+        if not _ble_lock.acquire(blocking=False):
+            log.debug("Scanner: BLE busy, skipping cycle")
             continue
 
         log.info("Scanner: pending jobs found, scanning for printer...")
@@ -457,7 +458,9 @@ def _scanner_loop() -> None:
                 log.debug("Scanner: no printer found this cycle")
             loop.close()
         except Exception as e:
-            log.warning(f"Scanner cycle error: {e}")
+            log.warning(f"Scanner cycle error [{type(e).__name__}]: {e!r}")
+        finally:
+            _ble_lock.release()
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +470,9 @@ def _scanner_loop() -> None:
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max upload
 
+# Global lock: only one BLE operation at a time (scan OR connect)
+_ble_lock = threading.Lock()
+
 
 def run_async(coro):
     """Run an async coroutine from synchronous Flask context."""
@@ -475,6 +481,19 @@ def run_async(coro):
         return loop.run_until_complete(coro)
     finally:
         loop.close()
+
+
+def run_ble(coro):
+    """Run a BLE coroutine exclusively — blocks until the lock is free."""
+    acquired = _ble_lock.acquire(timeout=35.0)
+    if not acquired:
+        raise RuntimeError("BLE busy — another operation is already in progress")
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+        _ble_lock.release()
 
 
 # ---- Web UI ----
@@ -505,18 +524,14 @@ def api_status():
 def api_scan():
     """Scan for BLE printers."""
     try:
-        result = run_async(scan_for_printer())
+        result = run_ble(scan_for_printer())
         if result:
             printer_state["address"] = result["address"]
             printer_state["name"] = result["name"]
             printer_state["status"] = "idle"
             pending = get_pending_jobs()
             if pending:
-                threading.Thread(
-                    target=lambda: run_async(_drain_queue(result["address"])),
-                    daemon=True,
-                    name="queue-flush",
-                ).start()
+                run_ble(_drain_queue(result["address"]))
             return jsonify({"status": "found", "printer": result, "pending_jobs": len(pending)})
         return jsonify({"status": "not_found", "message": "No printer found"}), 404
     except Exception as e:
@@ -542,7 +557,7 @@ def api_print_text():
 
     job_id = enqueue_job("text", text[:80], bitmap_bytes)
     try:
-        run_async(send_to_printer(bitmap_bytes))
+        run_ble(send_to_printer(bitmap_bytes))
         mark_job_printed(job_id)
         log_print("text", text[:80], rows=len(bitmap), font_size=font_size)
         return jsonify({"status": "ok", "rows_printed": len(bitmap), "job_id": job_id})
@@ -569,7 +584,7 @@ def api_print_image():
     summary = file.filename or "obraz"
     job_id = enqueue_job("image", summary, bitmap_bytes)
     try:
-        run_async(send_to_printer(bitmap_bytes))
+        run_ble(send_to_printer(bitmap_bytes))
         mark_job_printed(job_id)
         log_print("image", summary, rows=len(bitmap))
         return jsonify({"status": "ok", "rows_printed": len(bitmap), "job_id": job_id})
@@ -596,7 +611,7 @@ def api_print_qr():
 
     job_id = enqueue_job("qr", qr_data[:80], bitmap_bytes)
     try:
-        run_async(send_to_printer(bitmap_bytes))
+        run_ble(send_to_printer(bitmap_bytes))
         mark_job_printed(job_id)
         log_print("qr", qr_data[:80], rows=len(bitmap))
         return jsonify({"status": "ok", "rows_printed": len(bitmap), "job_id": job_id})
@@ -614,7 +629,7 @@ def api_feed():
     bitmap_data = bytes(BYTES_PER_ROW * feed_rows)
 
     try:
-        run_async(send_to_printer(bitmap_data))
+        run_ble(send_to_printer(bitmap_data))
         return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -719,7 +734,7 @@ def api_print_shopping_list():
     summary = f"{len(items)} pozycji: {preview}"
     job_id = enqueue_job("shopping_list", summary, bitmap_bytes)
     try:
-        run_async(send_to_printer(bitmap_bytes))
+        run_ble(send_to_printer(bitmap_bytes))
         mark_job_printed(job_id)
         log_print("shopping_list", summary, rows=len(bitmap))
         return jsonify({"status": "ok", "items_count": len(items), "job_id": job_id})
@@ -763,7 +778,7 @@ def api_print_notification():
     summary = f"{title}: {message[:60]}"
     job_id = enqueue_job("notification", summary, bitmap_bytes)
     try:
-        run_async(send_to_printer(bitmap_bytes))
+        run_ble(send_to_printer(bitmap_bytes))
         mark_job_printed(job_id)
         log_print("notification", summary, rows=len(bitmap))
         return jsonify({"status": "ok", "job_id": job_id})
@@ -807,7 +822,7 @@ def api_flush_queue():
     addr = printer_state.get("address")
     if not addr:
         try:
-            found = run_async(scan_for_printer())
+            found = run_ble(scan_for_printer())
             if not found:
                 return jsonify({"status": "error", "message": "No printer found"}), 404
             addr = found["address"]
@@ -822,7 +837,7 @@ def api_flush_queue():
         return jsonify({"status": "ok", "printed": 0, "message": "Queue empty"})
 
     try:
-        printed = run_async(_drain_queue(addr))
+        printed = run_ble(_drain_queue(addr))
         return jsonify({"status": "ok", "printed": printed, "total": len(pending)})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
