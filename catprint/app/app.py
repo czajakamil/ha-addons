@@ -238,6 +238,17 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     log.info(f"Connecting to printer at {addr}... ({rows} rows)")
     printer_state["status"] = "connecting"
 
+    # Remove stale BlueZ device cache so each connection starts fresh.
+    # Without this, BlueZ on RPi/Linux keeps a stale connection state that
+    # causes GATT connect to hang until timeout.
+    try:
+        import subprocess
+        subprocess.run(["bluetoothctl", "remove", addr],
+                       capture_output=True, timeout=5)
+        await asyncio.sleep(0.5)
+    except Exception:
+        pass  # not critical, best-effort
+
     try:
         async with BleakClient(addr, timeout=40.0) as client:
             printer_state["status"] = "printing"
