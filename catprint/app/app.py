@@ -91,7 +91,9 @@ def text_to_image(text: str, font_size: int = 24, width: int = PRINTER_WIDTH_PX)
         "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
         "/Library/Fonts/Arial.ttf",
-        # Linux
+        # Alpine Linux (apk add ttf-dejavu)
+        "/usr/share/fonts/ttf-dejavu/DejaVuSans.ttf",
+        # Debian/Ubuntu
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
@@ -188,10 +190,17 @@ try:
 except ImportError:
     HAS_BLEAK = False
 
+IS_LINUX = os.uname().sysname == "Linux"
+BLE_CONNECT_RETRIES = 3
+
 # Known printer BLE advertisement names
 KNOWN_PRINTER_NAMES = ["GT01", "GB01", "GB02", "GB03", "GB04", "GT02", "C15", "MXW01"]
 
-# Global state
+# Global state — _last_ble_device holds the BLEDevice object from the most
+# recent scan so we can hand it directly to BleakClient on Linux/BlueZ
+# (avoids D-Bus re-resolution timeouts on RPi).
+_last_ble_device = None
+
 printer_state = {
     "address": os.environ.get("PRINTER_ADDRESS", ""),
     "name": os.environ.get("PRINTER_NAME", ""),
@@ -203,25 +212,57 @@ printer_state = {
 
 
 async def scan_for_printer(timeout: float = SCAN_TIMEOUT) -> dict | None:
-    """Scan BLE for a known printer."""
+    """Scan BLE for a known printer. Stores BLEDevice object for Linux."""
+    global _last_ble_device
     if not HAS_BLEAK:
         return None
 
     log.info("Scanning for BLE printers...")
-    devices = await BleakScanner.discover(timeout=timeout)
+    devices = await BleakScanner.discover(timeout=timeout, return_adv=False)
 
     for device in devices:
         name = device.name or ""
         if any(known in name for known in KNOWN_PRINTER_NAMES):
             log.info(f"Found printer: {name} @ {device.address}")
+            _last_ble_device = device
             return {"name": name, "address": device.address}
 
     log.warning("No printer found during scan")
     return None
 
 
+def _clear_bluez_cache(addr: str) -> None:
+    """Remove stale BlueZ device cache (Linux only, best-effort)."""
+    if not IS_LINUX:
+        return
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["bluetoothctl", "remove", addr],
+            capture_output=True, timeout=5, text=True,
+        )
+        log.debug(f"bluetoothctl remove {addr}: {result.stdout.strip()} {result.stderr.strip()}")
+    except FileNotFoundError:
+        # Try D-Bus directly if bluetoothctl is missing (Alpine minimal)
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["dbus-send", "--system", "--dest=org.bluez",
+                 f"/org/bluez/hci0/dev_{addr.replace(':', '_')}",
+                 "org.bluez.Adapter1.RemoveDevice",
+                 f"objpath:/org/bluez/hci0/dev_{addr.replace(':', '_')}"],
+                capture_output=True, timeout=5, text=True,
+            )
+            log.debug(f"dbus-send remove: {result.returncode}")
+        except Exception:
+            pass
+    except Exception as e:
+        log.debug(f"BlueZ cache clear failed (non-critical): {e}")
+
+
 async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     """Send raw bitmap data to MXW01 printer over BLE."""
+    global _last_ble_device
     if not HAS_BLEAK:
         raise RuntimeError("bleak library is required for BLE communication")
 
@@ -235,74 +276,90 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
         printer_state["name"] = found["name"]
 
     rows = len(bitmap_data) // BYTES_PER_ROW
-    log.info(f"Connecting to printer at {addr}... ({rows} rows)")
     printer_state["status"] = "connecting"
 
-    # Remove stale BlueZ device cache so each connection starts fresh.
-    # Without this, BlueZ on RPi/Linux keeps a stale connection state that
-    # causes GATT connect to hang until timeout.
-    try:
-        import subprocess
-        subprocess.run(["bluetoothctl", "remove", addr],
-                       capture_output=True, timeout=5)
+    last_err = None
+    for attempt in range(1, BLE_CONNECT_RETRIES + 1):
+        log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
+
+        # On Linux/BlueZ: clear stale cache before each attempt
+        _clear_bluez_cache(addr)
         await asyncio.sleep(0.5)
-    except Exception:
-        pass  # not critical, best-effort
 
-    try:
-        async with BleakClient(addr, timeout=40.0) as client:
-            printer_state["status"] = "printing"
-            chunk_size = max(client.mtu_size - 3, 20)
-            log.info(f"Connected. MTU: {client.mtu_size}, rows: {rows}")
+        # On Linux, do a fresh scan to get a live BLEDevice object for this attempt
+        if IS_LINUX and (attempt > 1 or _last_ble_device is None
+                         or _last_ble_device.address != addr):
+            log.info("Fresh BLE scan for device object (BlueZ needs this)...")
+            await scan_for_printer(timeout=8.0)
 
-            ack = asyncio.Event()
-            done = asyncio.Event()
+        # Prefer BLEDevice object on Linux (avoids D-Bus address resolution timeout)
+        connect_target = addr
+        if IS_LINUX and _last_ble_device and _last_ble_device.address == addr:
+            connect_target = _last_ble_device
+            log.info("Using BLEDevice object for connection (BlueZ optimized)")
 
-            def notify_handler(sender, data):
-                log.debug(f"Printer notify: {data.hex()}")
-                if len(data) >= 3 and data[2] == 0xA9:
-                    ack.set()
-                elif len(data) >= 3 and data[2] == 0xAA:
-                    done.set()
+        try:
+            async with BleakClient(connect_target, timeout=30.0) as client:
+                printer_state["status"] = "printing"
+                chunk_size = max(client.mtu_size - 3, 20)
+                log.info(f"Connected. MTU: {client.mtu_size}, rows: {rows}")
 
-            await client.start_notify(PRINTER_NOTIFY_UUID, notify_handler)
-            await asyncio.sleep(0.3)
+                ack = asyncio.Event()
+                done = asyncio.Event()
 
-            # 1. Send init — declares image dimensions
-            init_cmd = _mxw_init_cmd(rows)
-            log.info(f"Init: {init_cmd.hex()}")
-            await client.write_gatt_char(PRINTER_CMD_UUID, init_cmd, response=False)
-            await asyncio.wait_for(ack.wait(), timeout=5.0)
-            log.info("Init ACK received")
+                def notify_handler(sender, data):
+                    log.debug(f"Printer notify: {data.hex()}")
+                    if len(data) >= 3 and data[2] == 0xA9:
+                        ack.set()
+                    elif len(data) >= 3 and data[2] == 0xAA:
+                        done.set()
 
-            # 2. Stream raw bitmap
-            for i in range(0, len(bitmap_data), chunk_size):
-                await client.write_gatt_char(PRINTER_DATA_UUID, bitmap_data[i:i+chunk_size], response=False)
-                await asyncio.sleep(CHUNK_DELAY)
+                await client.start_notify(PRINTER_NOTIFY_UUID, notify_handler)
+                await asyncio.sleep(0.3)
 
-            # 3. Send end command
-            await client.write_gatt_char(PRINTER_CMD_UUID, MXW_END_CMD, response=False)
-            log.info("End command sent, waiting for completion...")
+                # 1. Send init — declares image dimensions
+                init_cmd = _mxw_init_cmd(rows)
+                log.info(f"Init: {init_cmd.hex()}")
+                await client.write_gatt_char(PRINTER_CMD_UUID, init_cmd, response=False)
+                await asyncio.wait_for(ack.wait(), timeout=5.0)
+                log.info("Init ACK received")
 
-            # 4. Wait for completion notification
-            try:
-                await asyncio.wait_for(done.wait(), timeout=15.0)
-                log.info("Print completed (printer confirmed)")
-            except asyncio.TimeoutError:
-                log.warning("No completion notification — print may still succeed")
+                # 2. Stream raw bitmap
+                for i in range(0, len(bitmap_data), chunk_size):
+                    await client.write_gatt_char(PRINTER_DATA_UUID, bitmap_data[i:i+chunk_size], response=False)
+                    await asyncio.sleep(CHUNK_DELAY)
 
-            printer_state["status"] = "idle"
-            printer_state["last_print"] = datetime.now().isoformat()
-            printer_state["print_count"] += 1
-            printer_state["error"] = None
-            log.info("Print job completed successfully")
-            return True
+                # 3. Send end command
+                await client.write_gatt_char(PRINTER_CMD_UUID, MXW_END_CMD, response=False)
+                log.info("End command sent, waiting for completion...")
 
-    except Exception as e:
-        printer_state["status"] = "error"
-        printer_state["error"] = str(e) or repr(e)
-        log.error(f"Print failed [{type(e).__name__}]: {e!r}")
-        raise
+                # 4. Wait for completion notification
+                try:
+                    await asyncio.wait_for(done.wait(), timeout=15.0)
+                    log.info("Print completed (printer confirmed)")
+                except asyncio.TimeoutError:
+                    log.warning("No completion notification — print may still succeed")
+
+                printer_state["status"] = "idle"
+                printer_state["last_print"] = datetime.now().isoformat()
+                printer_state["print_count"] += 1
+                printer_state["error"] = None
+                log.info("Print job completed successfully")
+                return True
+
+        except Exception as e:
+            last_err = e
+            log.warning(f"Attempt {attempt}/{BLE_CONNECT_RETRIES} failed [{type(e).__name__}]: {e!r}")
+            _last_ble_device = None  # force fresh scan on next attempt
+            if attempt < BLE_CONNECT_RETRIES:
+                await asyncio.sleep(2.0)
+            continue
+
+    # All retries exhausted
+    printer_state["status"] = "error"
+    printer_state["error"] = str(last_err) or repr(last_err)
+    log.error(f"Print failed after {BLE_CONNECT_RETRIES} attempts: {last_err!r}")
+    raise last_err
 
 
 # ---------------------------------------------------------------------------
@@ -858,14 +915,52 @@ def api_flush_queue():
 # Entry point
 # ---------------------------------------------------------------------------
 
+def _log_ble_diagnostics() -> None:
+    """Log BLE/BlueZ environment info for debugging connection issues."""
+    import subprocess
+    log.info(f"Platform: {os.uname().sysname} / {os.uname().machine}")
+    log.info(f"IS_LINUX: {IS_LINUX}")
+
+    if not IS_LINUX:
+        return
+
+    # Check D-Bus socket
+    dbus_ok = os.path.exists("/var/run/dbus/system_bus_socket")
+    log.info(f"D-Bus system socket: {'present' if dbus_ok else 'MISSING — BLE will fail!'}")
+
+    # BlueZ version
+    try:
+        result = subprocess.run(["bluetoothctl", "--version"],
+                                capture_output=True, text=True, timeout=5)
+        log.info(f"BlueZ: {result.stdout.strip()}")
+    except FileNotFoundError:
+        log.warning("bluetoothctl not found — using dbus-send fallback for cache clearing")
+    except Exception as e:
+        log.warning(f"Could not check BlueZ version: {e}")
+
+    # Check if adapter is available
+    try:
+        result = subprocess.run(["bluetoothctl", "show"],
+                                capture_output=True, text=True, timeout=5)
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if any(k in line for k in ["Controller", "Powered", "Name"]):
+                log.info(f"  {line}")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5123))
     host = os.environ.get("HOST", "0.0.0.0")
     debug = os.environ.get("DEBUG", "false").lower() == "true"
 
     init_db()
-    log.info(f"🖨️  CatPrint HA starting on {host}:{port}")
-    log.info(f"   PIL: {'✅' if HAS_PIL else '❌'}  |  QR: {'✅' if HAS_QRCODE else '❌'}  |  BLE: {'✅' if HAS_BLEAK else '❌'}")
+    log.info(f"CatPrint HA starting on {host}:{port}")
+    log.info(f"   PIL: {'OK' if HAS_PIL else 'NO'}  |  QR: {'OK' if HAS_QRCODE else 'NO'}  |  BLE: {'OK' if HAS_BLEAK else 'NO'}")
+
+    if HAS_BLEAK:
+        _log_ble_diagnostics()
 
     # Start background BLE scanner (skips if bleak not available)
     if HAS_BLEAK:
