@@ -231,6 +231,26 @@ async def scan_for_printer(timeout: float = SCAN_TIMEOUT) -> dict | None:
     return None
 
 
+def _reset_adapter() -> None:
+    """Power-cycle the BT adapter via bluetoothctl (Linux only, best-effort).
+    This forces BlueZ to drop all cached connections and re-init the HCI device,
+    which is often necessary on RPi when GATT connects hang."""
+    if not IS_LINUX:
+        return
+    import subprocess
+    try:
+        log.info("Resetting BT adapter (power off/on)...")
+        subprocess.run(["bluetoothctl", "power", "off"],
+                       capture_output=True, timeout=5)
+        time.sleep(1)
+        subprocess.run(["bluetoothctl", "power", "on"],
+                       capture_output=True, timeout=5)
+        time.sleep(1)
+        log.info("BT adapter reset done")
+    except Exception as e:
+        log.debug(f"Adapter reset failed (non-critical): {e}")
+
+
 def _clear_bluez_cache(addr: str) -> None:
     """Remove stale BlueZ device cache (Linux only, best-effort)."""
     if not IS_LINUX:
@@ -241,21 +261,7 @@ def _clear_bluez_cache(addr: str) -> None:
             ["bluetoothctl", "remove", addr],
             capture_output=True, timeout=5, text=True,
         )
-        log.debug(f"bluetoothctl remove {addr}: {result.stdout.strip()} {result.stderr.strip()}")
-    except FileNotFoundError:
-        # Try D-Bus directly if bluetoothctl is missing (Alpine minimal)
-        try:
-            import subprocess
-            result = subprocess.run(
-                ["dbus-send", "--system", "--dest=org.bluez",
-                 f"/org/bluez/hci0/dev_{addr.replace(':', '_')}",
-                 "org.bluez.Adapter1.RemoveDevice",
-                 f"objpath:/org/bluez/hci0/dev_{addr.replace(':', '_')}"],
-                capture_output=True, timeout=5, text=True,
-            )
-            log.debug(f"dbus-send remove: {result.returncode}")
-        except Exception:
-            pass
+        log.debug(f"bluetoothctl remove {addr}: rc={result.returncode}")
     except Exception as e:
         log.debug(f"BlueZ cache clear failed (non-critical): {e}")
 
@@ -282,15 +288,18 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     for attempt in range(1, BLE_CONNECT_RETRIES + 1):
         log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
 
-        # On Linux/BlueZ: clear stale cache before each attempt
-        _clear_bluez_cache(addr)
-        await asyncio.sleep(0.5)
-
-        # On Linux, do a fresh scan to get a live BLEDevice object for this attempt
-        if IS_LINUX and (attempt > 1 or _last_ble_device is None
-                         or _last_ble_device.address != addr):
-            log.info("Fresh BLE scan for device object (BlueZ needs this)...")
-            await scan_for_printer(timeout=8.0)
+        if IS_LINUX and attempt > 1:
+            # On retry: reset adapter + clear cache + fresh scan
+            _reset_adapter()
+            _clear_bluez_cache(addr)
+            await asyncio.sleep(1.0)
+            log.info("Fresh BLE scan for device object...")
+            await scan_for_printer(timeout=10.0)
+        elif IS_LINUX and attempt == 1:
+            # First attempt: only do fresh scan if we don't have a device object
+            if _last_ble_device is None or _last_ble_device.address != addr:
+                log.info("Fresh BLE scan for device object...")
+                await scan_for_printer(timeout=10.0)
 
         # Prefer BLEDevice object on Linux (avoids D-Bus address resolution timeout)
         connect_target = addr
