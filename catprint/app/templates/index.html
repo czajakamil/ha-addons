@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CatPrint HA</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0C0C0E;
+            --surface: #161619;
+            --surface-2: #1E1E22;
+            --border: #2A2A30;
+            --border-hover: #3A3A42;
+            --text: #E8E6E3;
+            --text-dim: #8A8A95;
+            --accent: #E85D3A;
+            --accent-glow: rgba(232, 93, 58, 0.15);
+            --green: #3DDC84;
+            --green-dim: rgba(61, 220, 132, 0.12);
+            --yellow: #FFB224;
+            --red: #F44;
+            --radius: 10px;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'DM Sans', system-ui, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        .header {
+            padding: 24px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: rgba(12, 12, 14, 0.85);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 18px;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-text span {
+            color: var(--text-dim);
+            font-weight: 300;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            font-family: var(--mono);
+            color: var(--text-dim);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+        }
+
+        .status-dot.connected {
+            background: var(--green);
+            box-shadow: 0 0 8px rgba(61, 220, 132, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.error { background: var(--red); }
+        .status-dot.printing {
+            background: var(--yellow);
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ── Main Layout ── */
+        .main {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 32px 20px 80px;
+        }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 4px;
+            margin-bottom: 28px;
+            border: 1px solid var(--border);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 400;
+            cursor: pointer;
+            border-radius: 7px;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover { color: var(--text); }
+
+        .tab.active {
+            background: var(--surface-2);
+            color: var(--text);
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* ── Panels ── */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* ── Form Elements ── */
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-family: var(--mono);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        textarea, input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        textarea { min-height: 140px; }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* ── Range slider ── */
+        .range-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(232, 93, 58, 0.3);
+        }
+
+        .range-val {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text-dim);
+            min-width: 40px;
+            text-align: right;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 13px 28px;
+            border: none;
+            border-radius: var(--radius);
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(232, 93, 58, 0.3);
+        }
+
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--border-hover);
+            background: var(--border);
+        }
+
+        /* ── File Upload ── */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .upload-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: var(--text-dim);
+        }
+
+        .upload-text strong {
+            color: var(--accent);
+        }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 6px;
+            margin-top: 12px;
+            display: none;
+            border: 1px solid var(--border);
+        }
+
+        /* ── Toast ── */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            font-family: var(--mono);
+            font-size: 13px;
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .toast.success { background: var(--green); color: #0C0C0E; }
+        .toast.error { background: var(--red); color: white; }
+        .toast.warning { background: #F5A623; color: #0C0C0E; }
+        .toast.info { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+
+        /* ── Shopping list builder ── */
+        .item-list {
+            list-style: none;
+        }
+
+        .item-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .item-list li:last-child { border-bottom: none; }
+
+        .item-remove {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+
+        .item-remove:hover {
+            color: var(--red);
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .add-item-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .add-item-row input {
+            flex: 1;
+        }
+
+        .add-item-row .btn {
+            padding: 10px 16px;
+            white-space: nowrap;
+        }
+
+        /* ── Spinner ── */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: none;
+        }
+
+        .loading .spinner { display: inline-block; }
+        .loading .btn-label { display: none; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Info grid ── */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .info-item {
+            padding: 14px;
+            background: var(--surface-2);
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            font-family: var(--mono);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        /* ── API docs ── */
+        .endpoint {
+            padding: 14px;
+            background: var(--surface-2);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-family: var(--mono);
+            font-size: 13px;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .method.post { background: var(--green-dim); color: var(--green); }
+        .method.get { background: rgba(96, 165, 250, 0.12); color: #60A5FA; }
+        .method.tool { background: rgba(168, 85, 247, 0.15); color: #C084FC; }
+
+        .mcp-code {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.65;
+            margin: 0;
+        }
+
+        .endpoint-desc {
+            font-family: var(--sans);
+            color: var(--text-dim);
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        /* ── History ── */
+        .history-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 8px;
+            transition: border-color 0.15s;
+        }
+
+        .history-item:hover { border-color: var(--border-hover); }
+
+        .history-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .history-meta { flex: 1; min-width: 0; }
+
+        .history-summary {
+            font-size: 14px;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-sub {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 3px;
+        }
+
+        .history-time {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .history-empty {
+            text-align: center;
+            padding: 48px 0;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 13px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 480px) {
+            .header { padding: 16px; }
+            .main { padding: 20px 16px 60px; }
+            .row { grid-template-columns: 1fr; }
+            .info-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+    <div class="logo">
+        <div class="logo-icon">🖨</div>
+        <div class="logo-text">CatPrint<span>.HA</span></div>
+    </div>
+    <button class="btn btn-secondary" id="headerScanBtn" onclick="scanPrinter(this)"
+            style="display:none; padding:6px 14px; font-size:13px; margin-left:auto; margin-right:12px;">
+        <span class="spinner"></span>
+        <span class="btn-label">🔍 Skanuj BLE</span>
+    </button>
+    <div class="status-badge" id="statusBadge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">łączenie...</span>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="main">
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" data-tab="text">Tekst</button>
+        <button class="tab" data-tab="image">Obraz</button>
+        <button class="tab" data-tab="qr">QR Kod</button>
+        <button class="tab" data-tab="list">Lista</button>
+        <button class="tab" data-tab="api">API</button>
+        <button class="tab" data-tab="history">Historia</button>
+    </div>
+
+    <!-- TEXT panel -->
+    <div class="panel active" id="panel-text">
+
+        <!-- Template bar — visible only when templates exist -->
+        <div class="field" id="templateBar" style="display:none">
+            <label>Szablon</label>
+            <div style="display:flex; gap:8px; align-items:center">
+                <select id="templateSelect" style="flex:1">
+                    <option value="">— wybierz szablon —</option>
+                </select>
+                <button class="btn btn-secondary" onclick="deleteSelectedTemplate()"
+                        title="Usuń wybrany szablon" style="padding:11px 14px; flex-shrink:0">🗑</button>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>Treść do wydruku</label>
+            <textarea id="printText" placeholder="Wpisz tekst do wydrukowania...&#10;&#10;Obsługuje wieloliniowy tekst,&#10;automatycznie zawijany do szerokości drukarki."></textarea>
+            <div style="display:flex; justify-content:flex-end; margin-top:8px">
+                <button class="btn btn-secondary" onclick="saveTemplate()"
+                        style="font-size:12px; padding:7px 14px">💾 Zapisz jako szablon</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Rozmiar czcionki</label>
+                <div class="range-wrap">
+                    <input type="range" id="fontSize" min="12" max="48" value="24">
+                    <span class="range-val" id="fontSizeVal">24px</span>
+                </div>
+            </div>
+            <div class="field">
+                <label>Ciemność wydruku</label>
+                <div class="range-wrap">
+                    <input type="range" id="energyText" min="10000" max="65535" value="20480" step="1000">
+                    <span class="range-val" id="energyTextVal">31%</span>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="printText()">
+            <span class="spinner"></span>
+            <span class="btn-label">Drukuj tekst</span>
+        </button>
+    </div>
+
+    <!-- IMAGE panel -->
+    <div class="panel" id="panel-image">
+        <div class="field">
+            <label>Plik obrazu</label>
+            <div class="upload-zone" id="uploadZone">
+                <input type="file" id="imageFile" accept="image/*">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">Przeciągnij obraz lub <strong>kliknij tutaj</strong></div>
+                <img class="preview-img" id="imagePreview">
+            </div>
+        </div>
+        <div class="field">
+            <label>Ciemność wydruku</label>
+            <div class="range-wrap">
+                <input type="range" id="energyImg" min="10000" max="65535" value="20480" step="1000">
+                <span class="range-val" id="energyImgVal">31%</span>
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="printImage()">
+            <span class="spinner"></span>
+            <span class="btn-label">Drukuj obraz</span>
+        </button>
+    </div>
+
+    <!-- QR panel -->
+    <div class="panel" id="panel-qr">
+        <div class="field">
+            <label>Dane QR (URL, tekst, itp.)</label>
+            <input type="text" id="qrData" placeholder="https://example.com">
+        </div>
+        <div class="field">
+            <label>Ciemność wydruku</label>
+            <div class="range-wrap">
+                <input type="range" id="energyQr" min="10000" max="65535" value="20480" step="1000">
+                <span class="range-val" id="energyQrVal">31%</span>
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="printQR()">
+            <span class="spinner"></span>
+            <span class="btn-label">Drukuj QR kod</span>
+        </button>
+    </div>
+
+    <!-- SHOPPING LIST panel -->
+    <div class="panel" id="panel-list">
+        <div class="card">
+            <div class="card-title">Lista zakupów</div>
+            <ul class="item-list" id="shoppingList"></ul>
+            <div class="add-item-row">
+                <input type="text" id="newItem" placeholder="Dodaj produkt..." onkeydown="if(event.key==='Enter')addItem()">
+                <button class="btn btn-secondary" onclick="addItem()">+ Dodaj</button>
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="printShoppingList()">
+            <span class="spinner"></span>
+            <span class="btn-label">Drukuj listę</span>
+        </button>
+    </div>
+
+    <!-- API panel -->
+    <div class="panel" id="panel-api">
+        <div class="card">
+            <div class="card-title">Status drukarki</div>
+            <div class="info-grid" id="infoGrid">
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="info-value" id="infoStatus">—</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Wydruki</div>
+                    <div class="info-value" id="infoPrints">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Drukarka</div>
+                    <div class="info-value" id="infoPrinter">—</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Ostatni wydruk</div>
+                    <div class="info-value" id="infoLast" style="font-size:13px">—</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; gap: 8px;">
+                <button class="btn btn-secondary" onclick="scanPrinter(this)" style="flex:1">
+                    <span class="spinner"></span>
+                    <span class="btn-label">🔍 Skanuj BLE</span>
+                </button>
+                <button class="btn btn-secondary" onclick="feedPaper()" style="flex:1">
+                    📜 Przesuń papier
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">REST API Endpoints</div>
+
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/status
+                <div class="endpoint-desc">Status drukarki i możliwości</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/scan
+                <div class="endpoint-desc">Skanuj BLE w poszukiwaniu drukarek</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/print/text
+                <div class="endpoint-desc">{ "text": "...", "font_size": 24 }</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/print/image
+                <div class="endpoint-desc">multipart/form-data, pole: image</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/print/qr
+                <div class="endpoint-desc">{ "data": "https://..." }</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/print/ha-shopping-list
+                <div class="endpoint-desc">{ "items": ["Mleko", "Chleb"], "title": "..." }</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/print/ha-notification
+                <div class="endpoint-desc">{ "title": "Alert", "message": "..." }</div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/feed
+                <div class="endpoint-desc">{ "lines": 3 }</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Przykład z Home Assistant (rest_command)</div>
+            <pre style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); white-space: pre-wrap; line-height: 1.6;">rest_command:
+  print_notification:
+    url: "http://localhost:5123/api/print/ha-notification"
+    method: POST
+    content_type: "application/json"
+    payload: >
+      {"title":"{{ title }}","message":"{{ message }}"}</pre>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🤖 MCP Server (AI Agenci)</div>
+            <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px; line-height:1.6">
+                Plik <code style="font-family:var(--mono); color:var(--text)">mcp_server.py</code>
+                udostępnia drukarkę jako narzędzia MCP. Agenty (Claude Desktop, Claude Code,
+                własne agenty) mogą drukować bez otwierania przeglądarki.
+                Serwer Flask musi być uruchomiony — MCP woła jego REST API przez HTTP.
+            </p>
+
+            <div style="margin-bottom:8px; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.07em; font-weight:600">Instalacja</div>
+            <pre class="mcp-code">pip install mcp httpx
+# lub razem z resztą zależności:
+pip install -r requirements.txt</pre>
+
+            <div style="margin-top:16px; margin-bottom:8px; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.07em; font-weight:600">Dostępne narzędzia (10)</div>
+
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> get_printer_status
+                <div class="endpoint-desc">Status drukarki, BLE, liczniki wydruków</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> scan_printer
+                <div class="endpoint-desc">Skanowanie BLE i połączenie (do 10 s)</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> print_text(text, font_size=24, align="left")
+                <div class="endpoint-desc">Druk tekstu z zawijaniem i wyrównaniem</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> print_qr(data, caption="")
+                <div class="endpoint-desc">Druk kodu QR (URL, tekst, vCard…)</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> print_shopping_list(items, title)
+                <div class="endpoint-desc">Lista zakupów z checkboxami □</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> print_notification(title, message, source)
+                <div class="endpoint-desc">Karta powiadomienia z bannerem i stopką</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> feed_paper(lines=3)
+                <div class="endpoint-desc">Przesunięcie papieru (margines do odrywania)</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> list_templates()
+                <div class="endpoint-desc">Lista szablonów z SQLite (id, name, text, font_size)</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> print_from_template(template_id)
+                <div class="endpoint-desc">Druk szablonu po numerycznym ID</div>
+            </div>
+            <div class="endpoint">
+                <span class="method tool">TOOL</span> get_print_history(limit=10)
+                <div class="endpoint-desc">Historia wydruków z SQLite (max 100 wpisów)</div>
+            </div>
+
+            <div style="margin-top:16px; margin-bottom:8px; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.07em; font-weight:600">Claude Desktop — konfiguracja</div>
+            <pre class="mcp-code" id="mcpConfigPre"></pre>
+            <button class="btn btn-secondary" onclick="copyMcpConfig(this)"
+                    style="margin-top:8px; font-size:12px; padding:5px 12px">
+                📋 Kopiuj konfigurację
+            </button>
+            <p style="font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.7">
+                Plik konfiguracyjny Claude Desktop:<br>
+                <code style="font-family:var(--mono); font-size:11px">macOS: ~/Library/Application Support/Claude/claude_desktop_config.json</code><br>
+                <code style="font-family:var(--mono); font-size:11px">Linux: ~/.config/claude/claude_desktop_config.json</code>
+            </p>
+        </div>
+    </div>
+
+    <!-- HISTORY panel -->
+    <div class="panel" id="panel-history">
+        <div id="historyList"><div class="history-empty">Brak wydruków</div></div>
+        <div style="margin-top:12px; display:flex; justify-content:flex-end">
+            <button class="btn btn-secondary" onclick="clearHistory()"
+                    style="font-size:12px; padding:7px 14px">🗑 Wyczyść historię</button>
+        </div>
+    </div>
+
+</main>
+
+<!-- Toast container -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ── Tab switching ──
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'history') loadHistory();
+    });
+});
+
+// ── Range sliders ──
+document.getElementById('fontSize').addEventListener('input', e => {
+    document.getElementById('fontSizeVal').textContent = e.target.value + 'px';
+});
+
+['energyText', 'energyImg', 'energyQr'].forEach(id => {
+    const el = document.getElementById(id);
+    const valEl = document.getElementById(id + 'Val');
+    el.addEventListener('input', () => {
+        valEl.textContent = Math.round(el.value / 65535 * 100) + '%';
+    });
+});
+
+// ── File upload ──
+const uploadZone = document.getElementById('uploadZone');
+const imageFile = document.getElementById('imageFile');
+const imagePreview = document.getElementById('imagePreview');
+
+['dragover', 'dragenter'].forEach(e => {
+    uploadZone.addEventListener(e, ev => { ev.preventDefault(); uploadZone.classList.add('dragover'); });
+});
+['dragleave', 'drop'].forEach(e => {
+    uploadZone.addEventListener(e, ev => { ev.preventDefault(); uploadZone.classList.remove('dragover'); });
+});
+
+uploadZone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) {
+        imageFile.files = e.dataTransfer.files;
+        showPreview(e.dataTransfer.files[0]);
+    }
+});
+
+imageFile.addEventListener('change', e => {
+    if (e.target.files.length) showPreview(e.target.files[0]);
+});
+
+function showPreview(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        imagePreview.src = e.target.result;
+        imagePreview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+
+// ── Toast ──
+function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+
+// ── Button loading state ──
+function setLoading(btn, loading) {
+    if (loading) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+    } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }
+}
+
+// ── API calls ──
+async function printText() {
+    const btn = document.querySelector('#panel-text .btn-primary');
+    const text = document.getElementById('printText').value;
+    if (!text.trim()) return toast('Wpisz tekst do wydrukowania', 'error');
+
+    setLoading(btn, true);
+    try {
+        const res = await fetch('/api/print/text', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                text,
+                font_size: parseInt(document.getElementById('fontSize').value),
+                energy: parseInt(document.getElementById('energyText').value)
+            })
+        });
+        const data = await res.json();
+        if (data.status === 'queued') toast('Brak drukarki — zapisano w kolejce (#' + data.job_id + ')', 'warning');
+        else if (res.ok) toast('Wydrukowano! (' + data.rows_printed + ' linii)', 'success');
+        else toast(data.message || 'Błąd drukowania', 'error');
+    } catch (e) { toast('Błąd połączenia: ' + e.message, 'error'); }
+    setLoading(btn, false);
+    refreshStatus();
+}
+
+async function printImage() {
+    const btn = document.querySelector('#panel-image .btn-primary');
+    const file = document.getElementById('imageFile').files[0];
+    if (!file) return toast('Wybierz obraz do wydrukowania', 'error');
+
+    setLoading(btn, true);
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('energy', document.getElementById('energyImg').value);
+
+    try {
+        const res = await fetch('/api/print/image', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status === 'queued') toast('Brak drukarki — zapisano w kolejce (#' + data.job_id + ')', 'warning');
+        else if (res.ok) toast('Obraz wydrukowany!', 'success');
+        else toast(data.message || 'Błąd', 'error');
+    } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+    setLoading(btn, false);
+    refreshStatus();
+}
+
+async function printQR() {
+    const btn = document.querySelector('#panel-qr .btn-primary');
+    const data = document.getElementById('qrData').value;
+    if (!data.trim()) return toast('Wpisz dane dla kodu QR', 'error');
+
+    setLoading(btn, true);
+    try {
+        const res = await fetch('/api/print/qr', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                data,
+                energy: parseInt(document.getElementById('energyQr').value)
+            })
+        });
+        const result = await res.json();
+        if (result.status === 'queued') toast('Brak drukarki — zapisano w kolejce (#' + result.job_id + ')', 'warning');
+        else if (res.ok) toast('QR wydrukowany!', 'success');
+        else toast(result.message || 'Błąd', 'error');
+    } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+    setLoading(btn, false);
+    refreshStatus();
+}
+
+// ── Shopping list ──
+const LS_KEY = 'catprint_list';
+let shoppingItems = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+
+function saveList() {
+    localStorage.setItem(LS_KEY, JSON.stringify(shoppingItems));
+}
+
+function renderList() {
+    const ul = document.getElementById('shoppingList');
+    ul.innerHTML = '';
+    shoppingItems.forEach((item, i) => {
+        const li = document.createElement('li');
+
+        const checkbox = document.createElement('span');
+        checkbox.style.color = 'var(--text-dim)';
+        checkbox.textContent = '□';
+
+        const label = document.createElement('span');
+        label.style.flex = '1';
+        label.textContent = item; // textContent — bezpieczne, bez XSS
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'item-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.onclick = () => removeItem(i);
+
+        li.append(checkbox, label, removeBtn);
+        ul.appendChild(li);
+    });
+}
+
+function addItem() {
+    const input = document.getElementById('newItem');
+    const val = input.value.trim();
+    if (!val) return;
+    shoppingItems.push(val);
+    input.value = '';
+    renderList();
+    saveList();
+}
+
+function removeItem(i) {
+    shoppingItems.splice(i, 1);
+    renderList();
+    saveList();
+}
+
+async function printShoppingList() {
+    if (!shoppingItems.length) return toast('Lista jest pusta', 'error');
+    const btn = document.querySelector('#panel-list .btn-primary');
+    setLoading(btn, true);
+
+    try {
+        const res = await fetch('/api/print/ha-shopping-list', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ items: shoppingItems })
+        });
+        const data = await res.json();
+        if (data.status === 'queued') toast('Brak drukarki — zapisano w kolejce (#' + data.job_id + ')', 'warning');
+        else if (res.ok) toast('Lista wydrukowana!', 'success');
+        else toast(data.message || 'Błąd', 'error');
+    } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+    setLoading(btn, false);
+    refreshStatus();
+}
+
+// ── Status & scan ──
+async function refreshStatus() {
+    try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const p = data.printer;
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+
+        const connected = p.status === 'idle' || p.status === 'connected' || p.status === 'printing';
+        document.getElementById('headerScanBtn').style.display = connected ? 'none' : 'inline-flex';
+
+        dot.className = 'status-dot';
+        if (p.status === 'idle' || p.status === 'connected') {
+            dot.classList.add('connected');
+            text.textContent = p.name || 'połączono';
+        } else if (p.status === 'printing') {
+            dot.classList.add('printing');
+            text.textContent = 'drukowanie...';
+        } else if (p.status === 'error') {
+            dot.classList.add('error');
+            text.textContent = 'błąd';
+        } else {
+            text.textContent = p.status;
+        }
+
+        document.getElementById('infoStatus').textContent = p.status;
+        document.getElementById('infoPrints').textContent = p.print_count;
+        document.getElementById('infoPrinter').textContent = p.name || '—';
+        document.getElementById('infoLast').textContent = p.last_print
+            ? new Date(p.last_print).toLocaleString('pl-PL') : '—';
+    } catch(e) {}
+}
+
+async function scanPrinter(callerBtn) {
+    const btn = callerBtn instanceof Element ? callerBtn : document.getElementById('headerScanBtn');
+    setLoading(btn, true);
+    toast('Skanowanie BLE...', 'info');
+    try {
+        const res = await fetch('/api/scan', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) toast('Znaleziono: ' + data.printer.name, 'success');
+        else toast(data.message || 'Nie znaleziono drukarki', 'error');
+    } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+    setLoading(btn, false);
+    refreshStatus();
+}
+
+async function feedPaper() {
+    try {
+        await fetch('/api/feed', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ lines: 3 })
+        });
+        toast('Papier przesunięty', 'success');
+    } catch(e) { toast('Błąd', 'error'); }
+}
+
+// ── Templates ──
+let templates = [];
+
+async function loadTemplates() {
+    try {
+        const res = await fetch('/api/templates');
+        templates = await res.json();
+
+        const sel = document.getElementById('templateSelect');
+        sel.innerHTML = '<option value="">— wybierz szablon —</option>';
+        templates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            sel.appendChild(opt);
+        });
+
+        document.getElementById('templateBar').style.display =
+            templates.length ? 'block' : 'none';
+    } catch(e) {}
+}
+
+document.getElementById('templateSelect').addEventListener('change', function() {
+    const id = parseInt(this.value);
+    if (!id) return;
+    const t = templates.find(t => t.id === id);
+    if (!t) return;
+    document.getElementById('printText').value = t.text;
+    document.getElementById('fontSize').value = t.font_size;
+    document.getElementById('fontSizeVal').textContent = t.font_size + 'px';
+});
+
+async function saveTemplate() {
+    const text = document.getElementById('printText').value.trim();
+    if (!text) return toast('Wpisz tekst przed zapisaniem szablonu', 'error');
+
+    const name = prompt('Nazwa szablonu:');
+    if (!name || !name.trim()) return;
+
+    try {
+        const res = await fetch('/api/templates', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: name.trim(),
+                text,
+                font_size: parseInt(document.getElementById('fontSize').value),
+            })
+        });
+        const data = await res.json();
+        if (res.ok) { toast('Szablon zapisany!', 'success'); loadTemplates(); }
+        else toast(data.message || 'Błąd zapisu', 'error');
+    } catch(e) { toast('Błąd: ' + e.message, 'error'); }
+}
+
+async function deleteSelectedTemplate() {
+    const sel = document.getElementById('templateSelect');
+    const id = parseInt(sel.value);
+    if (!id) return toast('Wybierz szablon do usunięcia', 'error');
+
+    const t = templates.find(t => t.id === id);
+    if (!confirm(`Usunąć szablon "${t?.name}"?`)) return;
+
+    try {
+        await fetch(`/api/templates/${id}`, { method: 'DELETE' });
+        sel.value = '';
+        toast('Szablon usunięty', 'success');
+        loadTemplates();
+    } catch(e) { toast('Błąd: ' + e.message, 'error'); }
+}
+
+// ── History ──
+const TYPE_ICONS  = { text: '📝', image: '🖼', qr: '▣', shopping_list: '🛒', notification: '🔔' };
+const TYPE_LABELS = { text: 'Tekst', image: 'Obraz', qr: 'QR Kod', shopping_list: 'Lista zakupów', notification: 'Powiadomienie' };
+
+async function loadHistory() {
+    try {
+        const res = await fetch('/api/history?limit=50');
+        const items = await res.json();
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+
+        if (!items.length) {
+            list.innerHTML = '<div class="history-empty">Brak wydruków w historii</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+
+            const icon = document.createElement('div');
+            icon.className = 'history-icon';
+            icon.textContent = TYPE_ICONS[item.type] || '🖨';
+
+            const meta = document.createElement('div');
+            meta.className = 'history-meta';
+
+            const summary = document.createElement('div');
+            summary.className = 'history-summary';
+            summary.textContent = item.summary;
+
+            const sub = document.createElement('div');
+            sub.className = 'history-sub';
+            const parts = [TYPE_LABELS[item.type] || item.type];
+            if (item.rows) parts.push(item.rows + ' wierszy');
+            if (item.font_size) parts.push(item.font_size + 'px');
+            sub.textContent = parts.join(' · ');
+
+            meta.append(summary, sub);
+
+            const time = document.createElement('div');
+            time.className = 'history-time';
+            const d = new Date(item.created_at);
+            time.textContent = d.toLocaleString('pl-PL', {
+                day: 'numeric', month: 'short',
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            div.append(icon, meta, time);
+            list.appendChild(div);
+        });
+    } catch(e) {}
+}
+
+async function clearHistory() {
+    if (!confirm('Wyczyścić całą historię wydruków?')) return;
+    try {
+        await fetch('/api/history', { method: 'DELETE' });
+        toast('Historia wyczyszczona', 'success');
+        loadHistory();
+    } catch(e) { toast('Błąd: ' + e.message, 'error'); }
+}
+
+// ── MCP Config ──
+function buildMcpConfig() {
+    const origin = window.location.origin; // e.g. http://localhost:5123
+    // We don't know the exact filesystem path from the browser,
+    // so we use a recognisable placeholder that matches the launch config.
+    const hint = '  # Dostosuj ścieżki do swojego systemu';
+    return `{
+  "mcpServers": {
+    "catprint": {
+      "command": "/path/to/files/.venv/bin/python",${hint}
+      "args": ["/path/to/files/mcp_server.py"],${hint}
+      "env": { "CATPRINT_URL": "${origin}" }
+    }
+  }
+}`;
+}
+
+function renderMcpConfig() {
+    const el = document.getElementById('mcpConfigPre');
+    if (el) el.textContent = buildMcpConfig();
+}
+
+async function copyMcpConfig(btn) {
+    const cfg = buildMcpConfig();
+    try {
+        await navigator.clipboard.writeText(cfg);
+        const orig = btn.textContent;
+        btn.textContent = '✅ Skopiowano!';
+        setTimeout(() => btn.textContent = orig, 2000);
+    } catch {
+        toast('Kopiowanie nieobsługiwane — zaznacz ręcznie', 'error');
+    }
+}
+
+// ── Init ──
+renderList(); // odtwórz listę z localStorage
+loadTemplates();
+renderMcpConfig();
+refreshStatus();
+setInterval(refreshStatus, 10000);
+</script>
+
+</body>
+</html>
