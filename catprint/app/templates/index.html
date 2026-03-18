@@ -1045,9 +1045,10 @@ document.getElementById('fontSize').addEventListener('input', e => {
     document.getElementById('fontSizeVal').textContent = e.target.value + 'px';
 });
 
-['energyText', 'energyImg', 'energyQr'].forEach(id => {
+['energyText', 'energyImg'].forEach(id => {
     const el = document.getElementById(id);
     const valEl = document.getElementById(id + 'Val');
+    if (!el || !valEl) return;
     el.addEventListener('input', () => {
         valEl.textContent = Math.round(el.value / 65535 * 100) + '%';
     });
