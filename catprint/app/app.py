@@ -317,16 +317,18 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     for attempt in range(1, BLE_CONNECT_RETRIES + 1):
         log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
 
-        if IS_LINUX and attempt > 1:
-            _clear_bluez_cache(addr)
-            await asyncio.sleep(1.0)
-
         if IS_LINUX:
-            # Always do a fresh scan — BLEDevice from a different context
-            # has stale D-Bus paths that cause "device not found"
-            log.info("Fresh BLE scan on current event loop...")
-            _set_ble_device(None)
-            await scan_for_printer(timeout=10.0)
+            cached_dev = _get_ble_device()
+            need_scan = (attempt > 1
+                         or cached_dev is None
+                         or cached_dev.address != addr)
+            if attempt > 1:
+                _clear_bluez_cache(addr)
+                await asyncio.sleep(1.0)
+            if need_scan:
+                log.info("Fresh BLE scan on current event loop...")
+                _set_ble_device(None)
+                await scan_for_printer(timeout=10.0)
             # Trust the device in BlueZ to avoid pairing prompts
             _trust_device(addr)
             await asyncio.sleep(2.0)
