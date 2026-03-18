@@ -285,6 +285,18 @@ def _clear_bluez_cache(addr: str) -> None:
         log.debug(f"BlueZ cache clear failed (non-critical): {e}")
 
 
+def _trust_device(addr: str) -> None:
+    """Mark BLE device as trusted in BlueZ (avoids pairing prompts)."""
+    if not IS_LINUX:
+        return
+    import subprocess
+    try:
+        subprocess.run(["bluetoothctl", "trust", addr], capture_output=True, timeout=5)
+        log.debug(f"bluetoothctl trust {addr}: OK")
+    except Exception as e:
+        log.debug(f"Trust failed (non-critical): {e}")
+
+
 async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     """Send raw bitmap data to MXW01 printer over BLE."""
     if not HAS_BLEAK:
@@ -305,25 +317,29 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     for attempt in range(1, BLE_CONNECT_RETRIES + 1):
         log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
 
-        # On Linux, do a fresh scan to get a live BLEDevice object
-        cached_dev = _get_ble_device()
-        if IS_LINUX and (attempt > 1 or cached_dev is None
-                         or cached_dev.address != addr):
-            # Clear stale BlueZ cache before re-scanning
+        if IS_LINUX and attempt > 1:
             _clear_bluez_cache(addr)
-            await asyncio.sleep(0.5)
-            log.info("Fresh BLE scan for device object (BlueZ needs this)...")
-            await scan_for_printer(timeout=8.0)
-            cached_dev = _get_ble_device()
+            await asyncio.sleep(1.0)
+
+        if IS_LINUX:
+            # Always do a fresh scan — BLEDevice from a different context
+            # has stale D-Bus paths that cause "device not found"
+            log.info("Fresh BLE scan on current event loop...")
+            _set_ble_device(None)
+            await scan_for_printer(timeout=10.0)
+            # Trust the device in BlueZ to avoid pairing prompts
+            _trust_device(addr)
+            await asyncio.sleep(2.0)
 
         # Prefer BLEDevice object on Linux (avoids D-Bus address resolution timeout)
+        cached_dev = _get_ble_device()
         connect_target = addr
         if IS_LINUX and cached_dev and cached_dev.address == addr:
             connect_target = cached_dev
             log.info("Using BLEDevice object for connection (BlueZ optimized)")
 
         try:
-            async with BleakClient(connect_target, timeout=30.0) as client:
+            async with BleakClient(connect_target, timeout=60.0) as client:
                 _update_state(status="printing")
                 chunk_size = max(client.mtu_size - 3, 20)
                 log.info(f"Connected. MTU: {client.mtu_size}, rows: {rows}")
