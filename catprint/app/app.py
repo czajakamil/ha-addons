@@ -305,14 +305,13 @@ async def send_to_printer(bitmap_data: bytes, address: str = None) -> bool:
     for attempt in range(1, BLE_CONNECT_RETRIES + 1):
         log.info(f"Connecting to printer at {addr}... ({rows} rows) [attempt {attempt}/{BLE_CONNECT_RETRIES}]")
 
-        # On Linux/BlueZ: clear stale cache before each attempt
-        _clear_bluez_cache(addr)
-        await asyncio.sleep(0.5)
-
-        # On Linux, do a fresh scan to get a live BLEDevice object for this attempt
+        # On Linux, do a fresh scan to get a live BLEDevice object
         cached_dev = _get_ble_device()
         if IS_LINUX and (attempt > 1 or cached_dev is None
                          or cached_dev.address != addr):
+            # Clear stale BlueZ cache before re-scanning
+            _clear_bluez_cache(addr)
+            await asyncio.sleep(0.5)
             log.info("Fresh BLE scan for device object (BlueZ needs this)...")
             await scan_for_printer(timeout=8.0)
             cached_dev = _get_ble_device()
