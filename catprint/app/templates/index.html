@@ -585,6 +585,47 @@
         .history-status.pending  { background: rgba(245,166,35,0.15);  color: #F5A623; }
         .history-status.failed   { background: rgba(255,69,58,0.15);   color: #FF453A; }
 
+        .history-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-shrink: 0;
+            align-items: flex-end;
+        }
+
+        .history-btn {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .history-btn:hover { border-color: var(--border-hover); }
+
+        .history-btn.cancel {
+            color: #F5A623;
+            border-color: rgba(245,166,35,0.3);
+        }
+        .history-btn.cancel:hover {
+            background: rgba(245,166,35,0.1);
+            border-color: rgba(245,166,35,0.5);
+        }
+
+        .history-btn.delete {
+            color: var(--text-dim);
+        }
+        .history-btn.delete:hover {
+            color: #FF453A;
+            border-color: rgba(255,69,58,0.4);
+            background: rgba(255,69,58,0.08);
+        }
+
         .history-empty {
             text-align: center;
             padding: 48px 0;
@@ -594,11 +635,113 @@
         }
 
         /* ── Responsive ── */
-        @media (max-width: 480px) {
-            .header { padding: 16px; }
-            .main { padding: 20px 16px 60px; }
+        @media (max-width: 600px) {
+            .header {
+                padding: 10px 14px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .logo {
+                gap: 8px;
+                min-width: 0;
+            }
+            .logo-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+                border-radius: 6px;
+                flex-shrink: 0;
+            }
+            .logo-text {
+                font-size: 14px;
+            }
+            .status-badge {
+                padding: 4px 10px;
+                font-size: 11px;
+                gap: 5px;
+                max-width: 140px;
+                overflow: hidden;
+            }
+            .status-badge span {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            #headerScanBtn {
+                padding: 4px 10px !important;
+                font-size: 11px !important;
+                margin-right: 4px !important;
+            }
+            .main {
+                padding: 16px 14px 60px;
+            }
+            .tabs {
+                display: flex;
+                gap: 2px;
+                margin-bottom: 20px;
+                padding: 3px;
+            }
+            .tab {
+                flex: 1 1 0% !important;
+                padding: 8px 4px;
+                font-size: 11px;
+                white-space: nowrap;
+                text-align: center;
+            }
             .row { grid-template-columns: 1fr; }
             .info-grid { grid-template-columns: 1fr; }
+            .field label {
+                font-size: 11px;
+                margin-bottom: 6px;
+            }
+            textarea, input[type="text"], input[type="number"], select {
+                padding: 12px 14px;
+                font-size: 13px;
+            }
+            textarea { min-height: 120px; }
+            .btn {
+                padding: 12px 20px;
+                font-size: 13px;
+            }
+            .upload-zone {
+                padding: 28px 16px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .endpoint {
+                font-size: 11px;
+                padding: 10px;
+                word-break: break-all;
+            }
+            .mcp-code {
+                font-size: 10px;
+                padding: 10px;
+                white-space: pre-wrap;
+                word-break: break-all;
+            }
+            .history-item {
+                padding: 10px 12px;
+                gap: 8px;
+            }
+            .history-summary {
+                font-size: 13px;
+            }
+            .history-time {
+                font-size: 10px;
+            }
+            .toast {
+                font-size: 12px;
+                padding: 10px 16px;
+                max-width: calc(100vw - 32px);
+            }
+            .add-item-row {
+                flex-wrap: wrap;
+            }
+            .add-item-row .btn {
+                width: 100%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -628,7 +771,6 @@
     <div class="tabs">
         <button class="tab active" data-tab="text">Tekst</button>
         <button class="tab" data-tab="image">Obraz</button>
-        <button class="tab" data-tab="qr">QR Kod</button>
         <button class="tab" data-tab="list">Lista</button>
         <button class="tab" data-tab="api">API</button>
         <button class="tab" data-tab="history">Historia</button>
@@ -703,24 +845,6 @@
         </button>
     </div>
 
-    <!-- QR panel -->
-    <div class="panel" id="panel-qr">
-        <div class="field">
-            <label>Dane QR (URL, tekst, itp.)</label>
-            <input type="text" id="qrData" placeholder="https://example.com">
-        </div>
-        <div class="field">
-            <label>Ciemność wydruku</label>
-            <div class="range-wrap">
-                <input type="range" id="energyQr" min="10000" max="65535" value="20480" step="1000">
-                <span class="range-val" id="energyQrVal">31%</span>
-            </div>
-        </div>
-        <button class="btn btn-primary" onclick="printQR()">
-            <span class="spinner"></span>
-            <span class="btn-label">Drukuj QR kod</span>
-        </button>
-    </div>
 
     <!-- SHOPPING LIST panel -->
     <div class="panel" id="panel-list">
@@ -796,11 +920,6 @@
             </div>
 
             <div class="endpoint">
-                <span class="method post">POST</span> /api/print/qr
-                <div class="endpoint-desc">{ "data": "https://..." }</div>
-            </div>
-
-            <div class="endpoint">
                 <span class="method post">POST</span> /api/print/ha-shopping-list
                 <div class="endpoint-desc">{ "items": ["Mleko", "Chleb"], "title": "..." }</div>
             </div>
@@ -854,10 +973,6 @@ pip install -r requirements.txt</pre>
             <div class="endpoint">
                 <span class="method tool">TOOL</span> print_text(text, font_size=24, align="left")
                 <div class="endpoint-desc">Druk tekstu z zawijaniem i wyrównaniem</div>
-            </div>
-            <div class="endpoint">
-                <span class="method tool">TOOL</span> print_qr(data, caption="")
-                <div class="endpoint-desc">Druk kodu QR (URL, tekst, vCard…)</div>
             </div>
             <div class="endpoint">
                 <span class="method tool">TOOL</span> print_shopping_list(items, title)
@@ -1036,29 +1151,6 @@ async function printImage() {
     refreshStatus();
 }
 
-async function printQR() {
-    const btn = document.querySelector('#panel-qr .btn-primary');
-    const data = document.getElementById('qrData').value;
-    if (!data.trim()) return toast('Wpisz dane dla kodu QR', 'error');
-
-    setLoading(btn, true);
-    try {
-        const res = await fetch('/api/print/qr', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                data,
-                energy: parseInt(document.getElementById('energyQr').value)
-            })
-        });
-        const result = await res.json();
-        if (result.status === 'queued') toast('Brak drukarki — zapisano w kolejce (#' + result.job_id + ')', 'warning');
-        else if (res.ok) toast('QR wydrukowany!', 'success');
-        else toast(result.message || 'Błąd', 'error');
-    } catch (e) { toast('Błąd: ' + e.message, 'error'); }
-    setLoading(btn, false);
-    refreshStatus();
-}
 
 // ── Shopping list ──
 const LS_KEY = 'catprint_list';
@@ -1259,8 +1351,8 @@ async function deleteSelectedTemplate() {
 }
 
 // ── History ──
-const TYPE_ICONS  = { text: '📝', image: '🖼', qr: '▣', shopping_list: '🛒', notification: '🔔' };
-const TYPE_LABELS = { text: 'Tekst', image: 'Obraz', qr: 'QR Kod', shopping_list: 'Lista zakupów', notification: 'Powiadomienie' };
+const TYPE_ICONS  = { text: '📝', image: '🖼', shopping_list: '🛒', notification: '🔔' };
+const TYPE_LABELS = { text: 'Tekst', image: 'Obraz', shopping_list: 'Lista zakupów', notification: 'Powiadomienie' };
 
 const STATUS_LABEL = { printed: '✓ wydrukowano', pending: '⏳ w kolejce', failed: '✕ błąd' };
 
@@ -1302,6 +1394,9 @@ async function loadHistory() {
 
             meta.append(summary, badge, sub);
 
+            const rightCol = document.createElement('div');
+            rightCol.style.cssText = 'display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0';
+
             const time = document.createElement('div');
             time.className = 'history-time';
             const dateStr = item.printed_at || item.created_at;
@@ -1311,16 +1406,55 @@ async function loadHistory() {
                 hour: '2-digit', minute: '2-digit'
             });
 
-            div.append(icon, meta, time);
+            const actions = document.createElement('div');
+            actions.className = 'history-actions';
+            actions.style.flexDirection = 'row';
+
+            if (item.status === 'pending') {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'history-btn cancel';
+                cancelBtn.textContent = 'Anuluj';
+                cancelBtn.onclick = () => cancelQueueJob(item.id);
+                actions.appendChild(cancelBtn);
+            }
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'history-btn delete';
+            deleteBtn.textContent = '🗑';
+            deleteBtn.onclick = () => deleteQueueItem(item.id);
+            actions.appendChild(deleteBtn);
+
+            rightCol.append(time, actions);
+            div.append(icon, meta, rightCol);
             list.appendChild(div);
         });
     } catch(e) {}
 }
 
+async function cancelQueueJob(jobId) {
+    if (!confirm('Anulować wydruk #' + jobId + '?')) return;
+    try {
+        await fetch('/api/queue/' + jobId, { method: 'DELETE' });
+        toast('Wydruk anulowany', 'success');
+        loadHistory();
+    } catch(e) { toast('Błąd: ' + e.message, 'error'); }
+}
+
+async function deleteQueueItem(jobId) {
+    try {
+        await fetch('/api/queue/' + jobId, { method: 'DELETE' });
+        toast('Usunięto z historii', 'success');
+        loadHistory();
+    } catch(e) { toast('Błąd: ' + e.message, 'error'); }
+}
+
 async function clearHistory() {
     if (!confirm('Wyczyścić całą historię wydruków?')) return;
     try {
-        await fetch('/api/history', { method: 'DELETE' });
+        await Promise.all([
+            fetch('/api/history', { method: 'DELETE' }),
+            fetch('/api/queue/clear-done', { method: 'POST' }),
+        ]);
         toast('Historia wyczyszczona', 'success');
         loadHistory();
     } catch(e) { toast('Błąd: ' + e.message, 'error'); }
