@@ -1,4 +1,4 @@
-# Cookidoo Add-ons for Home Assistant
+# Home Assistant Add-ons
 
 Repozytorium z dodatkami (add-onami) dla Home Assistant.
 
