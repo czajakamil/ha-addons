@@ -1,0 +1,164 @@
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    UniqueConstraint,
+)
+
+from .db import Base
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, nullable=False, unique=True, index=True)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, nullable=False, default="user")
+    is_active = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class AgentSettings(Base):
+    __tablename__ = "agent_settings"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    endpoint = Column(String, nullable=False, default="")
+    api_key = Column(String, nullable=False, default="")
+    model = Column(String, nullable=False, default="")
+    system_prompt = Column(String, nullable=False, default="")
+    ui_prefs = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    prefix = Column(String, nullable=False, index=True)
+    key_hash = Column(String, nullable=False, unique=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+
+
+class Recipe(Base):
+    __tablename__ = "recipes"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String, nullable=False)
+    tags = Column(JSON, nullable=False, default=list)
+    servings = Column(Integer, nullable=False, default=1)
+    prep_time = Column(Integer, nullable=False, default=0)
+    cook_time = Column(Integer, nullable=False, default=0)
+    kcal = Column(Float, nullable=False, default=0)
+    p = Column(Float, nullable=False, default=0)
+    f = Column(Float, nullable=False, default=0)
+    c = Column(Float, nullable=False, default=0)
+    hue = Column(Integer, nullable=False, default=40)
+    ingredients = Column(JSON, nullable=False, default=list)
+    steps = Column(JSON, nullable=False, default=list)
+    meal_types = Column(JSON, nullable=False, default=list)
+    image_filename = Column(String, nullable=True)
+
+
+class MealPlanEntry(Base):
+    __tablename__ = "meal_plan_entries"
+    __table_args__ = (Index("ix_plan_user_week", "user_id", "week_start"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    week_start = Column(String, nullable=False, index=True)
+    day = Column(Integer, nullable=False)
+    meal = Column(String, nullable=False)
+    recipe_id = Column(String, ForeignKey("recipes.id"), nullable=False)
+    servings = Column(Integer, nullable=False, default=1)
+
+
+class AgentConversation(Base):
+    __tablename__ = "agent_conversations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String, nullable=True)
+    model = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+class AgentMessage(Base):
+    __tablename__ = "agent_messages"
+    __table_args__ = (Index("ix_agent_msg_conv_created", "conversation_id", "created_at"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversation_id = Column(
+        Integer,
+        ForeignKey("agent_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role = Column(String, nullable=False)  # "user" | "assistant"
+    content = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class AgentToolUse(Base):
+    __tablename__ = "agent_tool_uses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(
+        Integer,
+        ForeignKey("agent_messages.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tool_use_id = Column(String, nullable=False)
+    tool_name = Column(String, nullable=False)
+    input = Column(JSON, nullable=False, default=dict)
+    output = Column(JSON, nullable=True)
+    is_error = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime, nullable=False, default=_utcnow)
+    finished_at = Column(DateTime, nullable=True)
+
+
+class WeekTemplate(Base):
+    __tablename__ = "week_templates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    entries = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class ShoppingItem(Base):
+    __tablename__ = "shopping_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "week_start", "name", "unit", name="uq_shop_user_week_name_unit"
+        ),
+        Index("ix_shop_user_week", "user_id", "week_start"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    week_start = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    qty = Column(Float, nullable=False, default=0)
+    unit = Column(String, nullable=False, default="")
+    category = Column(String, nullable=False, default="Inne")
+    checked = Column(Integer, nullable=False, default=0)
+    is_custom = Column(Integer, nullable=False, default=0)
