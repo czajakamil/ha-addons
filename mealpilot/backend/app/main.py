@@ -9,10 +9,13 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
 
-from .db import Base, engine, DB_PATH
+from .db import Base, engine, DB_PATH, SessionLocal
 from .images import IMAGES_DIR
 from .middleware import CloudflareAccessMiddleware
 from .routers import admin_users, agent, auth, plan, recipes, settings as settings_router, shopping, templates as templates_router
+from . import models
+from .security import hash_password, verify_password
+from .seed import seed_for_user
 
 
 SECRET_FILE = Path(DB_PATH).parent / ".session_secret"
@@ -70,12 +73,41 @@ def _migrate(engine_) -> None:
                 conn.execute(text("ALTER TABLE agent_settings ADD COLUMN ui_prefs JSON NOT NULL DEFAULT '{}'"))
 
 
+def _provision_admin() -> None:
+    username = os.environ.get("MEALPILOT_ADMIN_USERNAME", "").strip()
+    password = os.environ.get("MEALPILOT_ADMIN_PASSWORD", "").strip()
+    if not username or not password:
+        return
+
+    db = SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.username == username).one_or_none()
+        if user is None:
+            user = models.User(
+                username=username,
+                password_hash=hash_password(password),
+                role="admin",
+                is_active=1,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            seed_for_user(db, user.id)
+        else:
+            if not verify_password(password, user.password_hash):
+                user.password_hash = hash_password(password)
+                db.commit()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _migrate(engine)
+    _provision_admin()
     yield
 
 

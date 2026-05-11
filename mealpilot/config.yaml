@@ -26,11 +26,15 @@ map:
   - data:rw
 
 options:
+  admin_username: "admin"
+  admin_password: "changeme123"
   cors_origins: "*"
   require_cf_access: false
   cookie_secure: false
 
 schema:
+  admin_username: str
+  admin_password: password
   cors_origins: str
   require_cf_access: bool
   cookie_secure: bool

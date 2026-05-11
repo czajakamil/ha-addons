@@ -3,6 +3,8 @@ set -euo pipefail
 
 export MEALPILOT_DB="/data/mealpilot.db"
 export MEALPILOT_STATIC_DIR="/app/static"
+export MEALPILOT_ADMIN_USERNAME="$(bashio::config 'admin_username')"
+export MEALPILOT_ADMIN_PASSWORD="$(bashio::config 'admin_password')"
 export MEALPILOT_CORS_ORIGINS="$(bashio::config 'cors_origins')"
 
 if bashio::config.true 'require_cf_access'; then
