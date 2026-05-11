@@ -98,22 +98,6 @@ def _provision_admin() -> None:
                 user.password_hash = hash_password(password)
                 db.commit()
 
-        ai_api_url = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
-        ai_api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
-        if ai_api_url or ai_api_key:
-            agent_settings = db.get(models.AgentSettings, user.id)
-            if agent_settings is None:
-                agent_settings = models.AgentSettings(user_id=user.id)
-                db.add(agent_settings)
-            changed = False
-            if ai_api_url and agent_settings.endpoint != ai_api_url:
-                agent_settings.endpoint = ai_api_url
-                changed = True
-            if ai_api_key and agent_settings.api_key != ai_api_key:
-                agent_settings.api_key = ai_api_key
-                changed = True
-            if changed:
-                db.commit()
     finally:
         db.close()
 
