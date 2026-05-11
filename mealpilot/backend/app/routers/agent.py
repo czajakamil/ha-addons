@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -5,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..agent_runner import run_agent
 from ..db import get_db
 from ..dependencies import get_current_user
 
@@ -147,6 +149,87 @@ def delete_conversation(
     db.delete(conv)
     db.commit()
     return None
+
+
+@router.post("/conversations/{conv_id}/run", response_model=schemas.AgentRunResponse)
+async def run_conversation(
+    conv_id: int,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conv = _get_conversation(db, conv_id, user.id)
+
+    # Get or create agent settings for this user
+    settings = db.get(models.AgentSettings, user.id)
+    if settings is None:
+        settings = models.AgentSettings(user_id=user.id)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    # Build message history in provider-neutral format (role + content)
+    msgs = (
+        db.execute(
+            select(models.AgentMessage)
+            .where(models.AgentMessage.conversation_id == conv.id)
+            .order_by(models.AgentMessage.created_at, models.AgentMessage.id)
+        )
+        .scalars()
+        .all()
+    )
+    history = [{"role": m.role, "content": m.content} for m in msgs]
+
+    # Run the agent loop
+    result = await run_agent(db, user, settings, history)
+
+    reply = result["reply"] or "(brak odpowiedzi)"
+    tool_events = result["tool_events"]
+    changed = result["changed"]
+
+    # Persist the assistant message
+    now = datetime.now(timezone.utc)
+    assistant_msg = models.AgentMessage(
+        conversation_id=conv.id,
+        role="assistant",
+        content=reply,
+        created_at=now,
+    )
+    db.add(assistant_msg)
+    db.flush()
+
+    for ev in tool_events:
+        db.add(
+            models.AgentToolUse(
+                message_id=assistant_msg.id,
+                tool_use_id=ev["tool_use_id"],
+                tool_name=ev["name"],
+                input=ev["input"] or {},
+                output=ev["output"],
+                is_error=1 if ev.get("error") else 0,
+                started_at=now,
+                finished_at=now,
+            )
+        )
+
+    conv.updated_at = now
+    db.commit()
+    db.refresh(assistant_msg)
+
+    return schemas.AgentRunResponse(
+        reply=reply,
+        tool_events=[
+            schemas.AgentToolEventOut(
+                tool_use_id=ev["tool_use_id"],
+                name=ev["name"],
+                input=ev["input"] or {},
+                output=ev.get("output"),
+                error=ev.get("error"),
+            )
+            for ev in tool_events
+        ],
+        changed=changed,
+        message_id=assistant_msg.id,
+    )
 
 
 @router.post(

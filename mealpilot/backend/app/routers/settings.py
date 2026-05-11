@@ -1,5 +1,3 @@
-import os
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -8,14 +6,6 @@ from ..db import get_db
 from ..dependencies import get_current_user
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
-
-
-def _ha_ai_url() -> str:
-    return os.environ.get("MEALPILOT_AI_API_URL", "").strip()
-
-
-def _ha_ai_key() -> str:
-    return os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
 
 
 def _get_or_create(db: Session, user_id: int) -> models.AgentSettings:
@@ -34,11 +24,7 @@ def get_agent_settings(
     db: Session = Depends(get_db),
 ):
     row = _get_or_create(db, user.id)
-    ha_url = _ha_ai_url()
-    ha_key = _ha_ai_key()
     return schemas.AgentSettingsOut(
-        endpoint=ha_url or row.endpoint,
-        api_key=ha_key or row.api_key,
         model=row.model,
         system_prompt=row.system_prompt,
     )
@@ -51,19 +37,11 @@ def update_agent_settings(
     db: Session = Depends(get_db),
 ):
     row = _get_or_create(db, user.id)
-    ha_url = _ha_ai_url()
-    ha_key = _ha_ai_key()
-    if not ha_url:
-        row.endpoint = payload.endpoint
-    if not ha_key:
-        row.api_key = payload.api_key
     row.model = payload.model
     row.system_prompt = payload.system_prompt
     db.commit()
     db.refresh(row)
     return schemas.AgentSettingsOut(
-        endpoint=ha_url or row.endpoint,
-        api_key=ha_key or row.api_key,
         model=row.model,
         system_prompt=row.system_prompt,
     )

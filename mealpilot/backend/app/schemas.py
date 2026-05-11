@@ -174,15 +174,11 @@ class ApiKeyCreatedOut(ApiKeyOut):
 
 
 class AgentSettingsOut(BaseModel):
-    endpoint: str = ""
-    api_key: str = ""
     model: str = ""
     system_prompt: str = ""
 
 
 class AgentSettingsUpdate(BaseModel):
-    endpoint: str = Field(default="", max_length=2000)
-    api_key: str = Field(default="", max_length=4000)
     model: str = Field(default="", max_length=200)
     system_prompt: str = Field(default="", max_length=20000)
 
@@ -288,6 +284,21 @@ class WeekTemplateOut(BaseModel):
 class WeekTemplateCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     entries: List[PlanEntry]
+
+
+class AgentToolEventOut(BaseModel):
+    tool_use_id: str
+    name: str
+    input: Dict[str, Any]
+    output: Optional[Any] = None
+    error: Optional[str] = None
+
+
+class AgentRunResponse(BaseModel):
+    reply: str
+    tool_events: List[AgentToolEventOut] = []
+    changed: List[str] = []
+    message_id: int
 
 
 class MacroEstimateRequest(BaseModel):

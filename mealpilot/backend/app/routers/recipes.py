@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from typing import List, Optional
 
@@ -93,35 +94,35 @@ def _is_anthropic(endpoint: str) -> bool:
     return "anthropic.com" in endpoint or "/v1/messages" in endpoint
 
 
-async def _call_llm(settings: models.AgentSettings, prompt: str) -> str:
-    if _is_anthropic(settings.endpoint):
+async def _call_llm(endpoint: str, api_key: str, model: str, prompt: str) -> str:
+    if _is_anthropic(endpoint):
         headers = {
             "Content-Type": "application/json",
-            "x-api-key": settings.api_key,
+            "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
         }
         body = {
-            "model": settings.model,
+            "model": model,
             "max_tokens": 256,
             "messages": [{"role": "user", "content": prompt}],
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(settings.endpoint, headers=headers, json=body)
+            resp = await client.post(endpoint, headers=headers, json=body)
         resp.raise_for_status()
         data = resp.json()
         return data["content"][0]["text"]
     else:
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.api_key}",
+            "Authorization": f"Bearer {api_key}",
         }
         body = {
-            "model": settings.model,
+            "model": model,
             "max_tokens": 256,
             "messages": [{"role": "user", "content": prompt}],
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(settings.endpoint, headers=headers, json=body)
+            resp = await client.post(endpoint, headers=headers, json=body)
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"]
@@ -133,9 +134,14 @@ async def estimate_macros(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
+    api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
     settings = db.get(models.AgentSettings, user.id)
-    if not settings or not settings.endpoint or not settings.api_key or not settings.model:
-        raise HTTPException(424, "Skonfiguruj klucz API i model w Ustawieniach agenta.")
+    model = (settings.model if settings else "") or ""
+    if not endpoint or not api_key:
+        raise HTTPException(424, "Brak konfiguracji MEALPILOT_AI_API_URL lub MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.")
+    if not model:
+        raise HTTPException(424, "Skonfiguruj model w Ustawieniach agenta.")
 
     ing_lines = "\n".join(
         f"- {i.name}: {i.qty} {i.unit}"
@@ -152,7 +158,7 @@ async def estimate_macros(
     )
 
     try:
-        text = await _call_llm(settings, prompt)
+        text = await _call_llm(endpoint, api_key, model, prompt)
     except httpx.HTTPStatusError as e:
         raise HTTPException(502, f"Błąd LLM: {e.response.status_code} {e.response.text[:200]}")
     except Exception as e:
