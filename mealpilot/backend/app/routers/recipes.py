@@ -11,18 +11,38 @@ from .. import models, schemas
 from ..db import get_db
 from ..dependencies import get_current_user
 from ..images import ALLOWED_CONTENT_TYPES, IMAGES_DIR, MAX_IMAGE_BYTES
+from ..ai_usage import check_quota, record_usage
+from ..ownership import (
+    can_edit,
+    can_view,
+    default_owner_kwargs,
+    get_household_id,
+    get_membership,
+    visible_filter,
+)
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
-def _own_recipe(db: Session, user: models.User, recipe_id: str) -> models.Recipe:
-    r = (
-        db.query(models.Recipe)
-        .filter(models.Recipe.id == recipe_id, models.Recipe.user_id == user.id)
-        .one_or_none()
-    )
+def _visible_recipe(db: Session, user: models.User, recipe_id: str) -> models.Recipe:
+    r = db.get(models.Recipe, recipe_id)
     if not r:
         raise HTTPException(404, "Recipe not found")
+    if not can_view(r, user, get_household_id(db, user.id)):
+        raise HTTPException(404, "Recipe not found")
+    return r
+
+
+def _editable_recipe(db: Session, user: models.User, recipe_id: str) -> models.Recipe:
+    r = db.get(models.Recipe, recipe_id)
+    if not r:
+        raise HTTPException(404, "Recipe not found")
+    member = get_membership(db, user.id)
+    hh = member.household_id if member else None
+    if not can_view(r, user, hh):
+        raise HTTPException(404, "Recipe not found")
+    if not can_edit(r, user, member):
+        raise HTTPException(403, "Brak uprawnień do edycji tego przepisu")
     return r
 
 
@@ -41,7 +61,8 @@ def list_recipes(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
 
     tag_filter = _split_csv(tags)
     mt_filter = _split_csv(meal_types)
@@ -67,7 +88,8 @@ def list_tags_meta(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set[str] = set()
     for r in rows:
         for t in (r.tags or []):
@@ -81,7 +103,8 @@ def list_meal_types_meta(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set[str] = set()
     for r in rows:
         for m in (r.meal_types or []):
@@ -134,12 +157,13 @@ async def estimate_macros(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    check_quota(db, user)
     endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
     api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
     settings = db.get(models.AgentSettings, user.id)
     model = (settings.model if settings else "") or ""
     if not endpoint or not api_key:
-        raise HTTPException(424, "Brak konfiguracji MEALPILOT_AI_API_URL lub MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.")
+        raise HTTPException(424, "Brak konfiguracji MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.")
     if not model:
         raise HTTPException(424, "Skonfiguruj model w Ustawieniach agenta.")
 
@@ -163,6 +187,10 @@ async def estimate_macros(
         raise HTTPException(502, f"Błąd LLM: {e.response.status_code} {e.response.text[:200]}")
     except Exception as e:
         raise HTTPException(502, f"Błąd LLM: {e}")
+    # Rough estimate (server-side LLM call): ~ prompt + response chars / 4
+    approx_tokens = max(1, (len(prompt) + len(text)) // 4)
+    record_usage(db, user, tokens=approx_tokens)
+    db.commit()
 
     match = re.search(r'\{[^}]+\}', text, re.DOTALL)
     if not match:
@@ -185,7 +213,7 @@ def get_recipe(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    return _own_recipe(db, user, recipe_id)
+    return _visible_recipe(db, user, recipe_id)
 
 
 @router.post("", response_model=schemas.Recipe, status_code=status.HTTP_201_CREATED)
@@ -198,7 +226,7 @@ def create_recipe(
         raise HTTPException(409, "Recipe with this id already exists")
     data = payload.model_dump()
     data["ingredients"] = [i if isinstance(i, dict) else i.model_dump() for i in data["ingredients"]]
-    r = models.Recipe(user_id=user.id, **data)
+    r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), **data)
     db.add(r)
     db.commit()
     db.refresh(r)
@@ -212,7 +240,7 @@ def update_recipe(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    r = _own_recipe(db, user, recipe_id)
+    r = _editable_recipe(db, user, recipe_id)
     updates = payload.model_dump(exclude_unset=True)
     if "ingredients" in updates and updates["ingredients"] is not None:
         updates["ingredients"] = [
@@ -231,10 +259,9 @@ def delete_recipe(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    r = _own_recipe(db, user, recipe_id)
+    r = _editable_recipe(db, user, recipe_id)
     db.query(models.MealPlanEntry).filter(
-        models.MealPlanEntry.recipe_id == recipe_id,
-        models.MealPlanEntry.user_id == user.id,
+        models.MealPlanEntry.recipe_id == recipe_id
     ).delete(synchronize_session=False)
     db.delete(r)
     db.commit()
@@ -248,7 +275,7 @@ async def upload_recipe_image(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    r = _own_recipe(db, user, recipe_id)
+    r = _editable_recipe(db, user, recipe_id)
     ext = ALLOWED_CONTENT_TYPES.get((file.content_type or "").lower())
     if not ext:
         raise HTTPException(415, "Unsupported image type. Use JPEG, PNG, or WebP.")
@@ -272,13 +299,37 @@ async def upload_recipe_image(
     return r
 
 
+@router.put("/{recipe_id}/ownership", response_model=schemas.Recipe)
+def update_recipe_ownership(
+    recipe_id: str,
+    payload: schemas.OwnershipPatch,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    r = db.get(models.Recipe, recipe_id)
+    if not r or r.created_by != user.id:
+        raise HTTPException(404, "Recipe not found")
+    if payload.share_with_household:
+        hh = get_household_id(db, user.id)
+        if hh is None:
+            raise HTTPException(400, "Nie należysz do żadnego household")
+        r.owner_user_id = None
+        r.owner_household_id = hh
+    else:
+        r.owner_user_id = user.id
+        r.owner_household_id = None
+    db.commit()
+    db.refresh(r)
+    return r
+
+
 @router.delete("/{recipe_id}/image", response_model=schemas.Recipe)
 def delete_recipe_image(
     recipe_id: str,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    r = _own_recipe(db, user, recipe_id)
+    r = _editable_recipe(db, user, recipe_id)
     if r.image_filename:
         path = IMAGES_DIR / r.image_filename
         if path.exists():
