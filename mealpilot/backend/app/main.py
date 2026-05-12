@@ -12,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .db import Base, engine, DB_PATH, SessionLocal
 from .images import IMAGES_DIR
 from .middleware import CloudflareAccessMiddleware
-from .routers import admin_users, agent, auth, plan, recipes, settings as settings_router, shopping, templates as templates_router
+from .routers import admin_households, admin_users, agent, auth, plan, recipes, settings as settings_router, shopping, templates as templates_router
 from . import models
 from .security import hash_password, verify_password
 from .seed import seed_for_user
@@ -42,6 +42,41 @@ def _migrate(engine_) -> None:
     tables = set(inspector.get_table_names())
 
     with engine_.begin() as conn:
+        if "users" in tables:
+            cols = {c["name"] for c in inspector.get_columns("users")}
+            if "session_version" not in cols:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0")
+                )
+            if "can_use_ai" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN can_use_ai BOOLEAN NOT NULL DEFAULT 1"))
+            if "ai_monthly_token_limit" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_monthly_token_limit INTEGER"))
+            if "ai_monthly_cost_limit_cents" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_monthly_cost_limit_cents INTEGER"))
+            if "ai_used_tokens_this_month" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_used_tokens_this_month INTEGER NOT NULL DEFAULT 0"))
+            if "ai_used_cost_cents_this_month" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_used_cost_cents_this_month INTEGER NOT NULL DEFAULT 0"))
+            if "ai_usage_period_start" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_usage_period_start DATETIME"))
+                conn.execute(text("UPDATE users SET ai_usage_period_start = CURRENT_TIMESTAMP WHERE ai_usage_period_start IS NULL"))
+
+        # Add owner columns + backfill for resource tables
+        for tname in ("recipes", "meal_plan_entries", "week_templates", "shopping_items"):
+            if tname not in tables:
+                continue
+            cols = {c["name"] for c in inspector.get_columns(tname)}
+            if "owner_user_id" not in cols:
+                conn.execute(text(f"ALTER TABLE {tname} ADD COLUMN owner_user_id INTEGER"))
+            if "owner_household_id" not in cols:
+                conn.execute(text(f"ALTER TABLE {tname} ADD COLUMN owner_household_id INTEGER"))
+            # Backfill: rows without any owner -> owned by creator (user_id)
+            conn.execute(text(
+                f"UPDATE {tname} SET owner_user_id = user_id "
+                f"WHERE owner_user_id IS NULL AND owner_household_id IS NULL"
+            ))
+
         if "recipes" in tables:
             cols = {c["name"] for c in inspector.get_columns("recipes")}
             if "image_filename" not in cols:
@@ -135,6 +170,7 @@ app.add_middleware(CloudflareAccessMiddleware)
 
 app.include_router(auth.router)
 app.include_router(admin_users.router)
+app.include_router(admin_households.router)
 app.include_router(recipes.router)
 app.include_router(plan.router)
 app.include_router(shopping.router)
