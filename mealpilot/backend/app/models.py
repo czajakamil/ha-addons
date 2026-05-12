@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -27,7 +29,31 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False, default="user")
     is_active = Column(Integer, nullable=False, default=1)
+    session_version = Column(Integer, nullable=False, default=0)
+    can_use_ai = Column(Boolean, nullable=False, default=True)
+    ai_monthly_token_limit = Column(Integer, nullable=True)
+    ai_monthly_cost_limit_cents = Column(Integer, nullable=True)
+    ai_used_tokens_this_month = Column(Integer, nullable=False, default=0)
+    ai_used_cost_cents_this_month = Column(Integer, nullable=False, default=0)
+    ai_usage_period_start = Column(DateTime, nullable=False, default=_utcnow)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class Household(Base):
+    __tablename__ = "households"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class HouseholdMember(Base):
+    __tablename__ = "household_members"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=False, index=True)
+    can_edit = Column(Boolean, nullable=False, default=False)
+    joined_at = Column(DateTime, nullable=False, default=_utcnow)
 
 
 class AgentSettings(Base):
@@ -56,9 +82,19 @@ class ApiKey(Base):
 
 class Recipe(Base):
     __tablename__ = "recipes"
+    __table_args__ = (
+        CheckConstraint(
+            "(owner_user_id IS NOT NULL) <> (owner_household_id IS NOT NULL)",
+            name="ck_recipes_owner_exactly_one",
+        ),
+        Index("ix_recipes_owner_household", "owner_household_id"),
+        Index("ix_recipes_owner_user", "owner_user_id"),
+    )
 
     id = Column(String, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by = Column("user_id", Integer, ForeignKey("users.id"), nullable=False, index=True)
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
     title = Column(String, nullable=False)
     tags = Column(JSON, nullable=False, default=list)
     servings = Column(Integer, nullable=False, default=1)
@@ -77,10 +113,20 @@ class Recipe(Base):
 
 class MealPlanEntry(Base):
     __tablename__ = "meal_plan_entries"
-    __table_args__ = (Index("ix_plan_user_week", "user_id", "week_start"),)
+    __table_args__ = (
+        Index("ix_plan_user_week", "user_id", "week_start"),
+        Index("ix_plan_owner_household", "owner_household_id", "week_start"),
+        Index("ix_plan_owner_user", "owner_user_id", "week_start"),
+        CheckConstraint(
+            "(owner_user_id IS NOT NULL) <> (owner_household_id IS NOT NULL)",
+            name="ck_plan_owner_exactly_one",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by = Column("user_id", Integer, ForeignKey("users.id"), nullable=False, index=True)
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
     week_start = Column(String, nullable=False, index=True)
     day = Column(Integer, nullable=False)
     meal = Column(String, nullable=False)
@@ -136,9 +182,17 @@ class AgentToolUse(Base):
 
 class WeekTemplate(Base):
     __tablename__ = "week_templates"
+    __table_args__ = (
+        CheckConstraint(
+            "(owner_user_id IS NOT NULL) <> (owner_household_id IS NOT NULL)",
+            name="ck_tpl_owner_exactly_one",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by = Column("user_id", Integer, ForeignKey("users.id"), nullable=False, index=True)
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
     name = Column(String, nullable=False)
     entries = Column(JSON, nullable=False, default=list)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -151,10 +205,18 @@ class ShoppingItem(Base):
             "user_id", "week_start", "name", "unit", name="uq_shop_user_week_name_unit"
         ),
         Index("ix_shop_user_week", "user_id", "week_start"),
+        Index("ix_shop_owner_household_week", "owner_household_id", "week_start"),
+        Index("ix_shop_owner_user_week", "owner_user_id", "week_start"),
+        CheckConstraint(
+            "(owner_user_id IS NOT NULL) <> (owner_household_id IS NOT NULL)",
+            name="ck_shop_owner_exactly_one",
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by = Column("user_id", Integer, ForeignKey("users.id"), nullable=False, index=True)
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
     week_start = Column(String, nullable=False, index=True)
     name = Column(String, nullable=False)
     qty = Column(Float, nullable=False, default=0)
