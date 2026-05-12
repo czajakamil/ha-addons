@@ -15,6 +15,7 @@ import {
   recipeBy,
   recipeImageUrl,
   updateRecipe,
+  updateRecipeOwnership,
   uploadRecipeImage,
 } from '../data';
 import type { Ingredient, Recipe } from '../types';
@@ -684,9 +685,24 @@ interface RecipeCardProps {
   openRecipe: (id: string) => void;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  currentUserId: number;
 }
 
-function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite }: RecipeCardProps) {
+function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, currentUserId }: RecipeCardProps) {
+  const isHousehold = r.owner_household_id != null;
+  const isCreator = r.created_by === currentUserId;
+  const [busy, setBusy] = useState(false);
+  const toggleOwnership = async () => {
+    setBusy(true);
+    try {
+      await updateRecipeOwnership(r.id, !isHousehold);
+      emitRecipesChanged();
+    } catch (e) {
+      alert(`Nie udało się zmienić widoczności: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <button
       key={r.id}
@@ -722,6 +738,40 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite }: Rec
           filled={isFavorite}
         />
       </button>
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isCreator && !busy) void toggleOwnership();
+        }}
+        title={
+          isCreator
+            ? isHousehold
+              ? 'Udostępniony grupie domowej — kliknij, aby zrobić prywatnym'
+              : 'Prywatny — kliknij, aby udostępnić grupie domowej'
+            : isHousehold
+              ? 'Udostępniony grupie domowej'
+              : 'Prywatny'
+        }
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          fontSize: 10,
+          padding: '2px 8px',
+          borderRadius: 999,
+          background: isHousehold ? 'var(--accent)' : 'oklch(1 0 0 / 0.75)',
+          color: isHousehold ? 'oklch(0.98 0.015 80)' : 'var(--ink-2)',
+          border: isHousehold ? '1px solid var(--accent-deep)' : '1px solid var(--line)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          cursor: isCreator ? 'pointer' : 'default',
+          opacity: busy ? 0.6 : 1,
+        }}
+      >
+        {isHousehold && <Icon name="users" size={10} />}
+        {isHousehold ? 'Grupa domowa' : 'Prywatny'}
+      </span>
       <div className="recipe-card-body">
         <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
           {r.tags.slice(0, 3).map((t) => (
@@ -768,9 +818,10 @@ interface RecipesScreenProps {
   onGroupedChange: (v: boolean) => void;
   favoriteIds: string[];
   onToggleFavorite: (id: string) => void;
+  currentUserId: number;
 }
 
-export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteIds, onToggleFavorite }: RecipesScreenProps) {
+export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteIds, onToggleFavorite, currentUserId }: RecipesScreenProps) {
   const [recipes, setRecipes] = useState<Recipe[]>(getRecipes());
   const [showNew, setShowNew] = useState(false);
   const [q, setQ] = useState('');
@@ -922,7 +973,7 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
               </div>
               <div className="recipe-grid">
                 {group.items.map((r) => (
-                  <RecipeCard key={r.id} recipe={r} openRecipe={openRecipe} isFavorite={favoriteIds.includes(r.id)} onToggleFavorite={onToggleFavorite} />
+                  <RecipeCard key={r.id} recipe={r} openRecipe={openRecipe} isFavorite={favoriteIds.includes(r.id)} onToggleFavorite={onToggleFavorite} currentUserId={currentUserId} />
                 ))}
               </div>
             </div>
@@ -936,7 +987,7 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
       ) : (
         <div className="recipe-grid">
           {list.map((r) => (
-            <RecipeCard key={r.id} recipe={r} openRecipe={openRecipe} isFavorite={favoriteIds.includes(r.id)} onToggleFavorite={onToggleFavorite} />
+            <RecipeCard key={r.id} recipe={r} openRecipe={openRecipe} isFavorite={favoriteIds.includes(r.id)} onToggleFavorite={onToggleFavorite} currentUserId={currentUserId} />
           ))}
         </div>
       )}
@@ -949,9 +1000,11 @@ interface RecipeDetailProps {
   onClose: () => void;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  currentUserId: number;
 }
 
-export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite }: RecipeDetailProps) {
+export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, currentUserId }: RecipeDetailProps) {
+  const [ownershipBusy, setOwnershipBusy] = useState(false);
   const baseR = recipeBy(recipeId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Recipe | undefined>(baseR);
@@ -1173,6 +1226,38 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite }
               <Icon name="heart" size={14} filled={isFavorite} />
               {isFavorite ? ' Ulubiony' : ' Dodaj do ulubionych'}
             </button>
+            {!editing && baseR.created_by === currentUserId && (
+              <button
+                className="btn"
+                disabled={ownershipBusy}
+                onClick={async () => {
+                  const isHousehold = baseR.owner_household_id != null;
+                  setOwnershipBusy(true);
+                  try {
+                    const updated = await updateRecipeOwnership(baseR.id, !isHousehold);
+                    Object.assign(baseR, updated);
+                    setDraft((d) => (d ? { ...d, ...updated } : d));
+                    emitRecipesChanged();
+                  } catch (err) {
+                    alert(`Nie udało się zmienić widoczności: ${(err as Error).message}`);
+                  } finally {
+                    setOwnershipBusy(false);
+                  }
+                }}
+                title={
+                  baseR.owner_household_id != null
+                    ? 'Aktualnie widoczny dla całej grupy domowej — kliknij, aby zrobić prywatnym'
+                    : 'Aktualnie prywatny — kliknij, aby udostępnić grupie domowej'
+                }
+              >
+                <Icon name="users" size={13} />{' '}
+                {ownershipBusy
+                  ? '…'
+                  : baseR.owner_household_id != null
+                    ? 'Zrób prywatnym'
+                    : 'Udostępnij grupie domowej'}
+              </button>
+            )}
             {!editing && (
               <button className="btn" onClick={() => setEditing(true)}>
                 Edytuj

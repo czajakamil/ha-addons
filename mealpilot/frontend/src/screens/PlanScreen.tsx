@@ -519,12 +519,6 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
               {enabledMeals.length}
             </span>
           </button>
-          <button className="btn">
-            <Icon name="cart" size={14} /> Generuj zakupy
-          </button>
-          <button className="btn primary">
-            <Icon name="spark" size={14} /> Asystent AI
-          </button>
         </div>
       </div>
 

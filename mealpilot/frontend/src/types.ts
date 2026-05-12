@@ -20,6 +20,9 @@ export interface Recipe {
   steps: string[];
   meal_types: string[];
   image_filename?: string | null;
+  created_by?: number;
+  owner_user_id?: number | null;
+  owner_household_id?: number | null;
 }
 
 export interface PlanEntry {
@@ -63,4 +66,42 @@ export interface ShoppingItem {
   category: string;
   checked: boolean;
   is_custom: boolean;
+}
+
+export interface Household {
+  id: number;
+  name: string;
+  created_at: string;
+  member_count: number;
+}
+
+export interface HouseholdMember {
+  user_id: number;
+  username: string;
+  household_id: number;
+  can_edit: boolean;
+  joined_at: string;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  role: 'admin' | 'user';
+  is_active: boolean;
+  created_at: string;
+  can_use_ai: boolean;
+  ai_monthly_token_limit: number | null;
+  ai_monthly_cost_limit_cents: number | null;
+  ai_used_tokens_this_month: number;
+  ai_used_cost_cents_this_month: number;
+  household_id: number | null;
+  can_edit_in_household: boolean;
+}
+
+export interface AiUsageStatus {
+  can_use_ai: boolean;
+  ai_monthly_token_limit: number | null;
+  ai_monthly_cost_limit_cents: number | null;
+  ai_used_tokens_this_month: number;
+  ai_used_cost_cents_this_month: number;
 }

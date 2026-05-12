@@ -111,6 +111,21 @@ export async function updateRecipe(id: string, payload: Omit<Recipe, 'id'>): Pro
   return r;
 }
 
+export async function updateRecipeOwnership(
+  id: string,
+  shareWithHousehold: boolean,
+): Promise<Recipe> {
+  const r = await jsonOrThrow<Recipe>(
+    await apiFetch(`/recipes/${encodeURIComponent(id)}/ownership`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ share_with_household: shareWithHousehold }),
+    }),
+  );
+  state.recipes = state.recipes.map((x) => (x.id === id ? r : x));
+  return r;
+}
+
 export function recipeImageUrl(recipe: Pick<Recipe, 'image_filename'>): string | null {
   if (!recipe.image_filename) return null;
   return `/images/${encodeURIComponent(recipe.image_filename)}`;

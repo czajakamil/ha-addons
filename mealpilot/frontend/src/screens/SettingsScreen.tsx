@@ -59,7 +59,8 @@ export function SettingsScreen() {
           <div className="eyebrow">Ustawienia</div>
           <h1>Asystent AI</h1>
           <div className="sub">
-            Model i instrukcje agenta. Klucz API i endpoint konfiguruje się w ustawieniach Home Assistant.
+            Endpoint, klucz API i model agenta. Ustawienia są zapisywane na serwerze
+            i powiązane z Twoim kontem.
           </div>
         </div>
       </header>
@@ -68,6 +69,11 @@ export function SettingsScreen() {
         <div className="card" style={{ padding: 20 }}>Ładowanie…</div>
       ) : (
       <form onSubmit={onSave} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="field-hint">
+          Endpoint i klucz API są ustawiane w konfiguracji dodatku Home Assistant
+          (zmienne <code>MEALPILOT_AI_API_URL</code> i <code>MEALPILOT_AI_API_KEY</code>).
+        </div>
+
         <label>
           <div className="field-label" style={{ marginBottom: 6 }}>
             Model

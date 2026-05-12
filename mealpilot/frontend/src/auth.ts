@@ -10,7 +10,97 @@ export interface AuthUser {
   created_at: string;
 }
 
-export interface AdminUser extends AuthUser {}
+export interface AdminUser extends AuthUser {
+  can_use_ai: boolean;
+  ai_monthly_token_limit: number | null;
+  ai_monthly_cost_limit_cents: number | null;
+  ai_used_tokens_this_month: number;
+  ai_used_cost_cents_this_month: number;
+  household_id: number | null;
+  can_edit_in_household: boolean;
+}
+
+export interface Household {
+  id: number;
+  name: string;
+  created_at: string;
+  member_count: number;
+}
+
+export interface HouseholdMember {
+  user_id: number;
+  username: string;
+  household_id: number;
+  can_edit: boolean;
+  joined_at: string;
+}
+
+export async function listHouseholds(): Promise<Household[]> {
+  return asJson<Household[]>(await apiFetch('/admin/households'));
+}
+
+export async function createHousehold(name: string): Promise<Household> {
+  return asJson<Household>(
+    await apiFetch('/admin/households', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
+  );
+}
+
+export async function renameHousehold(id: number, name: string): Promise<Household> {
+  return asJson<Household>(
+    await apiFetch(`/admin/households/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
+  );
+}
+
+export async function deleteHousehold(id: number): Promise<void> {
+  const r = await apiFetch(`/admin/households/${id}`, { method: 'DELETE' });
+  if (!r.ok) throw new Error(`${r.status}`);
+}
+
+export async function assignUserToHousehold(
+  userId: number,
+  householdId: number | null,
+  canEdit: boolean,
+): Promise<AdminUser> {
+  return asJson<AdminUser>(
+    await apiFetch(`/admin/users/${userId}/household`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ household_id: householdId, can_edit: canEdit }),
+    }),
+  );
+}
+
+export async function updateAiLimits(
+  userId: number,
+  patch: {
+    can_use_ai?: boolean;
+    ai_monthly_token_limit?: number | null;
+    ai_monthly_cost_limit_cents?: number | null;
+    clear_token_limit?: boolean;
+    clear_cost_limit?: boolean;
+  },
+): Promise<AdminUser> {
+  return asJson<AdminUser>(
+    await apiFetch(`/admin/users/${userId}/ai-limits`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  );
+}
+
+export async function resetAiUsage(userId: number): Promise<void> {
+  const r = await apiFetch(`/admin/users/${userId}/ai-usage/reset`, { method: 'POST' });
+  if (!r.ok) throw new Error(`${r.status}`);
+}
 
 async function asJson<T>(res: Response): Promise<T> {
   const text = await res.text();

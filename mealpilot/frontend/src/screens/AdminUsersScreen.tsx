@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
-import type { AdminUser, Role } from '../auth';
-import { createUser, deleteUser, listUsers, updateUser } from '../auth';
+import type { AdminUser, Household, Role } from '../auth';
+import {
+  assignUserToHousehold,
+  createHousehold,
+  createUser,
+  deleteHousehold,
+  deleteUser,
+  listHouseholds,
+  listUsers,
+  renameHousehold,
+  resetAiUsage,
+  updateAiLimits,
+  updateUser,
+} from '../auth';
 
 interface Props {
   currentUserId: number;
@@ -8,8 +20,10 @@ interface Props {
 
 export function AdminUsersScreen({ currentUserId }: Props) {
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [households, setHouseholds] = useState<Household[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [newHouseholdName, setNewHouseholdName] = useState('');
 
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -24,12 +38,140 @@ export function AdminUsersScreen({ currentUserId }: Props) {
   async function refresh() {
     setLoading(true);
     try {
-      setUsers(await listUsers());
+      const [us, hs] = await Promise.all([listUsers(), listHouseholds()]);
+      setUsers(us);
+      setHouseholds(hs);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Błąd');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onCreateHousehold(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newHouseholdName.trim();
+    if (!name) return;
+    try {
+      await createHousehold(name);
+      setNewHouseholdName('');
+      setError(null);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onRenameHousehold(h: Household) {
+    const name = window.prompt(`Nowa nazwa dla "${h.name}":`, h.name);
+    if (!name || name.trim() === h.name) return;
+    try {
+      await renameHousehold(h.id, name.trim());
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onDeleteHousehold(h: Household) {
+    if (!window.confirm(
+      `Usunąć household "${h.name}"? Współdzielone przepisy/szablony wrócą do twórców jako personal.`
+    )) return;
+    try {
+      await deleteHousehold(h.id);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onAssignHousehold(u: AdminUser, householdId: number | null) {
+    try {
+      await assignUserToHousehold(u.id, householdId, u.can_edit_in_household);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onToggleCanEdit(u: AdminUser) {
+    if (u.household_id == null) return;
+    try {
+      await assignUserToHousehold(u.id, u.household_id, !u.can_edit_in_household);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onToggleCanUseAi(u: AdminUser) {
+    try {
+      await updateAiLimits(u.id, { can_use_ai: !u.can_use_ai });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onSetTokenLimit(u: AdminUser) {
+    const input = window.prompt(
+      `Miesięczny limit tokenów dla "${u.username}" (pusty = brak limitu):`,
+      u.ai_monthly_token_limit?.toString() ?? '',
+    );
+    if (input === null) return;
+    const trimmed = input.trim();
+    try {
+      if (trimmed === '') {
+        await updateAiLimits(u.id, { clear_token_limit: true });
+      } else {
+        const n = parseInt(trimmed, 10);
+        if (!Number.isFinite(n) || n < 0) {
+          setError('Limit musi być liczbą nieujemną.');
+          return;
+        }
+        await updateAiLimits(u.id, { ai_monthly_token_limit: n });
+      }
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onSetCostLimit(u: AdminUser) {
+    const currentDollars = u.ai_monthly_cost_limit_cents != null
+      ? (u.ai_monthly_cost_limit_cents / 100).toString()
+      : '';
+    const input = window.prompt(
+      `Miesięczny limit kosztów dla "${u.username}" w USD (pusty = brak limitu):`,
+      currentDollars,
+    );
+    if (input === null) return;
+    const trimmed = input.trim();
+    try {
+      if (trimmed === '') {
+        await updateAiLimits(u.id, { clear_cost_limit: true });
+      } else {
+        const f = parseFloat(trimmed);
+        if (!Number.isFinite(f) || f < 0) {
+          setError('Limit musi być liczbą nieujemną.');
+          return;
+        }
+        await updateAiLimits(u.id, { ai_monthly_cost_limit_cents: Math.round(f * 100) });
+      }
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
+    }
+  }
+
+  async function onResetUsage(u: AdminUser) {
+    if (!window.confirm(`Zresetować licznik AI dla "${u.username}"?`)) return;
+    try {
+      await resetAiUsage(u.id);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Błąd');
     }
   }
 
@@ -79,9 +221,10 @@ export function AdminUsersScreen({ currentUserId }: Props) {
     }
   }
 
-  async function onToggleActive(u: AdminUser) {
+  async function onChangeRole(u: AdminUser, next: Role) {
+    if (next === u.role) return;
     try {
-      await updateUser(u.id, { is_active: !u.is_active });
+      await updateUser(u.id, { role: next });
       setError(null);
       await refresh();
     } catch (e) {
@@ -89,10 +232,10 @@ export function AdminUsersScreen({ currentUserId }: Props) {
     }
   }
 
-  async function onChangeRole(u: AdminUser) {
-    const next: Role = u.role === 'admin' ? 'user' : 'admin';
+  async function onChangeActive(u: AdminUser, next: boolean) {
+    if (next === u.is_active) return;
     try {
-      await updateUser(u.id, { role: next });
+      await updateUser(u.id, { is_active: next });
       setError(null);
       await refresh();
     } catch (e) {
@@ -212,8 +355,36 @@ export function AdminUsersScreen({ currentUserId }: Props) {
         </form>
       </section>
 
+      <section className="card" style={{ padding: 20 }}>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>Households (gospodarstwa)</div>
+        <form onSubmit={onCreateHousehold} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <input
+            className="edit-input"
+            value={newHouseholdName}
+            onChange={(e) => setNewHouseholdName(e.target.value)}
+            placeholder="Nazwa, np. Rodzina Kowalskich"
+            style={{ flex: 1 }}
+          />
+          <button className="btn primary" type="submit">Utwórz</button>
+        </form>
+        {households.length === 0 ? (
+          <div style={{ color: 'var(--ink-3)' }}>Brak — utwórz pierwsze gospodarstwo powyżej.</div>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {households.map((h) => (
+              <li key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+                <strong style={{ flex: 1 }}>{h.name}</strong>
+                <span className="chip">{h.member_count} {h.member_count === 1 ? 'członek' : 'członków'}</span>
+                <button className="btn" onClick={() => onRenameHousehold(h)}>Zmień nazwę</button>
+                <button className="btn" onClick={() => onDeleteHousehold(h)}>Usuń</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section>
-        <div className="eyebrow" style={{ marginBottom: 12 }}>Lista</div>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>Lista użytkowników</div>
         {loading ? (
           <div style={{ color: 'var(--ink-3)' }}>Ładowanie…</div>
         ) : (
@@ -225,6 +396,8 @@ export function AdminUsersScreen({ currentUserId }: Props) {
                   <th>Login</th>
                   <th>Rola</th>
                   <th>Status</th>
+                  <th>Household</th>
+                  <th>AI</th>
                   <th style={{ textAlign: 'right' }}>Akcje</th>
                 </tr>
               </thead>
@@ -255,25 +428,82 @@ export function AdminUsersScreen({ currentUserId }: Props) {
                       )}
                     </td>
                     <td>
-                      <span className={`chip ${u.role === 'admin' ? 'terra' : ''}`}>
-                        {u.role}
-                      </span>
+                      <select
+                        className={`chip-select ${u.role === 'admin' ? 'terra' : ''}`}
+                        value={u.role}
+                        onChange={(e) => void onChangeRole(u, e.target.value as Role)}
+                        disabled={u.id === currentUserId}
+                        title={u.id === currentUserId ? 'Nie można zmienić własnej roli' : 'Zmień rolę'}
+                      >
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                      </select>
                     </td>
                     <td>
-                      <span className={`chip ${u.is_active ? 'olive' : ''}`}>
-                        {u.is_active ? 'aktywny' : 'wyłączony'}
-                      </span>
+                      <select
+                        className={`chip-select ${u.is_active ? 'olive' : ''}`}
+                        value={u.is_active ? 'active' : 'inactive'}
+                        onChange={(e) => void onChangeActive(u, e.target.value === 'active')}
+                        disabled={u.id === currentUserId}
+                        title={u.id === currentUserId ? 'Nie można zmienić własnego statusu' : 'Zmień status'}
+                      >
+                        <option value="active">aktywny</option>
+                        <option value="inactive">wyłączony</option>
+                      </select>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <select
+                          className="edit-input"
+                          value={u.household_id ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            void onAssignHousehold(u, v === '' ? null : parseInt(v, 10));
+                          }}
+                          style={{ minWidth: 120 }}
+                        >
+                          <option value="">— brak —</option>
+                          {households.map((h) => (
+                            <option key={h.id} value={h.id}>{h.name}</option>
+                          ))}
+                        </select>
+                        {u.household_id != null && (
+                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <input
+                              type="checkbox"
+                              checked={u.can_edit_in_household}
+                              onChange={() => void onToggleCanEdit(u)}
+                            />
+                            edytor
+                          </label>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input
+                            type="checkbox"
+                            checked={u.can_use_ai}
+                            onChange={() => void onToggleCanUseAi(u)}
+                          />
+                          włączone
+                        </label>
+                        <div style={{ color: 'var(--ink-3)' }}>
+                          tok: {u.ai_used_tokens_this_month}{u.ai_monthly_token_limit != null ? ` / ${u.ai_monthly_token_limit}` : ''}
+                        </div>
+                        <div style={{ color: 'var(--ink-3)' }}>
+                          $: {(u.ai_used_cost_cents_this_month / 100).toFixed(2)}{u.ai_monthly_cost_limit_cents != null ? ` / ${(u.ai_monthly_cost_limit_cents / 100).toFixed(2)}` : ''}
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button className="btn" onClick={() => onSetTokenLimit(u)}>Limit tok.</button>
+                        <button className="btn" onClick={() => onSetCostLimit(u)}>Limit $</button>
+                        <button className="btn" onClick={() => onResetUsage(u)}>Reset AI</button>
                         <button className="btn" onClick={() => startEdit(u)} disabled={editingId !== null}>Edytuj login</button>
                         <button className="btn" onClick={() => onResetPassword(u)}>Zmień hasło</button>
-                        <button className="btn" onClick={() => onChangeRole(u)}>
-                          {u.role === 'admin' ? 'Zdegraduj' : 'Promuj'}
-                        </button>
-                        <button className="btn" onClick={() => onToggleActive(u)}>
-                          {u.is_active ? 'Dezaktywuj' : 'Aktywuj'}
-                        </button>
                         {u.id !== currentUserId && (
                           <button className="btn" onClick={() => onDelete(u)}>Usuń</button>
                         )}
