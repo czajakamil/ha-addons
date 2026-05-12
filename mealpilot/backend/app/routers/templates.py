@@ -6,6 +6,14 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..db import get_db
 from ..dependencies import get_current_user
+from ..ownership import (
+    can_edit,
+    can_view,
+    default_owner_kwargs,
+    get_household_id,
+    get_membership,
+    visible_filter,
+)
 from ..routers.plan import get_week_plan
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
@@ -16,9 +24,10 @@ def list_templates(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    hh = get_household_id(db, user.id)
     return (
         db.query(models.WeekTemplate)
-        .filter(models.WeekTemplate.user_id == user.id)
+        .filter(visible_filter(models.WeekTemplate, user, hh))
         .order_by(models.WeekTemplate.created_at.desc())
         .all()
     )
@@ -30,12 +39,13 @@ def create_template(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    hh = get_household_id(db, user.id)
     recipe_ids = {e.recipe_id for e in body.entries}
     if recipe_ids:
         existing = {
             r.id
             for r in db.query(models.Recipe)
-            .filter(models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id)
+            .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
             .all()
         }
         missing = recipe_ids - existing
@@ -43,7 +53,8 @@ def create_template(
             raise HTTPException(400, f"Unknown recipe ids: {sorted(missing)}")
 
     tpl = models.WeekTemplate(
-        user_id=user.id,
+        created_by=user.id,
+        **default_owner_kwargs(user),
         name=body.name,
         entries=[e.model_dump() for e in body.entries],
     )
@@ -59,15 +70,39 @@ def delete_template(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    tpl = (
-        db.query(models.WeekTemplate)
-        .filter(models.WeekTemplate.id == template_id, models.WeekTemplate.user_id == user.id)
-        .first()
-    )
-    if not tpl:
+    tpl = db.get(models.WeekTemplate, template_id)
+    member = get_membership(db, user.id)
+    hh = member.household_id if member else None
+    if not tpl or not can_view(tpl, user, hh):
         raise HTTPException(404, "Template not found")
+    if not can_edit(tpl, user, member):
+        raise HTTPException(403, "Brak uprawnień do usunięcia szablonu")
     db.delete(tpl)
     db.commit()
+
+
+@router.put("/{template_id}/ownership", response_model=schemas.WeekTemplateOut)
+def update_template_ownership(
+    template_id: int,
+    payload: schemas.OwnershipPatch,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    tpl = db.get(models.WeekTemplate, template_id)
+    if not tpl or tpl.created_by != user.id:
+        raise HTTPException(404, "Template not found")
+    if payload.share_with_household:
+        hh = get_household_id(db, user.id)
+        if hh is None:
+            raise HTTPException(400, "Nie należysz do żadnego household")
+        tpl.owner_user_id = None
+        tpl.owner_household_id = hh
+    else:
+        tpl.owner_user_id = user.id
+        tpl.owner_household_id = None
+    db.commit()
+    db.refresh(tpl)
+    return tpl
 
 
 @router.post("/{template_id}/apply/{week_start}", response_model=schemas.WeekPlan)
@@ -77,12 +112,9 @@ def apply_template(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    tpl = (
-        db.query(models.WeekTemplate)
-        .filter(models.WeekTemplate.id == template_id, models.WeekTemplate.user_id == user.id)
-        .first()
-    )
-    if not tpl:
+    hh = get_household_id(db, user.id)
+    tpl = db.get(models.WeekTemplate, template_id)
+    if not tpl or not can_view(tpl, user, hh):
         raise HTTPException(404, "Template not found")
 
     entries = [schemas.PlanEntry(**e) for e in tpl.entries]
@@ -91,20 +123,21 @@ def apply_template(
         existing = {
             r.id
             for r in db.query(models.Recipe)
-            .filter(models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id)
+            .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
             .all()
         }
         entries = [e for e in entries if e.recipe_id in existing]
 
     db.query(models.MealPlanEntry).filter(
-        models.MealPlanEntry.user_id == user.id,
+        models.MealPlanEntry.owner_user_id == user.id,
         models.MealPlanEntry.week_start == week_start,
     ).delete(synchronize_session=False)
 
     for e in entries:
         db.add(
             models.MealPlanEntry(
-                user_id=user.id,
+                created_by=user.id,
+                owner_user_id=user.id,
                 week_start=week_start,
                 day=e.day,
                 meal=e.meal,

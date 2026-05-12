@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..db import get_db
 from ..dependencies import get_current_user
+from ..ownership import get_household_id, visible_filter
 
 router = APIRouter(prefix="/api/plan", tags=["plan"])
 
@@ -18,7 +19,7 @@ def get_week_plan(
     rows = (
         db.query(models.MealPlanEntry)
         .filter(
-            models.MealPlanEntry.user_id == user.id,
+            models.MealPlanEntry.owner_user_id == user.id,
             models.MealPlanEntry.week_start == week_start,
         )
         .order_by(models.MealPlanEntry.day, models.MealPlanEntry.meal)
@@ -38,12 +39,13 @@ def replace_week_plan(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    hh = get_household_id(db, user.id)
     recipe_ids = {e.recipe_id for e in entries}
     if recipe_ids:
         existing = {
             r.id
             for r in db.query(models.Recipe)
-            .filter(models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id)
+            .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
             .all()
         }
         missing = recipe_ids - existing
@@ -51,14 +53,15 @@ def replace_week_plan(
             raise HTTPException(400, f"Unknown recipe ids: {sorted(missing)}")
 
     db.query(models.MealPlanEntry).filter(
-        models.MealPlanEntry.user_id == user.id,
+        models.MealPlanEntry.owner_user_id == user.id,
         models.MealPlanEntry.week_start == week_start,
     ).delete(synchronize_session=False)
 
     for e in entries:
         db.add(
             models.MealPlanEntry(
-                user_id=user.id,
+                created_by=user.id,
+                owner_user_id=user.id,
                 week_start=week_start,
                 day=e.day,
                 meal=e.meal,
