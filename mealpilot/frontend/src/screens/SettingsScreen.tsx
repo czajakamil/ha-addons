@@ -11,7 +11,6 @@ import {
 export function SettingsScreen() {
   const [s, setS] = useState<AgentSettings>(() => getSettings());
   const [loading, setLoading] = useState(!isSettingsLoaded());
-  const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +59,7 @@ export function SettingsScreen() {
           <div className="eyebrow">Ustawienia</div>
           <h1>Asystent AI</h1>
           <div className="sub">
-            Endpoint, klucz API i model agenta. Ustawienia są zapisywane na serwerze
-            i powiązane z Twoim kontem.
+            Model i instrukcje agenta. Klucz API i endpoint konfiguruje się w ustawieniach Home Assistant.
           </div>
         </div>
       </header>
@@ -70,44 +68,6 @@ export function SettingsScreen() {
         <div className="card" style={{ padding: 20 }}>Ładowanie…</div>
       ) : (
       <form onSubmit={onSave} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <label>
-          <div className="field-label" style={{ marginBottom: 6 }}>
-            Endpoint API
-          </div>
-          <input
-            className="edit-input"
-            type="url"
-            value={s.endpoint}
-            onChange={(e) => update('endpoint', e.target.value)}
-            placeholder="https://api.example.com/v1/messages"
-            autoComplete="off"
-          />
-        </label>
-
-        <label>
-          <div className="field-label" style={{ marginBottom: 6 }}>
-            Klucz API{' '}
-            <span className="field-hint">zapisany na serwerze</span>
-          </div>
-          <div className="input-with-affix">
-            <input
-              className="edit-input"
-              type={showKey ? 'text' : 'password'}
-              value={s.apiKey}
-              onChange={(e) => update('apiKey', e.target.value)}
-              placeholder="Klucz API"
-              autoComplete="off"
-            />
-            <button
-              type="button"
-              className="btn ghost input-affix-btn"
-              onClick={() => setShowKey((v) => !v)}
-            >
-              {showKey ? 'Ukryj' : 'Pokaż'}
-            </button>
-          </div>
-        </label>
-
         <label>
           <div className="field-label" style={{ marginBottom: 6 }}>
             Model

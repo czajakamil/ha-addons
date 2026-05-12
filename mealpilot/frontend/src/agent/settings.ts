@@ -1,8 +1,6 @@
 import { apiFetch } from '../data';
 
 export interface AgentSettings {
-  endpoint: string;
-  apiKey: string;
   model: string;
   systemPrompt: string;
 }
@@ -26,15 +24,11 @@ Tworzenie przepisów (create_recipe):
 12. Zawsze pokaż pełen podgląd przepisu i czekaj na potwierdzenie przed wywołaniem create_recipe. Po utworzeniu zaproponuj korekty (zmiana makro, dodanie tagu) — używaj wtedy update_recipe.`;
 
 const DEFAULTS: AgentSettings = {
-  endpoint: 'https://api.anthropic.com/v1/messages',
-  apiKey: '',
   model: 'claude-haiku-4-5-20251001',
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
 };
 
 interface ServerShape {
-  endpoint?: string;
-  api_key?: string;
   model?: string;
   system_prompt?: string;
 }
@@ -44,8 +38,6 @@ let loaded = false;
 
 function fromServer(s: ServerShape): AgentSettings {
   return {
-    endpoint: s.endpoint || DEFAULTS.endpoint,
-    apiKey: s.api_key ?? '',
     model: s.model || DEFAULTS.model,
     systemPrompt: s.system_prompt || DEFAULTS.systemPrompt,
   };
@@ -65,8 +57,6 @@ export async function persistSettings(s: AgentSettings): Promise<void> {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      endpoint: s.endpoint,
-      api_key: s.apiKey,
       model: s.model,
       system_prompt: s.systemPrompt,
     }),
@@ -90,5 +80,5 @@ export function resetSettingsCache(): void {
 }
 
 export function isConfigured(s: AgentSettings): boolean {
-  return Boolean(s.endpoint && s.apiKey && s.model);
+  return Boolean(s.model);
 }

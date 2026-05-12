@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
-import { runAgent, type ChatTurn, type ToolEvent } from '../agent/llm';
 import { getSettings, isConfigured } from '../agent/settings';
-import { TOOLS } from '../agent/tools';
-import { AgentInfoModal } from './AgentInfoModal';
 import {
   appendMessage,
   createConversation,
@@ -12,11 +9,22 @@ import {
   getConversation,
   listConversations,
   patchConversation,
+  runAgentOnServer,
+  type AgentToolEventDTO,
   type ConversationDTO,
   type ConversationDetailDTO,
   type MessageDTO,
-  type ToolUseInput,
 } from '../agent/api';
+import {
+  emitPlanChanged,
+  emitRecipesChanged,
+  emitShoppingChanged,
+  loadPlan,
+  loadRecipes,
+  loadShopping,
+  WEEK_START,
+} from '../data';
+import { AgentInfoModal } from './AgentInfoModal';
 
 const SUGGESTIONS = [
   'Zaplanuj 3 dni vege',
@@ -32,24 +40,6 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
-}
-
-function toToolUseInputs(events: ToolEvent[]): ToolUseInput[] {
-  return events.map((ev, idx) => ({
-    tool_use_id: ev.toolUseId || `local_${Date.now()}_${idx}`,
-    tool_name: ev.name,
-    input:
-      typeof ev.input === 'object' && ev.input !== null
-        ? (ev.input as Record<string, unknown>)
-        : { value: ev.input },
-    output: ev.error ? ev.error : ev.output ?? null,
-    is_error: Boolean(ev.error),
-    finished_at: new Date().toISOString(),
-  }));
-}
-
-function messageToTurn(m: MessageDTO): ChatTurn {
-  return { role: m.role, text: m.content };
 }
 
 export function ChatScreen() {
@@ -122,38 +112,57 @@ export function ChatScreen() {
     }
   };
 
-  const runAndPersistAssistant = async (
-    convId: number,
-    history: ChatTurn[],
-  ): Promise<void> => {
-    const toolEvents: ToolEvent[] = [];
+  const refreshChanged = async (changed: string[]): Promise<void> => {
+    const tasks: Promise<unknown>[] = [];
+    if (changed.includes('recipes')) {
+      tasks.push(loadRecipes().then(() => emitRecipesChanged()));
+    }
+    if (changed.includes('plan')) {
+      tasks.push(loadPlan(WEEK_START).then(() => emitPlanChanged()));
+    }
+    if (changed.includes('shopping')) {
+      tasks.push(loadShopping(WEEK_START).then(() => emitShoppingChanged()));
+    }
+    await Promise.all(tasks);
+  };
+
+  const runAndPersistAssistant = async (convId: number): Promise<void> => {
     try {
-      const reply = await runAgent(getSettings(), history, TOOLS, {
-        onTool: (ev) => {
-          toolEvents.push(ev);
-        },
-      });
-      const persisted = await appendMessage(
-        convId,
-        'assistant',
-        reply || '(brak odpowiedzi)',
-        toToolUseInputs(toolEvents),
-      );
+      const result = await runAgentOnServer(convId);
+      const { reply, tool_events, changed, message_id } = result;
+
+      // Build a MessageDTO from the server response to add to local state
+      const assistantMsg: MessageDTO = {
+        id: message_id,
+        role: 'assistant',
+        content: reply || '(brak odpowiedzi)',
+        created_at: new Date().toISOString(),
+        tool_uses: tool_events.map((ev: AgentToolEventDTO, idx: number) => ({
+          id: idx,
+          tool_use_id: ev.tool_use_id,
+          tool_name: ev.name,
+          input: ev.input,
+          output: ev.output,
+          is_error: Boolean(ev.error),
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+        })),
+      };
+
       setActiveDetail((prev) =>
         prev && prev.id === convId
-          ? { ...prev, messages: [...prev.messages, persisted] }
+          ? { ...prev, messages: [...prev.messages, assistantMsg] }
           : prev,
       );
+
+      // Refresh data for changed domains
+      await refreshChanged(changed);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
+      // Persist error message to DB so it's visible in history
       try {
-        const persisted = await appendMessage(
-          convId,
-          'assistant',
-          `❗ Błąd: ${msg}`,
-          toToolUseInputs(toolEvents),
-        );
+        const persisted = await appendMessage(convId, 'assistant', `❗ Błąd: ${msg}`);
         setActiveDetail((prev) =>
           prev && prev.id === convId
             ? { ...prev, messages: [...prev.messages, persisted] }
@@ -167,10 +176,6 @@ export function ChatScreen() {
 
   const send = async () => {
     if (!input.trim() || busy || activeId === null || !activeDetail) return;
-    if (!configured) {
-      setError('Dodaj klucz API i model w Ustawieniach.');
-      return;
-    }
     const userText = input.trim();
     setInput('');
     setBusy(true);
@@ -198,8 +203,7 @@ export function ChatScreen() {
         }
       }
 
-      const history: ChatTurn[] = updated.messages.map(messageToTurn);
-      await runAndPersistAssistant(convId, history);
+      await runAndPersistAssistant(convId);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -236,10 +240,6 @@ export function ChatScreen() {
 
   const saveEdit = async () => {
     if (editingId === null || !editingText.trim() || busy || activeId === null) return;
-    if (!configured) {
-      setError('Dodaj klucz API i model w Ustawieniach.');
-      return;
-    }
     const convId = activeId;
     const newContent = editingText.trim();
     setBusy(true);
@@ -249,8 +249,7 @@ export function ChatScreen() {
       setActiveDetail(truncated);
       setEditingId(null);
       setEditingText('');
-      const history: ChatTurn[] = truncated.messages.map(messageToTurn);
-      await runAndPersistAssistant(convId, history);
+      await runAndPersistAssistant(convId);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -331,11 +330,6 @@ export function ChatScreen() {
           </button>
         </div>
 
-        {!configured && (
-          <div className="auth-error" style={{ marginBottom: 12 }}>
-            Klucz API nie jest skonfigurowany. Otwórz <strong>Ustawienia</strong> w menu, aby dodać klucz i model.
-          </div>
-        )}
         {error && <div className="auth-error" style={{ marginBottom: 12 }}>{error}</div>}
 
         <div className="chat-thread" ref={endRef}>

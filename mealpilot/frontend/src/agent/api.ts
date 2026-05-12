@@ -108,3 +108,26 @@ export async function editMessage(
     }),
   );
 }
+
+export interface AgentToolEventDTO {
+  tool_use_id: string;
+  name: string;
+  input: Record<string, unknown>;
+  output: unknown;
+  error: string | null;
+}
+
+export interface AgentRunResponseDTO {
+  reply: string;
+  tool_events: AgentToolEventDTO[];
+  changed: string[];
+  message_id: number;
+}
+
+export async function runAgentOnServer(convId: number): Promise<AgentRunResponseDTO> {
+  return ok(
+    await apiFetch(`/agent/conversations/${convId}/run`, {
+      method: 'POST',
+    }),
+  );
+}

@@ -25,8 +25,6 @@ def get_agent_settings(
 ):
     row = _get_or_create(db, user.id)
     return schemas.AgentSettingsOut(
-        endpoint=row.endpoint,
-        api_key=row.api_key,
         model=row.model,
         system_prompt=row.system_prompt,
     )
@@ -39,15 +37,11 @@ def update_agent_settings(
     db: Session = Depends(get_db),
 ):
     row = _get_or_create(db, user.id)
-    row.endpoint = payload.endpoint
-    row.api_key = payload.api_key
     row.model = payload.model
     row.system_prompt = payload.system_prompt
     db.commit()
     db.refresh(row)
     return schemas.AgentSettingsOut(
-        endpoint=row.endpoint,
-        api_key=row.api_key,
         model=row.model,
         system_prompt=row.system_prompt,
     )

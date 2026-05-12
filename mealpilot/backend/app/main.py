@@ -97,6 +97,7 @@ def _provision_admin() -> None:
             if not verify_password(password, user.password_hash):
                 user.password_hash = hash_password(password)
                 db.commit()
+
     finally:
         db.close()
 
