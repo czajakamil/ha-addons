@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..db import get_db
 from ..dependencies import get_current_user
+from ..ownership import get_household_id, visible_filter
 
 router = APIRouter(prefix="/api/shopping", tags=["shopping"])
 
@@ -51,7 +52,7 @@ def get_shopping_list(
     rows = (
         db.query(models.ShoppingItem)
         .filter(
-            models.ShoppingItem.user_id == user.id,
+            models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
         )
         .order_by(models.ShoppingItem.category, models.ShoppingItem.name)
@@ -72,14 +73,14 @@ def generate_shopping_list(
     plan_rows = (
         db.query(models.MealPlanEntry)
         .filter(
-            models.MealPlanEntry.user_id == user.id,
+            models.MealPlanEntry.owner_user_id == user.id,
             models.MealPlanEntry.week_start == week_start,
         )
         .all()
     )
     if not plan_rows:
         db.query(models.ShoppingItem).filter(
-            models.ShoppingItem.user_id == user.id,
+            models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
             models.ShoppingItem.is_custom == 0,
         ).delete(synchronize_session=False)
@@ -90,7 +91,7 @@ def generate_shopping_list(
     recipes: Dict[str, models.Recipe] = {
         r.id: r
         for r in db.query(models.Recipe)
-        .filter(models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id)
+        .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, get_household_id(db, user.id)))
         .all()
     }
 
@@ -116,7 +117,7 @@ def generate_shopping_list(
     existing = (
         db.query(models.ShoppingItem)
         .filter(
-            models.ShoppingItem.user_id == user.id,
+            models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
         )
         .all()
@@ -126,7 +127,7 @@ def generate_shopping_list(
     }
 
     db.query(models.ShoppingItem).filter(
-        models.ShoppingItem.user_id == user.id,
+        models.ShoppingItem.owner_user_id == user.id,
         models.ShoppingItem.week_start == week_start,
         models.ShoppingItem.is_custom == 0,
     ).delete(synchronize_session=False)
@@ -135,7 +136,8 @@ def generate_shopping_list(
         name = display_name[(name_key, unit)]
         db.add(
             models.ShoppingItem(
-                user_id=user.id,
+                created_by=user.id,
+                owner_user_id=user.id,
                 week_start=week_start,
                 name=name,
                 qty=round(qty, 3),
@@ -162,7 +164,7 @@ def patch_shopping_item(
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
-            models.ShoppingItem.user_id == user.id,
+            models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
         )
         .one_or_none()
@@ -190,7 +192,7 @@ def add_shopping_item(
     existing = (
         db.query(models.ShoppingItem)
         .filter(
-            models.ShoppingItem.user_id == user.id,
+            models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
             models.ShoppingItem.name == name,
             models.ShoppingItem.unit == unit,
@@ -205,7 +207,8 @@ def add_shopping_item(
         return existing
 
     item = models.ShoppingItem(
-        user_id=user.id,
+        created_by=user.id,
+        owner_user_id=user.id,
         week_start=week_start,
         name=name,
         qty=round(qty, 3),
@@ -234,7 +237,7 @@ def delete_shopping_item(
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
-            models.ShoppingItem.user_id == user.id,
+            models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
         )
         .delete(synchronize_session=False)
@@ -252,7 +255,7 @@ def clear_shopping_list(
     user: models.User = Depends(get_current_user),
 ):
     db.query(models.ShoppingItem).filter(
-        models.ShoppingItem.user_id == user.id,
+        models.ShoppingItem.owner_user_id == user.id,
         models.ShoppingItem.week_start == week_start,
     ).delete(synchronize_session=False)
     db.commit()

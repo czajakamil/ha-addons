@@ -7,10 +7,53 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..agent_runner import run_agent
+from ..ai_usage import check_quota, record_usage
 from ..db import get_db
 from ..dependencies import get_current_user
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
+
+
+def _usage_status(user: models.User) -> schemas.AiUsageStatus:
+    return schemas.AiUsageStatus(
+        can_use_ai=bool(user.can_use_ai),
+        ai_monthly_token_limit=user.ai_monthly_token_limit,
+        ai_monthly_cost_limit_cents=user.ai_monthly_cost_limit_cents,
+        ai_used_tokens_this_month=user.ai_used_tokens_this_month or 0,
+        ai_used_cost_cents_this_month=user.ai_used_cost_cents_this_month or 0,
+    )
+
+
+@router.get("/usage", response_model=schemas.AiUsageStatus)
+def get_ai_usage(
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..ai_usage import _ensure_period
+    _ensure_period(user)
+    db.commit()
+    return _usage_status(user)
+
+
+@router.post("/usage/check", status_code=204)
+def check_ai_quota(
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Frontend calls this before invoking the LLM; raises 403/429 if blocked."""
+    check_quota(db, user)
+    return None
+
+
+@router.post("/usage/report", response_model=schemas.AiUsageStatus)
+def report_ai_usage(
+    payload: schemas.AiUsageReport,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record_usage(db, user, tokens=payload.tokens, cost_cents=payload.cost_cents)
+    db.commit()
+    return _usage_status(user)
 
 
 def _get_conversation(db: Session, conv_id: int, user_id: int) -> models.AgentConversation:
@@ -158,6 +201,7 @@ async def run_conversation(
     db: Session = Depends(get_db),
 ):
     conv = _get_conversation(db, conv_id, user.id)
+    check_quota(db, user)
 
     # Get or create agent settings for this user
     settings = db.get(models.AgentSettings, user.id)
@@ -185,6 +229,15 @@ async def run_conversation(
     reply = result["reply"] or "(brak odpowiedzi)"
     tool_events = result["tool_events"]
     changed = result["changed"]
+
+    # Rough token estimate: char-count / 4 over prompt + reply + tool I/O.
+    # agent_runner doesn't surface real usage; this keeps quota accounting
+    # honest enough to prevent runaway spend.
+    char_count = sum(len(m.get("content") or "") for m in history) + len(reply)
+    for ev in tool_events:
+        char_count += len(str(ev.get("input") or "")) + len(str(ev.get("output") or ""))
+    approx_tokens = max(1, char_count // 4)
+    record_usage(db, user, tokens=approx_tokens)
 
     # Persist the assistant message
     now = datetime.now(timezone.utc)

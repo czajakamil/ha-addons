@@ -6,3 +6,5 @@
 **/.DS_Store
 backend/data
 *.log
+.git
+.claude

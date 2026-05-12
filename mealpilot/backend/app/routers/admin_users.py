@@ -12,6 +12,21 @@ from ..security import hash_password
 router = APIRouter(prefix="/api/admin/users", tags=["admin"])
 
 
+def _user_admin_out(db: Session, user: models.User) -> schemas.UserAdminOut:
+    m = db.get(models.HouseholdMember, user.id)
+    return schemas.UserAdminOut(
+        id=user.id, username=user.username, role=user.role,
+        is_active=bool(user.is_active), created_at=user.created_at,
+        can_use_ai=bool(user.can_use_ai),
+        ai_monthly_token_limit=user.ai_monthly_token_limit,
+        ai_monthly_cost_limit_cents=user.ai_monthly_cost_limit_cents,
+        ai_used_tokens_this_month=user.ai_used_tokens_this_month or 0,
+        ai_used_cost_cents_this_month=user.ai_used_cost_cents_this_month or 0,
+        household_id=m.household_id if m else None,
+        can_edit_in_household=bool(m.can_edit) if m else False,
+    )
+
+
 def _admin_count(db: Session) -> int:
     return (
         db.query(models.User)
@@ -20,15 +35,91 @@ def _admin_count(db: Session) -> int:
     )
 
 
-@router.get("", response_model=List[schemas.UserOut])
+@router.get("", response_model=List[schemas.UserAdminOut])
 def list_users(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
-    return db.query(models.User).order_by(models.User.id).all()
+    users = db.query(models.User).order_by(models.User.id).all()
+    return [_user_admin_out(db, u) for u in users]
 
 
-@router.post("", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
+@router.put("/{user_id}/ai-limits", response_model=schemas.UserAdminOut)
+def update_ai_limits(
+    user_id: int,
+    payload: schemas.UserAiLimitsPatch,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    if payload.can_use_ai is not None:
+        user.can_use_ai = payload.can_use_ai
+    if payload.clear_token_limit:
+        user.ai_monthly_token_limit = None
+    elif payload.ai_monthly_token_limit is not None:
+        user.ai_monthly_token_limit = payload.ai_monthly_token_limit
+    if payload.clear_cost_limit:
+        user.ai_monthly_cost_limit_cents = None
+    elif payload.ai_monthly_cost_limit_cents is not None:
+        user.ai_monthly_cost_limit_cents = payload.ai_monthly_cost_limit_cents
+    db.commit()
+    db.refresh(user)
+    return _user_admin_out(db, user)
+
+
+@router.post("/{user_id}/ai-usage/reset", status_code=status.HTTP_204_NO_CONTENT)
+def reset_ai_usage(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    from datetime import datetime, timezone
+    user.ai_used_tokens_this_month = 0
+    user.ai_used_cost_cents_this_month = 0
+    user.ai_usage_period_start = datetime.now(timezone.utc)
+    db.commit()
+    return None
+
+
+@router.put("/{user_id}/household", response_model=schemas.UserAdminOut)
+def assign_to_household(
+    user_id: int,
+    payload: schemas.HouseholdAssignRequest,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    existing = db.get(models.HouseholdMember, user_id)
+    if payload.household_id is None:
+        if existing:
+            db.delete(existing)
+            db.commit()
+    else:
+        hh = db.get(models.Household, payload.household_id)
+        if not hh:
+            raise HTTPException(404, "Household not found")
+        if existing:
+            existing.household_id = payload.household_id
+            existing.can_edit = payload.can_edit
+        else:
+            db.add(models.HouseholdMember(
+                user_id=user_id,
+                household_id=payload.household_id,
+                can_edit=payload.can_edit,
+            ))
+        db.commit()
+    db.refresh(user)
+    return _user_admin_out(db, user)
+
+
+@router.post("", response_model=schemas.UserAdminOut, status_code=status.HTTP_201_CREATED)
 def create_user(
     payload: schemas.CreateUserRequest,
     db: Session = Depends(get_db),
@@ -47,10 +138,10 @@ def create_user(
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists")
     db.refresh(user)
-    return user
+    return _user_admin_out(db, user)
 
 
-@router.patch("/{user_id}", response_model=schemas.UserOut)
+@router.patch("/{user_id}", response_model=schemas.UserAdminOut)
 def update_user(
     user_id: int,
     payload: schemas.UpdateUserRequest,
@@ -72,10 +163,16 @@ def update_user(
         user.username = payload.username.strip()
     if payload.password is not None:
         user.password_hash = hash_password(payload.password)
+        # Unieważnij istniejące sesje i API keys gdy admin rotuje hasło.
+        user.session_version = (user.session_version or 0) + 1
+        db.query(models.ApiKey).filter(models.ApiKey.user_id == user.id).delete()
     if payload.role is not None:
         user.role = payload.role
     if payload.is_active is not None:
         user.is_active = 1 if payload.is_active else 0
+        if not payload.is_active:
+            # Dezaktywacja: też wybij sesje.
+            user.session_version = (user.session_version or 0) + 1
 
     try:
         db.commit()
@@ -83,7 +180,7 @@ def update_user(
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists")
     db.refresh(user)
-    return user
+    return _user_admin_out(db, user)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -100,13 +197,20 @@ def delete_user(
     if user.role == "admin" and user.is_active and _admin_count(db) <= 1:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot delete the last admin")
 
-    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.user_id == user_id).delete(
+    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).delete(
         synchronize_session=False
     )
-    db.query(models.ShoppingItem).filter(models.ShoppingItem.user_id == user_id).delete(
+    db.query(models.ShoppingItem).filter(models.ShoppingItem.created_by == user_id).delete(
         synchronize_session=False
     )
-    db.query(models.Recipe).filter(models.Recipe.user_id == user_id).delete(
+    db.query(models.WeekTemplate).filter(models.WeekTemplate.created_by == user_id).delete(
+        synchronize_session=False
+    )
+    # Remove household membership; orphaned household-owned recipes are reassigned to creator
+    db.query(models.HouseholdMember).filter(models.HouseholdMember.user_id == user_id).delete(
+        synchronize_session=False
+    )
+    db.query(models.Recipe).filter(models.Recipe.created_by == user_id).delete(
         synchronize_session=False
     )
     db.delete(user)

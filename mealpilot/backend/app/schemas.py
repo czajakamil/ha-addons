@@ -6,6 +6,22 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 _USERNAME_RE = re.compile(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9_]+$")
 _USERNAME_ERR = "Login może zawierać tylko litery, cyfry i podkreślnik."
 
+_PASSWORD_MIN = 12
+_PASSWORD_ERR = (
+    f"Hasło musi mieć co najmniej {_PASSWORD_MIN} znaków i zawierać "
+    "co najmniej jedną literę i jedną cyfrę."
+)
+
+
+def _validate_password(v: str) -> str:
+    if len(v) < _PASSWORD_MIN:
+        raise ValueError(_PASSWORD_ERR)
+    has_alpha = any(c.isalpha() for c in v)
+    has_digit = any(c.isdigit() for c in v)
+    if not (has_alpha and has_digit):
+        raise ValueError(_PASSWORD_ERR)
+    return v
+
 
 Role = Literal["admin", "user"]
 
@@ -17,7 +33,8 @@ class LoginRequest(BaseModel):
 
 class SetupRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=8, max_length=256)
+    password: str = Field(min_length=_PASSWORD_MIN, max_length=256)
+    setup_token: Optional[str] = Field(default=None, max_length=256)
 
     @field_validator("username")
     @classmethod
@@ -26,15 +43,25 @@ class SetupRequest(BaseModel):
             raise ValueError(_USERNAME_ERR)
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password(v)
+
 
 class ChangePasswordRequest(BaseModel):
     old_password: str = Field(min_length=1, max_length=256)
-    new_password: str = Field(min_length=8, max_length=256)
+    new_password: str = Field(min_length=_PASSWORD_MIN, max_length=256)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password(v)
 
 
 class CreateUserRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=8, max_length=256)
+    password: str = Field(min_length=_PASSWORD_MIN, max_length=256)
     role: Role = "user"
 
     @field_validator("username")
@@ -44,10 +71,15 @@ class CreateUserRequest(BaseModel):
             raise ValueError(_USERNAME_ERR)
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password(v)
+
 
 class UpdateUserRequest(BaseModel):
     username: Optional[str] = Field(default=None, min_length=1, max_length=64)
-    password: Optional[str] = Field(default=None, min_length=8, max_length=256)
+    password: Optional[str] = Field(default=None, min_length=_PASSWORD_MIN, max_length=256)
     role: Optional[Role] = None
     is_active: Optional[bool] = None
 
@@ -58,6 +90,13 @@ class UpdateUserRequest(BaseModel):
             raise ValueError(_USERNAME_ERR)
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return _validate_password(v)
+
 
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -66,6 +105,60 @@ class UserOut(BaseModel):
     role: Role
     is_active: bool
     created_at: datetime
+
+
+class UserAdminOut(UserOut):
+    can_use_ai: bool = True
+    ai_monthly_token_limit: Optional[int] = None
+    ai_monthly_cost_limit_cents: Optional[int] = None
+    ai_used_tokens_this_month: int = 0
+    ai_used_cost_cents_this_month: int = 0
+    household_id: Optional[int] = None
+    can_edit_in_household: bool = False
+
+
+class UserAiLimitsPatch(BaseModel):
+    can_use_ai: Optional[bool] = None
+    ai_monthly_token_limit: Optional[int] = Field(default=None, ge=0)
+    ai_monthly_cost_limit_cents: Optional[int] = Field(default=None, ge=0)
+    # Use sentinels via separate boolean to allow clearing — keep simple: 0/None means "no limit"
+    clear_token_limit: bool = False
+    clear_cost_limit: bool = False
+
+
+class HouseholdOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    created_at: datetime
+    member_count: int = 0
+
+
+class HouseholdCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class HouseholdUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class HouseholdMemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: int
+    username: str
+    household_id: int
+    can_edit: bool
+    joined_at: datetime
+
+
+class HouseholdAssignRequest(BaseModel):
+    household_id: Optional[int] = None  # None = remove from household
+    can_edit: bool = False
+
+
+class OwnershipPatch(BaseModel):
+    """Re-pin resource between personal and household scope. Only creator may call."""
+    share_with_household: bool
 
 
 class SetupStatus(BaseModel):
@@ -118,6 +211,9 @@ class Recipe(RecipeBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
     image_filename: Optional[str] = None
+    created_by: int
+    owner_user_id: Optional[int] = None
+    owner_household_id: Optional[int] = None
 
 
 class PlanEntry(BaseModel):
@@ -174,11 +270,15 @@ class ApiKeyCreatedOut(ApiKeyOut):
 
 
 class AgentSettingsOut(BaseModel):
+    endpoint: str = ""
+    api_key: str = ""
     model: str = ""
     system_prompt: str = ""
 
 
 class AgentSettingsUpdate(BaseModel):
+    endpoint: str = Field(default="", max_length=2000)
+    api_key: str = Field(default="", max_length=4000)
     model: str = Field(default="", max_length=200)
     system_prompt: str = Field(default="", max_length=20000)
 
@@ -273,12 +373,28 @@ class AgentConversationPatch(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
 
 
+class AiUsageReport(BaseModel):
+    tokens: int = Field(default=0, ge=0)
+    cost_cents: int = Field(default=0, ge=0)
+
+
+class AiUsageStatus(BaseModel):
+    can_use_ai: bool
+    ai_monthly_token_limit: Optional[int] = None
+    ai_monthly_cost_limit_cents: Optional[int] = None
+    ai_used_tokens_this_month: int = 0
+    ai_used_cost_cents_this_month: int = 0
+
+
 class WeekTemplateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
     entries: List[PlanEntry]
     created_at: datetime
+    created_by: int
+    owner_user_id: Optional[int] = None
+    owner_household_id: Optional[int] = None
 
 
 class WeekTemplateCreate(BaseModel):

@@ -241,6 +241,7 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
             onGroupedChange={(v) => void updateUiPref('recipesGrouped', v)}
             favoriteIds={uiPrefs.favoriteRecipeIds ?? []}
             onToggleFavorite={(id) => void onToggleFavorite(id)}
+            currentUserId={user.id}
           />
         )}
         {route === 'shop' && <ShoppingScreen />}
@@ -256,6 +257,7 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
           onClose={() => setOpenId(null)}
           isFavorite={(uiPrefs.favoriteRecipeIds ?? []).includes(openId)}
           onToggleFavorite={(id) => void onToggleFavorite(id)}
+          currentUserId={user.id}
         />
       )}
       {showChangePwd && <ChangePasswordModal onClose={closeChangePwd} />}
