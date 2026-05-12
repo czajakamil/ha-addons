@@ -197,22 +197,23 @@ PLAN = [
 def seed_for_user(db: Session, user_id: int) -> None:
     """Seed demo recipes and a starter plan for a fresh user account."""
     has_recipes = (
-        db.query(models.Recipe).filter(models.Recipe.user_id == user_id).count() > 0
+        db.query(models.Recipe).filter(models.Recipe.created_by == user_id).count() > 0
     )
     if not has_recipes:
         for r in RECIPES:
-            db.add(models.Recipe(user_id=user_id, **r))
+            db.add(models.Recipe(created_by=user_id, owner_user_id=user_id, **r))
         db.commit()
 
     has_plan = (
         db.query(models.MealPlanEntry)
-        .filter(models.MealPlanEntry.user_id == user_id)
+        .filter(models.MealPlanEntry.created_by == user_id)
         .count() > 0
     )
     if not has_plan:
         for day, meal, recipe_id in PLAN:
             db.add(models.MealPlanEntry(
-                user_id=user_id,
+                created_by=user_id,
+                owner_user_id=user_id,
                 week_start=WEEK_START,
                 day=day, meal=meal, recipe_id=recipe_id, servings=1,
             ))
