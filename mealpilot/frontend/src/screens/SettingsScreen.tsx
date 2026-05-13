@@ -74,11 +74,11 @@ export function SettingsScreen() {
         </div>
 
         <label>
-          <div className="field-label" style={{ marginBottom: 6 }}>
-            System prompt{' '}
-            <span className="field-hint">
-              instrukcje dla agenta · <button type="button" className="linklike" onClick={onResetPrompt}>przywróć domyślny</button>
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div className="field-label">System prompt</div>
+            <button type="button" className="chip terra chip-btn" onClick={onResetPrompt}>
+              ↺ przywróć domyślny
+            </button>
           </div>
           <textarea
             className="edit-input"

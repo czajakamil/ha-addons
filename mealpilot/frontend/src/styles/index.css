@@ -356,6 +356,15 @@ input, textarea, select { font-family: inherit; }
 .chip.terra { background: var(--accent-soft); color: var(--accent-deep); }
 .chip.butter { background: oklch(0.95 0.05 90); color: oklch(0.42 0.07 75); }
 
+.chip-btn {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: filter .14s, transform .08s;
+}
+.chip-btn:hover { filter: brightness(0.94); }
+.chip-btn:active { transform: translateY(1px); }
+
 .chip-select {
   display: inline-flex;
   align-items: center;
