@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
-import { getSettings, isConfigured } from '../agent/settings';
+import { getSettings } from '../agent/settings';
 import {
   appendMessage,
   createConversation,
@@ -57,7 +57,6 @@ export function ChatScreen() {
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const settings = getSettings();
-  const configured = isConfigured(settings);
 
   useEffect(() => {
     void (async () => {
@@ -67,7 +66,7 @@ export function ChatScreen() {
         if (list.length > 0) {
           setActiveId(list[0].id);
         } else {
-          const fresh = await createConversation(settings.model);
+          const fresh = await createConversation();
           setConversations([fresh]);
           setActiveId(fresh.id);
         }
@@ -102,7 +101,7 @@ export function ChatScreen() {
   const newConvo = async () => {
     setError(null);
     try {
-      const fresh = await createConversation(settings.model);
+      const fresh = await createConversation();
       setConversations((prev) => [fresh, ...prev]);
       setActiveId(fresh.id);
       setInput('');
@@ -216,7 +215,7 @@ export function ChatScreen() {
       await apiDeleteConv(id);
       const next = conversations.filter((c) => c.id !== id);
       if (next.length === 0) {
-        const fresh = await createConversation(settings.model);
+        const fresh = await createConversation();
         setConversations([fresh]);
         setActiveId(fresh.id);
       } else {
@@ -310,7 +309,7 @@ export function ChatScreen() {
           </button>
           <div>
             <div className="eyebrow">
-              Asystent · {configured ? settings.model : 'nieskonfigurowany'}
+              Asystent{activeDetail?.model ? ` · ${activeDetail.model}` : ''}
             </div>
             <h1 className="serif" style={{ fontStyle: 'italic' }}>
               {activeDetail?.title || 'Asystent AI'}

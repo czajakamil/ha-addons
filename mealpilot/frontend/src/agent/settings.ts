@@ -1,7 +1,6 @@
 import { apiFetch } from '../data';
 
 export interface AgentSettings {
-  model: string;
   systemPrompt: string;
 }
 
@@ -24,12 +23,10 @@ Tworzenie przepisów (create_recipe):
 12. Zawsze pokaż pełen podgląd przepisu i czekaj na potwierdzenie przed wywołaniem create_recipe. Po utworzeniu zaproponuj korekty (zmiana makro, dodanie tagu) — używaj wtedy update_recipe.`;
 
 const DEFAULTS: AgentSettings = {
-  model: 'claude-haiku-4-5-20251001',
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
 };
 
 interface ServerShape {
-  model?: string;
   system_prompt?: string;
 }
 
@@ -38,7 +35,6 @@ let loaded = false;
 
 function fromServer(s: ServerShape): AgentSettings {
   return {
-    model: s.model || DEFAULTS.model,
     systemPrompt: s.system_prompt || DEFAULTS.systemPrompt,
   };
 }
@@ -57,7 +53,6 @@ export async function persistSettings(s: AgentSettings): Promise<void> {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: s.model,
       system_prompt: s.systemPrompt,
     }),
   });
@@ -77,8 +72,4 @@ export function isSettingsLoaded(): boolean {
 export function resetSettingsCache(): void {
   cache = { ...DEFAULTS };
   loaded = false;
-}
-
-export function isConfigured(s: AgentSettings): boolean {
-  return Boolean(s.model);
 }

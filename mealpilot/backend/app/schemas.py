@@ -270,16 +270,10 @@ class ApiKeyCreatedOut(ApiKeyOut):
 
 
 class AgentSettingsOut(BaseModel):
-    endpoint: str = ""
-    api_key: str = ""
-    model: str = ""
     system_prompt: str = ""
 
 
 class AgentSettingsUpdate(BaseModel):
-    endpoint: str = Field(default="", max_length=2000)
-    api_key: str = Field(default="", max_length=4000)
-    model: str = Field(default="", max_length=200)
     system_prompt: str = Field(default="", max_length=20000)
 
 
@@ -366,7 +360,6 @@ class AgentConversationDetail(AgentConversationOut):
 
 class AgentConversationCreate(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
-    model: str = Field(default="", max_length=200)
 
 
 class AgentConversationPatch(BaseModel):

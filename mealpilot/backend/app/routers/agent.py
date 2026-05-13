@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 from typing import List
 
@@ -133,7 +134,7 @@ def create_conversation(
     conv = models.AgentConversation(
         user_id=user.id,
         title=payload.title,
-        model=payload.model,
+        model=os.environ.get("MEALPILOT_AI_MODEL", ""),
     )
     db.add(conv)
     db.commit()

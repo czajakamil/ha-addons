@@ -52,12 +52,12 @@ export async function listConversations(): Promise<ConversationDTO[]> {
   return ok(await apiFetch('/agent/conversations'));
 }
 
-export async function createConversation(model: string): Promise<ConversationDTO> {
+export async function createConversation(): Promise<ConversationDTO> {
   return ok(
     await apiFetch('/agent/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model }),
+      body: JSON.stringify({}),
     }),
   );
 }

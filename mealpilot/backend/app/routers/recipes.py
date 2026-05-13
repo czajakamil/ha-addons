@@ -160,12 +160,11 @@ async def estimate_macros(
     check_quota(db, user)
     endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
     api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
-    settings = db.get(models.AgentSettings, user.id)
-    model = (settings.model if settings else "") or ""
+    model = os.environ.get("MEALPILOT_AI_MODEL", "").strip()
     if not endpoint or not api_key:
         raise HTTPException(424, "Brak konfiguracji MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.")
     if not model:
-        raise HTTPException(424, "Skonfiguruj model w Ustawieniach agenta.")
+        raise HTTPException(424, "Brak konfiguracji MEALPILOT_AI_MODEL w ustawieniach Home Assistant.")
 
     ing_lines = "\n".join(
         f"- {i.name}: {i.qty} {i.unit}"

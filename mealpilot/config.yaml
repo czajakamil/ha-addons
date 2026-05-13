@@ -30,6 +30,7 @@ options:
   admin_password: "changeme123"
   ai_api_url: "https://api.anthropic.com/v1/messages"
   ai_api_key: ""
+  ai_model: "claude-haiku-4-5-20251001"
   cors_origins: "*"
   require_cf_access: false
   cookie_secure: false
@@ -39,6 +40,7 @@ schema:
   admin_password: password
   ai_api_url: str
   ai_api_key: password
+  ai_model: str
   cors_origins: str
   require_cf_access: bool
   cookie_secure: bool

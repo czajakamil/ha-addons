@@ -1119,6 +1119,7 @@ async def run_agent(
     """
     endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
     api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
+    model = os.environ.get("MEALPILOT_AI_MODEL", "").strip()
 
     if not endpoint:
         return {
@@ -1132,8 +1133,13 @@ async def run_agent(
             "tool_events": [],
             "changed": [],
         }
+    if not model:
+        return {
+            "reply": "❗ Błąd: Brak konfiguracji MEALPILOT_AI_MODEL w ustawieniach Home Assistant.",
+            "tool_events": [],
+            "changed": [],
+        }
 
-    model = settings.model or ""
     system_prompt = settings.system_prompt or ""
 
     tool_events: List[Dict[str, Any]] = []
