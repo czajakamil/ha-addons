@@ -60,11 +60,18 @@ class AgentSettings(Base):
     __tablename__ = "agent_settings"
 
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    endpoint = Column(String, nullable=False, default="")
-    api_key = Column(String, nullable=False, default="")
     model = Column(String, nullable=False, default="")
     system_prompt = Column(String, nullable=False, default="")
     ui_prefs = Column(JSON, nullable=False, default=dict)
+    memory = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+class HouseholdSettings(Base):
+    __tablename__ = "household_settings"
+
+    household_id = Column(Integer, ForeignKey("households.id"), primary_key=True)
+    memory = Column(JSON, nullable=False, default=dict)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
 
@@ -109,6 +116,23 @@ class Recipe(Base):
     steps = Column(JSON, nullable=False, default=list)
     meal_types = Column(JSON, nullable=False, default=list)
     image_filename = Column(String, nullable=True)
+    rating = Column(Integer, nullable=True)
+
+
+class RecipeTag(Base):
+    __tablename__ = "recipe_tags"
+    __table_args__ = (Index("ix_recipe_tags_tag", "tag", "recipe_id"),)
+
+    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), primary_key=True)
+    tag = Column(String, primary_key=True)
+
+
+class RecipeMealType(Base):
+    __tablename__ = "recipe_meal_types"
+    __table_args__ = (Index("ix_recipe_meal_types_type", "meal_type", "recipe_id"),)
+
+    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), primary_key=True)
+    meal_type = Column(String, primary_key=True)
 
 
 class MealPlanEntry(Base):

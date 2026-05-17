@@ -89,3 +89,62 @@ def patch_ui_prefs(
     db.commit()
     db.refresh(row)
     return _prefs_from_row(row)
+
+
+def _memory_from_row(row: models.AgentSettings) -> schemas.UserMemoryOut:
+    raw = row.memory or {}
+    d = raw.get("dietary") or {}
+    g = raw.get("goals") or {}
+    h = raw.get("habits") or {}
+    return schemas.UserMemoryOut(
+        dietary=schemas.DietaryMemory(
+            restrictions=d.get("restrictions") or [],
+            dislikes=d.get("dislikes") or [],
+            likes=d.get("likes") or [],
+            allergies=d.get("allergies") or [],
+        ),
+        goals=schemas.GoalsMemory(
+            kcal=g.get("kcal"),
+            p=g.get("p"),
+            f=g.get("f"),
+            c=g.get("c"),
+            notes=g.get("notes"),
+        ),
+        habits=schemas.HabitsMemory(
+            breakfast_max_prep_min=h.get("breakfast_max_prep_min"),
+            batch_cook_day=h.get("batch_cook_day"),
+            shopping_day=h.get("shopping_day"),
+        ),
+        household_size=raw.get("household_size"),
+    )
+
+
+@router.get("/memory", response_model=schemas.UserMemoryOut)
+def get_memory(
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = _get_or_create(db, user.id)
+    return _memory_from_row(row)
+
+
+@router.patch("/memory", response_model=schemas.UserMemoryOut)
+def patch_memory(
+    payload: schemas.UserMemoryPatch,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = _get_or_create(db, user.id)
+    mem = dict(row.memory or {})
+    if payload.dietary is not None:
+        mem["dietary"] = payload.dietary.model_dump()
+    if payload.goals is not None:
+        mem["goals"] = payload.goals.model_dump(exclude_none=True)
+    if payload.habits is not None:
+        mem["habits"] = payload.habits.model_dump(exclude_none=True)
+    if payload.household_size is not None:
+        mem["household_size"] = payload.household_size
+    row.memory = mem
+    db.commit()
+    db.refresh(row)
+    return _memory_from_row(row)

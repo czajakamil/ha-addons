@@ -18,6 +18,7 @@ export interface AdminUser extends AuthUser {
   ai_used_cost_cents_this_month: number;
   household_id: number | null;
   can_edit_in_household: boolean;
+  is_provisioned_admin: boolean;
 }
 
 export interface Household {
@@ -107,8 +108,15 @@ async function asJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`;
     try {
-      const j = text ? (JSON.parse(text) as { detail?: string }) : null;
-      if (j?.detail) detail = j.detail;
+      const j = text ? (JSON.parse(text) as { detail?: unknown }) : null;
+      if (typeof j?.detail === 'string') {
+        detail = j.detail;
+      } else if (Array.isArray(j?.detail)) {
+        // FastAPI validation errors: [{loc, msg, type}, ...]
+        detail = (j.detail as { msg?: string }[])
+          .map((e) => e.msg ?? JSON.stringify(e))
+          .join('; ');
+      }
     } catch {
       /* ignore */
     }

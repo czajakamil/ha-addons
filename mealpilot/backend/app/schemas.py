@@ -115,6 +115,7 @@ class UserAdminOut(UserOut):
     ai_used_cost_cents_this_month: int = 0
     household_id: Optional[int] = None
     can_edit_in_household: bool = False
+    is_provisioned_admin: bool = False
 
 
 class UserAiLimitsPatch(BaseModel):
@@ -185,6 +186,7 @@ class RecipeBase(BaseModel):
     ingredients: List[Ingredient] = []
     steps: List[str] = []
     meal_types: List[str] = []
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
 
 
 class RecipeCreate(RecipeBase):
@@ -205,6 +207,7 @@ class RecipeUpdate(BaseModel):
     ingredients: Optional[List[Ingredient]] = None
     steps: Optional[List[str]] = None
     meal_types: Optional[List[str]] = None
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
 
 
 class Recipe(RecipeBase):
@@ -270,15 +273,11 @@ class ApiKeyCreatedOut(ApiKeyOut):
 
 
 class AgentSettingsOut(BaseModel):
-    endpoint: str = ""
-    api_key: str = ""
     model: str = ""
     system_prompt: str = ""
 
 
 class AgentSettingsUpdate(BaseModel):
-    endpoint: str = Field(default="", max_length=2000)
-    api_key: str = Field(default="", max_length=4000)
     model: str = Field(default="", max_length=200)
     system_prompt: str = Field(default="", max_length=20000)
 
@@ -428,3 +427,56 @@ class MacroEstimateOut(BaseModel):
     p: float
     f: float
     c: float
+
+
+# ---------------------------------------------------------------------------
+# Agent memory
+# ---------------------------------------------------------------------------
+
+class DietaryMemory(BaseModel):
+    restrictions: List[str] = []
+    dislikes: List[str] = []
+    likes: List[str] = []
+    allergies: List[str] = []
+
+
+class GoalsMemory(BaseModel):
+    kcal: Optional[int] = None
+    p: Optional[int] = None
+    f: Optional[int] = None
+    c: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class HabitsMemory(BaseModel):
+    breakfast_max_prep_min: Optional[int] = None
+    batch_cook_day: Optional[int] = None
+    shopping_day: Optional[int] = None
+
+
+class UserMemoryOut(BaseModel):
+    dietary: DietaryMemory = DietaryMemory()
+    goals: GoalsMemory = GoalsMemory()
+    habits: HabitsMemory = HabitsMemory()
+    household_size: Optional[int] = None
+
+
+class UserMemoryPatch(BaseModel):
+    dietary: Optional[DietaryMemory] = None
+    goals: Optional[GoalsMemory] = None
+    habits: Optional[HabitsMemory] = None
+    household_size: Optional[int] = Field(default=None, ge=1, le=20)
+
+
+class HouseholdMemoryOut(BaseModel):
+    shared_restrictions: List[str] = []
+    shared_dislikes: List[str] = []
+    planning_notes: Optional[str] = None
+    servings_default: Optional[int] = None
+
+
+class HouseholdMemoryPatch(BaseModel):
+    shared_restrictions: Optional[List[str]] = None
+    shared_dislikes: Optional[List[str]] = None
+    planning_notes: Optional[str] = Field(default=None, max_length=500)
+    servings_default: Optional[int] = Field(default=None, ge=1, le=20)

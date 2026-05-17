@@ -503,7 +503,9 @@ export function AdminUsersScreen({ currentUserId }: Props) {
                         <button className="btn" onClick={() => onSetCostLimit(u)}>Limit $</button>
                         <button className="btn" onClick={() => onResetUsage(u)}>Reset AI</button>
                         <button className="btn" onClick={() => startEdit(u)} disabled={editingId !== null}>Edytuj login</button>
-                        <button className="btn" onClick={() => onResetPassword(u)}>Zmień hasło</button>
+                        {!u.is_provisioned_admin && (
+                          <button className="btn" onClick={() => onResetPassword(u)}>Zmień hasło</button>
+                        )}
                         {u.id !== currentUserId && (
                           <button className="btn" onClick={() => onDelete(u)}>Usuń</button>
                         )}

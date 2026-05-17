@@ -20,13 +20,13 @@ export function AuthScreen({ mode, onAuthenticated }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (!username.trim()) {
-      setError('Podaj login.');
+    if (username.trim().length < 3) {
+      setError('Login musi mieć co najmniej 3 znaki.');
       return;
     }
     if (isSetup) {
-      if (password.length < 8) {
-        setError('Hasło musi mieć co najmniej 8 znaków.');
+      if (password.length < 12 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        setError('Hasło musi mieć co najmniej 12 znaków i zawierać co najmniej jedną literę i jedną cyfrę.');
         return;
       }
       if (password !== confirm) {

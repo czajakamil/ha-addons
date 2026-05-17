@@ -2,7 +2,7 @@ import { recipeImageUrl } from '../data';
 import type { Recipe } from '../types';
 
 interface Props {
-  recipe: Pick<Recipe, 'hue' | 'image_filename'> | undefined | null;
+  recipe: Pick<Recipe, 'id' | 'hue' | 'image_filename'> | undefined | null;
   h?: number;
 }
 

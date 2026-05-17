@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,12 @@ from ..dependencies import get_current_admin
 from ..security import hash_password
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin"])
+
+_PROVISIONED_ADMIN_USERNAME = os.environ.get("MEALPILOT_ADMIN_USERNAME", "").strip()
+
+
+def _is_provisioned_admin(user: models.User) -> bool:
+    return bool(_PROVISIONED_ADMIN_USERNAME and user.username == _PROVISIONED_ADMIN_USERNAME)
 
 
 def _user_admin_out(db: Session, user: models.User) -> schemas.UserAdminOut:
@@ -24,6 +31,7 @@ def _user_admin_out(db: Session, user: models.User) -> schemas.UserAdminOut:
         ai_used_cost_cents_this_month=user.ai_used_cost_cents_this_month or 0,
         household_id=m.household_id if m else None,
         can_edit_in_household=bool(m.can_edit) if m else False,
+        is_provisioned_admin=_is_provisioned_admin(user),
     )
 
 
@@ -162,8 +170,13 @@ def update_user(
     if payload.username is not None:
         user.username = payload.username.strip()
     if payload.password is not None:
+        if _is_provisioned_admin(user):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Admin password is managed via Home Assistant add-on options.",
+            )
         user.password_hash = hash_password(payload.password)
-        # Unieważnij istniejące sesje i API keys gdy admin rotuje hasło.
+        # Invalidate existing sessions and API keys when admin rotates the password.
         user.session_version = (user.session_version or 0) + 1
         db.query(models.ApiKey).filter(models.ApiKey.user_id == user.id).delete()
     if payload.role is not None:
@@ -171,7 +184,7 @@ def update_user(
     if payload.is_active is not None:
         user.is_active = 1 if payload.is_active else 0
         if not payload.is_active:
-            # Dezaktywacja: też wybij sesje.
+            # Deactivation: also invalidate sessions.
             user.session_version = (user.session_version or 0) + 1
 
     try:

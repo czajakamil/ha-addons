@@ -12,7 +12,7 @@ from sqlalchemy import update
 from .. import models, schemas
 from ..db import get_db
 from ..dependencies import _hash_api_key, get_current_user
-from ..ratelimit import login_limiter
+from ..ratelimit import login_limiter, setup_limiter
 from ..security import (
     dummy_verify,
     hash_password,
@@ -31,7 +31,7 @@ def _setup_required(db: Session) -> bool:
 
 
 def _client_ip(request: Request) -> str:
-    # Cloudflare ustawia CF-Connecting-IP. Fallback do request.client.
+    # Cloudflare sets CF-Connecting-IP. Fall back to request.client.
     cf = request.headers.get("cf-connecting-ip")
     if cf:
         return cf.strip()
@@ -54,11 +54,20 @@ def setup_required(db: Session = Depends(get_db)):
 
 @router.post("/setup", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def setup(payload: schemas.SetupRequest, request: Request, db: Session = Depends(get_db)):
+    rate_key = _client_ip(request)
+    allowed, retry_after = setup_limiter.check(rate_key)
+    if not allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many setup attempts. Try again later.",
+            headers={"Retry-After": str(int(retry_after))},
+        )
+
     if not _setup_required(db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Setup already completed")
 
-    # Jeśli operator ustawił MEALPILOT_SETUP_TOKEN, wymagaj go w body żeby
-    # zablokować race condition na świeżym deployu (atakujący kontra właściciel).
+    # If the operator set MEALPILOT_SETUP_TOKEN, require it in the body to
+    # prevent a race condition on a fresh deploy (attacker vs. owner).
     expected_token = os.environ.get("MEALPILOT_SETUP_TOKEN", "")
     if expected_token:
         provided = payload.setup_token or ""
@@ -79,8 +88,8 @@ def setup(payload: schemas.SetupRequest, request: Request, db: Session = Depends
         raise HTTPException(status.HTTP_409_CONFLICT, "User already exists")
     db.refresh(user)
 
-    # Przejmij dane z ery single-user (rzędy z user_id IS NULL) i zasiej demo
-    # jeśli baza jest pusta. Token setupu wyżej blokuje race condition.
+    # Claim rows from the single-user era (user_id IS NULL) and seed demo data
+    # if the DB is empty. The setup token above guards against the race condition.
     db.execute(
         update(models.Recipe)
         .where(models.Recipe.created_by.is_(None))
@@ -120,14 +129,14 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
         .filter(models.User.username == username)
         .one_or_none()
     )
-    # Zawsze wykonaj Argon2 (na realnym lub dummy hashu) żeby zrównać czas.
+    # Always run Argon2 (against real or dummy hash) to equalize response time.
     if not user or not user.is_active:
         dummy_verify(payload.password)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
 
-    # Rehash on login jeśli parametry Argon2 się zmieniły.
+    # Rehash on login if the Argon2 parameters have changed.
     if password_needs_rehash(user.password_hash):
         user.password_hash = hash_password(payload.password)
         db.commit()
@@ -148,6 +157,9 @@ def me(user: models.User = Depends(get_current_user)):
     return user
 
 
+_PROVISIONED_ADMIN_USERNAME = os.environ.get("MEALPILOT_ADMIN_USERNAME", "").strip()
+
+
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
     payload: schemas.ChangePasswordRequest,
@@ -155,16 +167,21 @@ def change_password(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if _PROVISIONED_ADMIN_USERNAME and user.username == _PROVISIONED_ADMIN_USERNAME:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Admin password is managed via Home Assistant add-on options.",
+        )
     if not verify_password(payload.old_password, user.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Old password is incorrect")
     user.password_hash = hash_password(payload.new_password)
-    # Bump session_version unieważnia wszystkie istniejące sesje.
+    # Bumping session_version invalidates all existing sessions.
     user.session_version = (user.session_version or 0) + 1
-    # Usuń też wszystkie API keys — po rotacji hasła zakładamy że stare tokeny
-    # mogły wyciec.
+    # Also revoke all API keys — after a password rotation we assume old tokens
+    # may have leaked.
     db.query(models.ApiKey).filter(models.ApiKey.user_id == user.id).delete()
     db.commit()
-    # Zachowaj bieżącą sesję dla wywołującego.
+    # Keep the current session alive for the caller.
     _bump_session(request, user)
     return None
 

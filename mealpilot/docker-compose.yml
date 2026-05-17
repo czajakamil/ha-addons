@@ -1,0 +1,12 @@
+services:
+  mealpilot:
+    build:
+      context: .
+      args:
+        BUILD_FROM: ${BUILD_FROM:-ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20}
+    ports:
+      - "8000:8000"
+    environment:
+      MEALPILOT_DB: /data/mealpilot.db
+    volumes:
+      - ./data:/data

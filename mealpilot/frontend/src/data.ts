@@ -111,6 +111,18 @@ export async function updateRecipe(id: string, payload: Omit<Recipe, 'id'>): Pro
   return r;
 }
 
+export async function rateRecipe(id: string, rating: number | null): Promise<Recipe> {
+  const r = await jsonOrThrow<Recipe>(
+    await apiFetch(`/recipes/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating }),
+    }),
+  );
+  state.recipes = state.recipes.map((x) => (x.id === id ? r : x));
+  return r;
+}
+
 export async function updateRecipeOwnership(
   id: string,
   shareWithHousehold: boolean,
@@ -126,9 +138,9 @@ export async function updateRecipeOwnership(
   return r;
 }
 
-export function recipeImageUrl(recipe: Pick<Recipe, 'image_filename'>): string | null {
+export function recipeImageUrl(recipe: Pick<Recipe, 'id' | 'image_filename'>): string | null {
   if (!recipe.image_filename) return null;
-  return `/images/${encodeURIComponent(recipe.image_filename)}`;
+  return `/api/recipes/${encodeURIComponent(recipe.id)}/image`;
 }
 
 export async function uploadRecipeImage(id: string, file: File): Promise<Recipe> {

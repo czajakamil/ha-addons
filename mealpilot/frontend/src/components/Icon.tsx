@@ -343,7 +343,7 @@ export function Icon({ name, size = 18, filled = false }: IconProps) {
           width={s}
           height={s}
           viewBox="0 0 24 24"
-          fill="none"
+          fill={filled ? 'currentColor' : 'none'}
           stroke={stroke}
           strokeWidth={sw}
           strokeLinecap="round"

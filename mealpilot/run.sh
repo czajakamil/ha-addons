@@ -21,5 +21,8 @@ else
     export MEALPILOT_COOKIE_SECURE="0"
 fi
 
-bashio::log.info "Starting MealPilot on :8000 (DB=${MEALPILOT_DB})"
+bashio::log.info "Running database migrations (DB=${MEALPILOT_DB})"
+python -m app.startup
+
+bashio::log.info "Starting MealPilot on :8000"
 exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000

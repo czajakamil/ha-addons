@@ -5,13 +5,15 @@ from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy.orm import Session
+from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.orm import Session, aliased
 
 from .. import models, schemas
 from ..db import get_db
 from ..dependencies import get_current_user
-from ..images import ALLOWED_CONTENT_TYPES, IMAGES_DIR, MAX_IMAGE_BYTES
+from ..images import ALLOWED_CONTENT_TYPES, IMAGES_DIR, MAX_IMAGE_BYTES, detect_image_ext
 from ..ai_usage import check_quota, record_usage
+from ..ratelimit import ai_limiter
 from ..ownership import (
     can_edit,
     can_view,
@@ -46,6 +48,17 @@ def _editable_recipe(db: Session, user: models.User, recipe_id: str) -> models.R
     return r
 
 
+def _sync_tag_rows(db: Session, recipe_id: str, tags: list, meal_types: list) -> None:
+    db.query(models.RecipeTag).filter(models.RecipeTag.recipe_id == recipe_id).delete(synchronize_session=False)
+    db.query(models.RecipeMealType).filter(models.RecipeMealType.recipe_id == recipe_id).delete(synchronize_session=False)
+    for t in tags:
+        if t and isinstance(t, str):
+            db.add(models.RecipeTag(recipe_id=recipe_id, tag=t))
+    for m in meal_types:
+        if m and isinstance(m, str):
+            db.add(models.RecipeMealType(recipe_id=recipe_id, meal_type=m))
+
+
 def _split_csv(value: Optional[str]) -> List[str]:
     if not value:
         return []
@@ -62,25 +75,29 @@ def list_recipes(
     user: models.User = Depends(get_current_user),
 ):
     hh = get_household_id(db, user.id)
-    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
+    q = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh))
 
     tag_filter = _split_csv(tags)
     mt_filter = _split_csv(meal_types)
 
-    def matches(r: models.Recipe) -> bool:
-        r_tags = list(r.tags or [])
-        r_mts = list(r.meal_types or [])
-        if tag_filter and not all(t in r_tags for t in tag_filter):
-            return False
-        if mt_filter and not any(m in r_mts for m in mt_filter):
-            return False
-        if max_kcal is not None and (r.kcal or 0) > max_kcal:
-            return False
-        if min_protein is not None and (r.p or 0) < min_protein:
-            return False
-        return True
+    # AND semantics: every requested tag must be present
+    for tag in tag_filter:
+        rt = aliased(models.RecipeTag)
+        q = q.join(rt, (rt.recipe_id == models.Recipe.id) & (rt.tag == tag))
 
-    return [r for r in rows if matches(r)]
+    # OR semantics: at least one requested meal_type must be present
+    if mt_filter:
+        rmt = aliased(models.RecipeMealType)
+        q = q.join(rmt, rmt.recipe_id == models.Recipe.id).filter(
+            rmt.meal_type.in_(mt_filter)
+        ).distinct()
+
+    if max_kcal is not None:
+        q = q.filter(models.Recipe.kcal <= max_kcal)
+    if min_protein is not None:
+        q = q.filter(models.Recipe.p >= min_protein)
+
+    return q.all()
 
 
 @router.get("/meta/tags")
@@ -89,13 +106,14 @@ def list_tags_meta(
     user: models.User = Depends(get_current_user),
 ):
     hh = get_household_id(db, user.id)
-    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
-    out: set[str] = set()
-    for r in rows:
-        for t in (r.tags or []):
-            if isinstance(t, str) and t:
-                out.add(t)
-    return {"tags": sorted(out)}
+    visible = db.query(models.Recipe.id).filter(visible_filter(models.Recipe, user, hh)).subquery()
+    rows = (
+        db.query(models.RecipeTag.tag)
+        .filter(models.RecipeTag.recipe_id.in_(visible))
+        .distinct()
+        .all()
+    )
+    return {"tags": sorted(r[0] for r in rows)}
 
 
 @router.get("/meta/meal_types")
@@ -104,13 +122,14 @@ def list_meal_types_meta(
     user: models.User = Depends(get_current_user),
 ):
     hh = get_household_id(db, user.id)
-    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
-    out: set[str] = set()
-    for r in rows:
-        for m in (r.meal_types or []):
-            if isinstance(m, str) and m:
-                out.add(m)
-    return {"meal_types": sorted(out)}
+    visible = db.query(models.Recipe.id).filter(visible_filter(models.Recipe, user, hh)).subquery()
+    rows = (
+        db.query(models.RecipeMealType.meal_type)
+        .filter(models.RecipeMealType.recipe_id.in_(visible))
+        .distinct()
+        .all()
+    )
+    return {"meal_types": sorted(r[0] for r in rows)}
 
 
 def _is_anthropic(endpoint: str) -> bool:
@@ -157,6 +176,14 @@ async def estimate_macros(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    allowed, retry_after = ai_limiter.check(str(user.id))
+    if not allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Zbyt wiele żądań AI. Poczekaj chwilę."},
+            headers={"Retry-After": str(int(retry_after))},
+        )
+
     check_quota(db, user)
     endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
     api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
@@ -228,6 +255,8 @@ def create_recipe(
     data["ingredients"] = [i if isinstance(i, dict) else i.model_dump() for i in data["ingredients"]]
     r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), **data)
     db.add(r)
+    db.flush()
+    _sync_tag_rows(db, r.id, r.tags or [], r.meal_types or [])
     db.commit()
     db.refresh(r)
     return r
@@ -248,6 +277,8 @@ def update_recipe(
         ]
     for k, v in updates.items():
         setattr(r, k, v)
+    if "tags" in updates or "meal_types" in updates:
+        _sync_tag_rows(db, r.id, r.tags or [], r.meal_types or [])
     db.commit()
     db.refresh(r)
     return r
@@ -268,6 +299,26 @@ def delete_recipe(
     return None
 
 
+_EXT_TO_MEDIA: dict[str, str] = {v: k for k, v in ALLOWED_CONTENT_TYPES.items()}
+
+
+@router.get("/{recipe_id}/image")
+def get_recipe_image(
+    recipe_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    r = _visible_recipe(db, user, recipe_id)
+    if not r.image_filename:
+        raise HTTPException(404, "No image")
+    path = IMAGES_DIR / r.image_filename
+    if not path.exists():
+        raise HTTPException(404, "Image file missing")
+    ext = path.suffix.lstrip(".")
+    media_type = _EXT_TO_MEDIA.get(ext, "application/octet-stream")
+    return FileResponse(path, media_type=media_type)
+
+
 @router.post("/{recipe_id}/image", response_model=schemas.Recipe)
 async def upload_recipe_image(
     recipe_id: str,
@@ -276,13 +327,15 @@ async def upload_recipe_image(
     user: models.User = Depends(get_current_user),
 ):
     r = _editable_recipe(db, user, recipe_id)
-    ext = ALLOWED_CONTENT_TYPES.get((file.content_type or "").lower())
-    if not ext:
-        raise HTTPException(415, "Unsupported image type. Use JPEG, PNG, or WebP.")
 
+    # Read before Content-Type check so we can validate magic bytes.
     data = await file.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(413, "Image exceeds 10 MB limit")
+
+    ext = detect_image_ext(data)
+    if not ext:
+        raise HTTPException(415, "Unsupported image type. Use JPEG, PNG, or WebP.")
 
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     for old_ext in set(ALLOWED_CONTENT_TYPES.values()):

@@ -131,3 +131,53 @@ export async function runAgentOnServer(convId: number): Promise<AgentRunResponse
     }),
   );
 }
+
+export type StreamEvent =
+  | { type: 'token'; text: string }
+  | { type: 'tool_call'; name: string; input: Record<string, unknown> }
+  | { type: 'tool_done'; name: string; ok: boolean }
+  | { type: 'done'; message_id: number; changed: string[]; tokens_used: number; reply: string }
+  | { type: 'error'; detail: string; status?: number };
+
+export async function* streamAgentRun(convId: number): AsyncGenerator<StreamEvent> {
+  const response = await apiFetch(`/agent/conversations/${convId}/stream`, { method: 'POST' });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`${response.status}: ${text}`);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop()!;
+
+      for (const part of parts) {
+        if (!part.trim()) continue;
+        let event = 'message';
+        let data = '';
+        for (const line of part.split('\n')) {
+          if (line.startsWith('event: ')) event = line.slice(7).trim();
+          else if (line.startsWith('data: ')) data = line.slice(6);
+        }
+        if (!data) continue;
+        try {
+          const payload = JSON.parse(data) as Record<string, unknown>;
+          yield { type: event, ...payload } as StreamEvent;
+        } catch {
+          // ignore malformed events
+        }
+      }
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}

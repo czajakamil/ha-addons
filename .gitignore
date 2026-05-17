@@ -205,3 +205,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Mealpilot
+data/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+frontend/node_modules/
+frontend/dist/
+.claude/

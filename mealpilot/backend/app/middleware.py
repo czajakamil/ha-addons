@@ -1,14 +1,14 @@
-"""Cloudflare Access middleware z weryfikacją podpisu JWT.
+"""HTTP security headers + Cloudflare Access middleware with JWT signature verification.
 
-Aby działało w produkcji ustaw:
+To enable in production set:
 - MEALPILOT_REQUIRE_CF_ACCESS=1
 - MEALPILOT_CF_ACCESS_TEAM_DOMAIN=<your-team>.cloudflareaccess.com
-- MEALPILOT_CF_ACCESS_AUD=<application audience tag z dashboardu Cloudflare>
+- MEALPILOT_CF_ACCESS_AUD=<application audience tag from the Cloudflare dashboard>
 
-MEALPILOT_CF_ACCESS_BYPASS (comma-separated path prefixes) pomija check —
-domyślnie /healthz i /docs.
+MEALPILOT_CF_ACCESS_BYPASS (comma-separated path prefixes) skips the check —
+defaults to /healthz only. /docs and the OpenAPI schema are hidden behind MEALPILOT_DEBUG=1.
 
-Bez tych zmiennych middleware przepuszcza wszystko (local dev).
+Without these variables the middleware passes all requests through (local dev).
 """
 from __future__ import annotations
 
@@ -23,11 +23,50 @@ from starlette.responses import JSONResponse
 log = logging.getLogger(__name__)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Appends HTTP security headers to every response.
+
+    HSTS is only enabled when MEALPILOT_COOKIE_SECURE=1 (production HTTPS).
+    In dev mode (no MEALPILOT_STATIC_DIR) script-src includes 'unsafe-inline'
+    because Vite HMR requires it. Removed in production — the Vite build uses
+    only external JS files (type=module).
+    """
+
+    _HSTS = "max-age=63072000; includeSubDomains"
+
+    def __init__(self, app, https_only: bool = False):
+        super().__init__(app)
+        self._https_only = https_only
+        # dev = Vite dev server; prod = pre-built static files served by FastAPI
+        self._is_dev = not os.environ.get("MEALPILOT_STATIC_DIR")
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        script_src = "'self' 'unsafe-inline'" if self._is_dev else "'self'"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            f"script-src {script_src}; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: blob:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'"
+        )
+        if self._https_only:
+            response.headers["Strict-Transport-Security"] = self._HSTS
+        return response
+
+
+
 class _JWKSCache:
     """Cache PyJWKClient per team_domain (lazy init, thread-safe).
 
-    Import jwt/cryptography jest leniwy — gdy CF Access wyłączony, nie ładujemy
-    natywnego `cryptography`, który na niektórych CPU/arch krzyczy SIGILL.
+    The jwt/cryptography import is deferred — when CF Access is disabled we avoid
+    loading the native `cryptography` extension, which raises SIGILL on some CPU/arch combos.
     """
 
     def __init__(self) -> None:
@@ -57,15 +96,15 @@ class CloudflareAccessMiddleware(BaseHTTPMiddleware):
         self.team_domain = os.environ.get("MEALPILOT_CF_ACCESS_TEAM_DOMAIN", "").strip()
         self.audience = os.environ.get("MEALPILOT_CF_ACCESS_AUD", "").strip()
         bypass = os.environ.get(
-            "MEALPILOT_CF_ACCESS_BYPASS", "/healthz,/docs,/openapi.json,/redoc"
+            "MEALPILOT_CF_ACCESS_BYPASS", "/healthz"
         )
         self.bypass_prefixes = tuple(p.strip() for p in bypass.split(",") if p.strip())
 
         if self.enabled and (not self.team_domain or not self.audience):
-            # Fail-fast: lepiej crashować przy starcie niż cicho nie weryfikować.
+            # Fail-fast: crash at startup rather than silently skip verification.
             raise RuntimeError(
-                "MEALPILOT_REQUIRE_CF_ACCESS=1 wymaga "
-                "MEALPILOT_CF_ACCESS_TEAM_DOMAIN oraz MEALPILOT_CF_ACCESS_AUD."
+                "MEALPILOT_REQUIRE_CF_ACCESS=1 requires "
+                "MEALPILOT_CF_ACCESS_TEAM_DOMAIN and MEALPILOT_CF_ACCESS_AUD."
             )
 
     def _is_bypassed(self, path: str) -> bool:
@@ -113,6 +152,6 @@ class CloudflareAccessMiddleware(BaseHTTPMiddleware):
                 status_code=401,
             )
 
-        # Udostępnij claims dla downstream handlerów (np. audit log).
+        # Expose claims for downstream handlers (e.g. audit log).
         request.state.cf_access = claims
         return await call_next(request)

@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DB_PATH = os.environ.get("MEALPILOT_DB", "/data/mealpilot.db")
@@ -10,6 +10,11 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     future=True,
 )
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(conn, _record):
+    conn.execute("PRAGMA foreign_keys=ON")
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 

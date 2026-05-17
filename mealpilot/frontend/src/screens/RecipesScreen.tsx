@@ -12,6 +12,7 @@ import {
   estimateMacros,
   getRecipes,
   loadRecipes,
+  rateRecipe,
   recipeBy,
   recipeImageUrl,
   updateRecipe,
@@ -33,6 +34,45 @@ const INGREDIENT_UNITS = [
   'ząbek',
   'kromka',
 ] as const;
+
+interface StarRatingProps {
+  value: number | null | undefined;
+  onChange?: (v: number | null) => void;
+  readonly?: boolean;
+  size?: number;
+}
+
+function StarRating({ value, onChange, readonly = false, size = 14 }: StarRatingProps) {
+  return (
+    <span
+      style={{ display: 'inline-flex', gap: 1 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          className="btn icon"
+          style={{
+            padding: 0,
+            width: size + 4,
+            height: size + 4,
+            color: (value ?? 0) >= star ? 'oklch(0.72 0.18 80)' : 'var(--ink-3)',
+            cursor: readonly ? 'default' : 'pointer',
+            opacity: readonly ? 0.85 : 1,
+          }}
+          disabled={readonly}
+          title={readonly ? `Ocena: ${value ?? 'brak'}` : star === value ? 'Usuń ocenę' : `Oceń ${star}/5`}
+          onClick={readonly ? undefined : (e) => {
+            e.stopPropagation();
+            onChange?.(star === value ? null : star);
+          }}
+        >
+          <Icon name="star" size={size} filled={(value ?? 0) >= star} />
+        </button>
+      ))}
+    </span>
+  );
+}
 
 interface TagInputProps {
   value: string[];
@@ -806,6 +846,11 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, curre
             c={Math.round(r.c / r.servings)}
             variant="bar"
           />
+          {r.rating != null && (
+            <div style={{ marginTop: 6 }}>
+              <StarRating value={r.rating} readonly size={12} />
+            </div>
+          )}
         </div>
       </div>
     </button>
@@ -1370,6 +1415,22 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               {r.title}
             </h1>
           )}
+          <div style={{ marginTop: 6, marginBottom: 4 }}>
+            <StarRating
+              value={baseR.rating}
+              onChange={async (v) => {
+                try {
+                  const updated = await rateRecipe(baseR.id, v);
+                  Object.assign(baseR, updated);
+                  setDraft((d) => (d ? { ...d, rating: updated.rating } : d));
+                  emitRecipesChanged();
+                } catch (e) {
+                  alert(`Nie udało się zapisać oceny: ${(e as Error).message}`);
+                }
+              }}
+              size={18}
+            />
+          </div>
           <div
             style={{
               display: 'flex',

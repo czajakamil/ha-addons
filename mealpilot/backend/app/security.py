@@ -3,8 +3,8 @@ from argon2.exceptions import VerifyMismatchError, InvalidHashError, Verificatio
 
 _hasher = PasswordHasher()
 
-# Stały hash używany do równoważenia czasu odpowiedzi gdy user nie istnieje.
-# Wartość nieistotna — liczy się tylko czas weryfikacji.
+# Constant hash used for timing equalization when the user does not exist.
+# The value is irrelevant — only the verification time matters.
 _DUMMY_HASH = _hasher.hash("dummy-password-for-timing-equalization")
 
 
@@ -27,7 +27,7 @@ def password_needs_rehash(password_hash: str) -> bool:
 
 
 def dummy_verify(password: str) -> None:
-    """Wywołanie z dummy hashem żeby zrównać czas odpowiedzi gdy user nie istnieje."""
+    """Runs Argon2 against a dummy hash to equalize response time when user does not exist."""
     try:
         _hasher.verify(_DUMMY_HASH, password)
     except (VerifyMismatchError, InvalidHashError, VerificationError):

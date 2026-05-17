@@ -9,8 +9,7 @@ import {
   getConversation,
   listConversations,
   patchConversation,
-  runAgentOnServer,
-  type AgentToolEventDTO,
+  streamAgentRun,
   type ConversationDTO,
   type ConversationDetailDTO,
   type MessageDTO,
@@ -36,6 +35,8 @@ const SUGGESTIONS = [
 const GREETING =
   'Cześć! Jestem agentem MealPilot. Mam dostęp do Twoich przepisów, planu tygodnia i listy zakupów. Co planujemy?';
 
+const STREAMING_ID = -1;
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -53,6 +54,7 @@ export function ChatScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [streamingTool, setStreamingTool] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -127,40 +129,64 @@ export function ChatScreen() {
   };
 
   const runAndPersistAssistant = async (convId: number): Promise<void> => {
+    // Add placeholder message immediately so typing dots appear
+    setActiveDetail((prev) =>
+      prev && prev.id === convId
+        ? {
+            ...prev,
+            messages: [
+              ...prev.messages,
+              { id: STREAMING_ID, role: 'assistant', content: '', created_at: new Date().toISOString(), tool_uses: [] },
+            ],
+          }
+        : prev,
+    );
+    setStreamingTool(null);
+
     try {
-      const result = await runAgentOnServer(convId);
-      const { reply, tool_events, changed, message_id } = result;
-
-      // Build a MessageDTO from the server response to add to local state
-      const assistantMsg: MessageDTO = {
-        id: message_id,
-        role: 'assistant',
-        content: reply || '(brak odpowiedzi)',
-        created_at: new Date().toISOString(),
-        tool_uses: tool_events.map((ev: AgentToolEventDTO, idx: number) => ({
-          id: idx,
-          tool_use_id: ev.tool_use_id,
-          tool_name: ev.name,
-          input: ev.input,
-          output: ev.output,
-          is_error: Boolean(ev.error),
-          started_at: new Date().toISOString(),
-          finished_at: new Date().toISOString(),
-        })),
-      };
-
+      for await (const event of streamAgentRun(convId)) {
+        if (event.type === 'token') {
+          setActiveDetail((prev) => {
+            if (!prev || prev.id !== convId) return prev;
+            return {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.id === STREAMING_ID ? { ...m, content: m.content + event.text } : m,
+              ),
+            };
+          });
+        } else if (event.type === 'tool_call') {
+          setStreamingTool(event.name);
+        } else if (event.type === 'tool_done') {
+          setStreamingTool(null);
+        } else if (event.type === 'done') {
+          const finalMsg: MessageDTO = {
+            id: event.message_id,
+            role: 'assistant',
+            content: event.reply || '(brak odpowiedzi)',
+            created_at: new Date().toISOString(),
+            tool_uses: [],
+          };
+          setActiveDetail((prev) =>
+            prev && prev.id === convId
+              ? { ...prev, messages: [...prev.messages.filter((m) => m.id !== STREAMING_ID), finalMsg] }
+              : prev,
+          );
+          await refreshChanged(event.changed);
+        } else if (event.type === 'error') {
+          throw new Error(event.detail);
+        }
+      }
+    } catch (e) {
+      // Remove streaming placeholder
       setActiveDetail((prev) =>
         prev && prev.id === convId
-          ? { ...prev, messages: [...prev.messages, assistantMsg] }
+          ? { ...prev, messages: prev.messages.filter((m) => m.id !== STREAMING_ID) }
           : prev,
       );
-
-      // Refresh data for changed domains
-      await refreshChanged(changed);
-    } catch (e) {
+      setStreamingTool(null);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
-      // Persist error message to DB so it's visible in history
       try {
         const persisted = await appendMessage(convId, 'assistant', `❗ Błąd: ${msg}`);
         setActiveDetail((prev) =>
@@ -169,7 +195,7 @@ export function ChatScreen() {
             : prev,
         );
       } catch {
-        // swallow secondary error; the main error is already shown
+        // swallow secondary error
       }
     }
   };
@@ -345,6 +371,7 @@ export function ChatScreen() {
           )}
           {renderedMessages.map((m) => {
             const isUser = m.role === 'user';
+            const isStreaming = m.id === STREAMING_ID;
             const isEditing = editingId === m.id;
             return (
               <div key={m.id} className={`bubble bubble-${isUser ? 'user' : 'agent'}`}>
@@ -354,7 +381,24 @@ export function ChatScreen() {
                   </div>
                 )}
                 <div className="bubble-body">
-                  {isEditing ? (
+                  {isStreaming ? (
+                    <>
+                      {m.content ? (
+                        <div className="bubble-text" style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                      ) : (
+                        <div className="bubble-text" style={{ display: 'flex', gap: 4 }}>
+                          <span className="typing-dot" />
+                          <span className="typing-dot" />
+                          <span className="typing-dot" />
+                        </div>
+                      )}
+                      {streamingTool && (
+                        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-2)', marginTop: 4 }}>
+                          ⚙ {streamingTool}...
+                        </div>
+                      )}
+                    </>
+                  ) : isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <textarea
                         value={editingText}
@@ -428,20 +472,6 @@ export function ChatScreen() {
               </div>
             );
           })}
-          {busy && (
-            <div className="bubble bubble-agent">
-              <div className="bubble-avatar">
-                <span className="serif" style={{ fontStyle: 'italic' }}>m</span>
-              </div>
-              <div className="bubble-body">
-                <div className="bubble-text" style={{ display: 'flex', gap: 4 }}>
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="chat-suggestions">

@@ -69,6 +69,7 @@ export function ApiKeysScreen() {
   }
 
   function fmtDate(s: string | null): string {
+
     if (!s) return '—';
     try {
       return new Date(s).toLocaleString('pl-PL');
@@ -216,6 +217,8 @@ export function ApiKeysScreen() {
         </ul>
       </section>
 
+      <ApiDocsSection />
+
       <section>
         <div className="eyebrow" style={{ marginBottom: 12 }}>Aktywne klucze</div>
         {loading ? (
@@ -262,5 +265,206 @@ export function ApiKeysScreen() {
         )}
       </section>
     </div>
+  );
+}
+
+const API_GROUPS: {
+  label: string;
+  color: string;
+  endpoints: { method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; path: string; desc: string }[];
+}[] = [
+  {
+    label: 'Przepisy',
+    color: '#b45309',
+    endpoints: [
+      { method: 'GET',    path: '/api/recipes',                      desc: 'Lista przepisów (filtrowanie po tagach, typie posiłku, frazie)' },
+      { method: 'POST',   path: '/api/recipes',                      desc: 'Utwórz nowy przepis' },
+      { method: 'GET',    path: '/api/recipes/{id}',                 desc: 'Pobierz jeden przepis' },
+      { method: 'PUT',    path: '/api/recipes/{id}',                 desc: 'Zaktualizuj przepis' },
+      { method: 'DELETE', path: '/api/recipes/{id}',                 desc: 'Usuń przepis' },
+      { method: 'POST',   path: '/api/recipes/estimate-macros',      desc: 'Oszacuj makroskładniki na podstawie składników' },
+      { method: 'GET',    path: '/api/recipes/meta/tags',            desc: 'Dostępne tagi' },
+      { method: 'GET',    path: '/api/recipes/meta/meal_types',      desc: 'Typy posiłków' },
+    ],
+  },
+  {
+    label: 'Plan tygodniowy',
+    color: '#15803d',
+    endpoints: [
+      { method: 'GET', path: '/api/plan/{week_start}', desc: 'Pobierz plan na tydzień (format daty: YYYY-MM-DD)' },
+      { method: 'PUT', path: '/api/plan/{week_start}', desc: 'Zapisz / nadpisz plan tygodniowy' },
+    ],
+  },
+  {
+    label: 'Lista zakupów',
+    color: '#0369a1',
+    endpoints: [
+      { method: 'GET',    path: '/api/shopping/{week_start}',              desc: 'Pobierz listę zakupów na tydzień' },
+      { method: 'POST',   path: '/api/shopping/{week_start}/items',        desc: 'Dodaj pozycję do listy' },
+      { method: 'PATCH',  path: '/api/shopping/{week_start}/items/{id}',   desc: 'Zaznacz pozycję jako kupioną / edytuj' },
+      { method: 'DELETE', path: '/api/shopping/{week_start}',              desc: 'Wyczyść całą listę zakupów' },
+    ],
+  },
+  {
+    label: 'Agent AI',
+    color: '#7c3aed',
+    endpoints: [
+      { method: 'POST', path: '/api/agent/conversations',          desc: 'Rozpocznij nową konwersację z agentem' },
+      { method: 'GET',  path: '/api/agent/conversations',          desc: 'Lista konwersacji' },
+      { method: 'POST', path: '/api/agent/conversations/{id}/run', desc: 'Wyślij wiadomość i uzyskaj odpowiedź' },
+      { method: 'GET',  path: '/api/agent/usage',                  desc: 'Stan limitu AI (tokeny, resetowanie)' },
+    ],
+  },
+  {
+    label: 'Szablony planów',
+    color: '#a16207',
+    endpoints: [
+      { method: 'GET',  path: '/api/templates',                        desc: 'Lista szablonów tygodniowych' },
+      { method: 'POST', path: '/api/templates',                        desc: 'Utwórz szablon z bieżącego planu' },
+      { method: 'POST', path: '/api/templates/{id}/apply/{week_start}', desc: 'Zastosuj szablon do tygodnia' },
+    ],
+  },
+];
+
+const METHOD_BG: Record<string, string> = {
+  GET:    'var(--accent-soft, #f0ebe3)',
+  POST:   '#dcfce7',
+  PUT:    '#dbeafe',
+  PATCH:  '#ede9fe',
+  DELETE: '#fee2e2',
+};
+const METHOD_COLOR: Record<string, string> = {
+  GET:    'var(--accent-deep, #7c4f2b)',
+  POST:   '#15803d',
+  PUT:    '#1d4ed8',
+  PATCH:  '#7c3aed',
+  DELETE: '#b91c1c',
+};
+
+function ApiDocsSection() {
+  const [open, setOpen] = useState(false);
+
+  const exampleCurl = `curl -X GET "http://localhost:8000/api/recipes" \\
+  -H "X-MealPilot-Token: mp_twój_klucz"`;
+
+  return (
+    <section className="card" style={{ padding: 20 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          all: 'unset',
+          cursor: 'pointer',
+          display: 'flex',
+          width: '100%',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <div className="eyebrow">Co możesz zrobić przez REST API</div>
+        <span style={{ fontSize: 12, color: 'var(--ink-3)', userSelect: 'none' }}>
+          {open ? '▲ zwiń' : '▼ rozwiń'}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)', margin: 0 }}>
+            Każde żądanie musi zawierać nagłówek <code>X-MealPilot-Token</code> z wartością
+            wygenerowanego klucza. Poniżej znajdziesz przegląd dostępnych grup endpointów.
+          </p>
+
+          <pre
+            style={{
+              background: 'var(--bg-3, #fff)',
+              border: '1px solid var(--border, #e0d8cc)',
+              borderRadius: 8,
+              padding: '12px 16px',
+              fontSize: 12,
+              lineHeight: 1.6,
+              overflowX: 'auto',
+              margin: 0,
+            }}
+          >{exampleCurl}</pre>
+
+          {API_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: group.color,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{group.label}</span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                {group.endpoints.map((ep) => (
+                  <div
+                    key={ep.method + ep.path}
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      alignItems: 'baseline',
+                      flexWrap: 'wrap',
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: METHOD_BG[ep.method],
+                        color: METHOD_COLOR[ep.method],
+                        borderRadius: 4,
+                        padding: '1px 6px',
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        minWidth: 52,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {ep.method}
+                    </span>
+                    <code
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--ink-2)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {ep.path}
+                    </code>
+                    <span style={{ color: 'var(--ink-3)', fontSize: 12 }}>— {ep.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <p style={{ fontSize: 12, color: 'var(--ink-faint)', margin: 0 }}>
+            Pełna dokumentacja OpenAPI dostępna pod{' '}
+            <code>/docs</code> lub <code>/redoc</code> na adresie backendu.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
