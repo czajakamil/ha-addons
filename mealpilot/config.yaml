@@ -1,7 +1,7 @@
 name: "MealPilot"
 slug: "mealpilot"
 description: "Planowanie posiłków, lista zakupów i batch-cooking (FastAPI + React)."
-version: "0.2.0"
+version: "0.2.1"
 url: "https://github.com/czajakamil/ha-addons/tree/main/mealpilot"
 init: false
 
@@ -26,11 +26,11 @@ map:
   - data:rw
 
 options:
-  admin_username: "admin"
-  admin_password: "changeme123"
-  ai_api_url: "https://api.anthropic.com/v1/messages"
+  admin_username: ""
+  admin_password: ""
+  ai_api_url: ""
   ai_api_key: ""
-  cors_origins: "*"
+  cors_origins: ""
   require_cf_access: false
   cookie_secure: false
 
