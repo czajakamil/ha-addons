@@ -1,3 +1,6 @@
+## 0.2.2
+- UI: usunięto hardcodowane badge'y (15/8) z pozycji "Plan tygodnia" i "Przepisy" w sidebarze
+
 ## 0.2.0
 - Agent AI przeniesiony na backend (FastAPI + agent_runner); frontend nie woła już LLM bezpośrednio
 - Limity AI: per-user kwoty tokenów i kosztów z resetem miesięcznym

@@ -161,7 +161,6 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
             id="plan"
             icon="calendar"
             label="Plan tygodnia"
-            badge="15"
             active={route === 'plan'}
             onSelect={setRoute}
           />
@@ -169,7 +168,6 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
             id="recipes"
             icon="book"
             label="Przepisy"
-            badge="8"
             active={route === 'recipes'}
             onSelect={setRoute}
           />
