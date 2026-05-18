@@ -201,7 +201,8 @@ def seed_for_user(db: Session, user_id: int) -> None:
     )
     if not has_recipes:
         for r in RECIPES:
-            db.add(models.Recipe(created_by=user_id, owner_user_id=user_id, **r))
+            data = {**r, "id": f"u{user_id}_{r['id']}"}
+            db.add(models.Recipe(created_by=user_id, owner_user_id=user_id, **data))
         db.commit()
 
     has_plan = (
@@ -215,6 +216,6 @@ def seed_for_user(db: Session, user_id: int) -> None:
                 created_by=user_id,
                 owner_user_id=user_id,
                 week_start=WEEK_START,
-                day=day, meal=meal, recipe_id=recipe_id, servings=1,
+                day=day, meal=meal, recipe_id=f"u{user_id}_{recipe_id}", servings=1,
             ))
         db.commit()

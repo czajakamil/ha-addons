@@ -1,3 +1,9 @@
+## 0.2.3
+- Ustawienia: podział na sekcje (Asystent AI / Użytkownicy / Klucze API) z nawigacją bocznymi zakładkami na desktopie i stosem na mobile
+- Admin użytkowników: przeprojektowany ekran zarządzania (lepsza prezentacja, edycja kwot, mobilny układ)
+- Responsywność: nowy hook `useIsMobile` i dostosowane układy ekranów Plan / Przepisy / Zakupy
+- Style: rozbudowane CSS dla ekranu ustawień, lepsze odstępy i karty
+
 ## 0.2.2
 - UI: usunięto hardcodowane badge'y (15/8) z pozycji "Plan tygodnia" i "Przepisy" w sidebarze
 

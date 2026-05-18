@@ -251,18 +251,27 @@ export function ShoppingScreen() {
             {loading && ' · ładowanie…'}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="shop-actions">
           <button className="btn" onClick={() => setAdding(true)}>
-            <Icon name="plus" size={14} /> Dodaj rzecz
+            <Icon name="plus" size={14} /> <span className="btn-label">Dodaj rzecz</span>
+            <span className="btn-label-short">Dodaj</span>
           </button>
           <button className="btn" onClick={refreshFromPlan} disabled={regenerating}>
-            <Icon name="spark" size={14} /> {regenerating ? 'Odświeżam…' : 'Zaczytaj z planu przepisów'}
+            <Icon name="spark" size={14} />{' '}
+            {regenerating ? (
+              <span>Odświeżam…</span>
+            ) : (
+              <>
+                <span className="btn-label">Zaczytaj z planu przepisów</span>
+                <span className="btn-label-short">Z planu</span>
+              </>
+            )}
           </button>
           <button className="btn" onClick={() => void clearAll()} disabled={items.length === 0}>
             <Icon name="x" size={14} /> Wyczyść
           </button>
-          <div ref={exportRef} style={{ position: 'relative' }}>
-            <button className="btn" onClick={() => setExportOpen((v) => !v)}>
+          <div ref={exportRef} className="shop-actions-export" style={{ position: 'relative' }}>
+            <button className="btn" style={{ width: '100%' }} onClick={() => setExportOpen((v) => !v)}>
               Eksport <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.6 }}>▾</span>
             </button>
             {exportOpen && (

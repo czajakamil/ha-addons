@@ -5,8 +5,6 @@ import { Icon, type IconName } from './components/Icon';
 import { loadAll, resetClientState, emitTargetsChanged } from './data';
 import { fetchSettings, resetSettingsCache } from './agent/settings';
 import { fetchUiPrefs, getUiPrefs, patchUiPrefs, resetUiPrefsCache, type UiPrefs } from './prefs';
-import { AdminUsersScreen } from './screens/AdminUsersScreen';
-import { ApiKeysScreen } from './screens/ApiKeysScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { ChangePasswordModal } from './screens/ChangePasswordModal';
@@ -23,7 +21,7 @@ const TWEAK_DEFAULTS: Tweaks = /*EDITMODE-BEGIN*/ {
   meals: ['Śniadanie', 'Obiad', 'Kolacja'],
 } /*EDITMODE-END*/;
 
-type Route = 'plan' | 'recipes' | 'shop' | 'chat' | 'users' | 'apikeys' | 'settings';
+type Route = 'plan' | 'recipes' | 'shop' | 'chat' | 'settings';
 type AuthState =
   | { status: 'loading' }
   | { status: 'setup' }
@@ -145,9 +143,17 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
             Meal<em>Pilot</em>
           </div>
         </div>
-        <button className="linklike mobile-logout" onClick={onLogout} aria-label="Wyloguj">
-          {user.username} · Wyloguj
-        </button>
+        <div className="mobile-user">
+          <span className="mobile-uname" title={user.username}>{user.username}</span>
+          <button className="btn ghost mobile-logout" onClick={onLogout} aria-label="Wyloguj">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 17l5-5-5-5" />
+              <path d="M20 12H9" />
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            </svg>
+            <span>Wyloguj</span>
+          </button>
+        </div>
       </header>
       <aside className="sidebar">
         <div className="brand">
@@ -192,24 +198,6 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
             active={route === 'settings'}
             onSelect={setRoute}
           />
-          {isAdmin && (
-            <NavItem
-              id="users"
-              icon="users"
-              label="Użytkownicy"
-              active={route === 'users'}
-              onSelect={setRoute}
-            />
-          )}
-          {isAdmin && (
-            <NavItem
-              id="apikeys"
-              icon="key"
-              label="Klucze API"
-              active={route === 'apikeys'}
-              onSelect={setRoute}
-            />
-          )}
         </nav>
 
         <div className="user-menu">
@@ -244,9 +232,7 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
         )}
         {route === 'shop' && <ShoppingScreen />}
         {route === 'chat' && <ChatScreen />}
-        {route === 'users' && isAdmin && <AdminUsersScreen currentUserId={user.id} />}
-        {route === 'apikeys' && isAdmin && <ApiKeysScreen />}
-        {route === 'settings' && <SettingsScreen />}
+        {route === 'settings' && <SettingsScreen isAdmin={isAdmin} currentUserId={user.id} />}
       </main>
 
       {openId && (

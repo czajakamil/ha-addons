@@ -13,9 +13,147 @@ import {
   updateAiLimits,
   updateUser,
 } from '../auth';
+import { useIsMobile } from '../hooks';
 
 interface Props {
   currentUserId: number;
+}
+
+interface UserActionsProps {
+  u: AdminUser;
+  households: Household[];
+  currentUserId: number;
+  editingId: number | null;
+  editUsername: string;
+  saving: boolean;
+  onChangeRole: (u: AdminUser, role: Role) => void;
+  onChangeActive: (u: AdminUser, active: boolean) => void;
+  onAssignHousehold: (u: AdminUser, id: number | null) => void;
+  onToggleCanEdit: (u: AdminUser) => void;
+  onToggleCanUseAi: (u: AdminUser) => void;
+  onSetTokenLimit: (u: AdminUser) => void;
+  onSetCostLimit: (u: AdminUser) => void;
+  onResetUsage: (u: AdminUser) => void;
+  startEdit: (u: AdminUser) => void;
+  cancelEdit: () => void;
+  onSaveUsername: (u: AdminUser) => void;
+  onResetPassword: (u: AdminUser) => void;
+  onDelete: (u: AdminUser) => void;
+  setEditUsername: (v: string) => void;
+}
+
+function UserCard({
+  u, households, currentUserId, editingId, editUsername, saving,
+  onChangeRole, onChangeActive, onAssignHousehold, onToggleCanEdit,
+  onToggleCanUseAi, onSetTokenLimit, onSetCostLimit, onResetUsage,
+  startEdit, cancelEdit, onSaveUsername, onResetPassword, onDelete,
+  setEditUsername,
+}: UserActionsProps) {
+  const isEditing = editingId === u.id;
+
+  return (
+    <div className="user-card">
+      <div className="user-card-head">
+        {isEditing ? (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>
+            <input
+              className="edit-input"
+              value={editUsername}
+              onChange={(e) => setEditUsername(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSaveUsername(u);
+                if (e.key === 'Escape') cancelEdit();
+              }}
+              autoFocus
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <button className="btn primary" onClick={() => onSaveUsername(u)} disabled={saving}>
+              {saving ? '…' : 'Zapisz'}
+            </button>
+            <button className="btn" onClick={cancelEdit}>Anuluj</button>
+          </div>
+        ) : (
+          <strong className="user-card-name">{u.username}</strong>
+        )}
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <select
+            className={`chip-select ${u.role === 'admin' ? 'terra' : ''}`}
+            value={u.role}
+            onChange={(e) => onChangeRole(u, e.target.value as Role)}
+            disabled={u.id === currentUserId}
+          >
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+          <select
+            className={`chip-select ${u.is_active ? 'olive' : ''}`}
+            value={u.is_active ? 'active' : 'inactive'}
+            onChange={(e) => onChangeActive(u, e.target.value === 'active')}
+            disabled={u.id === currentUserId}
+          >
+            <option value="active">aktywny</option>
+            <option value="inactive">wyłączony</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="user-card-row">
+        <span className="user-card-label">Household</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <select
+            className="edit-input"
+            value={u.household_id ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              onAssignHousehold(u, v === '' ? null : parseInt(v, 10));
+            }}
+          >
+            <option value="">— brak —</option>
+            {households.map((h) => (
+              <option key={h.id} value={h.id}>{h.name}</option>
+            ))}
+          </select>
+          {u.household_id != null && (
+            <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <input
+                type="checkbox"
+                checked={u.can_edit_in_household}
+                onChange={() => onToggleCanEdit(u)}
+              />
+              edytor
+            </label>
+          )}
+        </div>
+      </div>
+
+      <div className="user-card-row">
+        <span className="user-card-label">AI</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input type="checkbox" checked={u.can_use_ai} onChange={() => onToggleCanUseAi(u)} />
+            włączone
+          </label>
+          <span style={{ color: 'var(--ink-3)', fontSize: 12 }}>
+            tok: {u.ai_used_tokens_this_month}{u.ai_monthly_token_limit != null ? ` / ${u.ai_monthly_token_limit}` : ''}
+          </span>
+          <span style={{ color: 'var(--ink-3)', fontSize: 12 }}>
+            $: {(u.ai_used_cost_cents_this_month / 100).toFixed(2)}{u.ai_monthly_cost_limit_cents != null ? ` / ${(u.ai_monthly_cost_limit_cents / 100).toFixed(2)}` : ''}
+          </span>
+        </div>
+      </div>
+
+      <div className="user-card-actions">
+        <button className="btn" onClick={() => onSetTokenLimit(u)}>Limit tok.</button>
+        <button className="btn" onClick={() => onSetCostLimit(u)}>Limit $</button>
+        <button className="btn" onClick={() => onResetUsage(u)}>Reset AI</button>
+        <button className="btn" onClick={() => startEdit(u)} disabled={editingId !== null}>Edytuj login</button>
+        <button className="btn" onClick={() => onResetPassword(u)}>Zmień hasło</button>
+        {u.id !== currentUserId && (
+          <button className="btn danger" onClick={() => onDelete(u)}>Usuń</button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function AdminUsersScreen({ currentUserId }: Props) {
@@ -34,6 +172,8 @@ export function AdminUsersScreen({ currentUserId }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editUsername, setEditUsername] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const isMobile = useIsMobile();
 
   async function refresh() {
     setLoading(true);
@@ -285,6 +425,14 @@ export function AdminUsersScreen({ currentUserId }: Props) {
     }
   }
 
+  const sharedProps = {
+    households, currentUserId, editingId, editUsername, saving,
+    onChangeRole, onChangeActive, onAssignHousehold, onToggleCanEdit,
+    onToggleCanUseAi, onSetTokenLimit, onSetCostLimit, onResetUsage,
+    startEdit, cancelEdit, onSaveUsername, onResetPassword, onDelete,
+    setEditUsername,
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       <header className="page-head">
@@ -387,132 +535,138 @@ export function AdminUsersScreen({ currentUserId }: Props) {
         <div className="eyebrow" style={{ marginBottom: 12 }}>Lista użytkowników</div>
         {loading ? (
           <div style={{ color: 'var(--ink-3)' }}>Ładowanie…</div>
+        ) : isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {users.map((u) => (
+              <UserCard key={u.id} u={u} {...sharedProps} />
+            ))}
+          </div>
         ) : (
           <div className="card" style={{ overflow: 'hidden' }}>
             <div className="table-scroll">
-            <table className="admin-users-table">
-              <thead>
-                <tr>
-                  <th>Login</th>
-                  <th>Rola</th>
-                  <th>Status</th>
-                  <th>Household</th>
-                  <th>AI</th>
-                  <th style={{ textAlign: 'right' }}>Akcje</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td style={{ fontWeight: 500 }}>
-                      {editingId === u.id ? (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input
-                            className="edit-input"
-                            value={editUsername}
-                            onChange={(e) => setEditUsername(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') void onSaveUsername(u);
-                              if (e.key === 'Escape') cancelEdit();
-                            }}
-                            autoFocus
-                            style={{ minWidth: 0, width: 140 }}
-                          />
-                          <button className="btn primary" onClick={() => void onSaveUsername(u)} disabled={saving}>
-                            {saving ? '…' : 'Zapisz'}
-                          </button>
-                          <button className="btn" onClick={cancelEdit}>Anuluj</button>
-                        </div>
-                      ) : (
-                        u.username
-                      )}
-                    </td>
-                    <td>
-                      <select
-                        className={`chip-select ${u.role === 'admin' ? 'terra' : ''}`}
-                        value={u.role}
-                        onChange={(e) => void onChangeRole(u, e.target.value as Role)}
-                        disabled={u.id === currentUserId}
-                        title={u.id === currentUserId ? 'Nie można zmienić własnej roli' : 'Zmień rolę'}
-                      >
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        className={`chip-select ${u.is_active ? 'olive' : ''}`}
-                        value={u.is_active ? 'active' : 'inactive'}
-                        onChange={(e) => void onChangeActive(u, e.target.value === 'active')}
-                        disabled={u.id === currentUserId}
-                        title={u.id === currentUserId ? 'Nie można zmienić własnego statusu' : 'Zmień status'}
-                      >
-                        <option value="active">aktywny</option>
-                        <option value="inactive">wyłączony</option>
-                      </select>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <table className="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>Login</th>
+                    <th>Rola</th>
+                    <th>Status</th>
+                    <th>Household</th>
+                    <th>AI</th>
+                    <th style={{ textAlign: 'right' }}>Akcje</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ fontWeight: 500 }}>
+                        {editingId === u.id ? (
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              className="edit-input"
+                              value={editUsername}
+                              onChange={(e) => setEditUsername(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void onSaveUsername(u);
+                                if (e.key === 'Escape') cancelEdit();
+                              }}
+                              autoFocus
+                              style={{ minWidth: 0, width: 140 }}
+                            />
+                            <button className="btn primary" onClick={() => void onSaveUsername(u)} disabled={saving}>
+                              {saving ? '…' : 'Zapisz'}
+                            </button>
+                            <button className="btn" onClick={cancelEdit}>Anuluj</button>
+                          </div>
+                        ) : (
+                          u.username
+                        )}
+                      </td>
+                      <td>
                         <select
-                          className="edit-input"
-                          value={u.household_id ?? ''}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            void onAssignHousehold(u, v === '' ? null : parseInt(v, 10));
-                          }}
-                          style={{ minWidth: 120 }}
+                          className={`chip-select ${u.role === 'admin' ? 'terra' : ''}`}
+                          value={u.role}
+                          onChange={(e) => void onChangeRole(u, e.target.value as Role)}
+                          disabled={u.id === currentUserId}
+                          title={u.id === currentUserId ? 'Nie można zmienić własnej roli' : 'Zmień rolę'}
                         >
-                          <option value="">— brak —</option>
-                          {households.map((h) => (
-                            <option key={h.id} value={h.id}>{h.name}</option>
-                          ))}
+                          <option value="user">user</option>
+                          <option value="admin">admin</option>
                         </select>
-                        {u.household_id != null && (
-                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      </td>
+                      <td>
+                        <select
+                          className={`chip-select ${u.is_active ? 'olive' : ''}`}
+                          value={u.is_active ? 'active' : 'inactive'}
+                          onChange={(e) => void onChangeActive(u, e.target.value === 'active')}
+                          disabled={u.id === currentUserId}
+                          title={u.id === currentUserId ? 'Nie można zmienić własnego statusu' : 'Zmień status'}
+                        >
+                          <option value="active">aktywny</option>
+                          <option value="inactive">wyłączony</option>
+                        </select>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <select
+                            className="edit-input"
+                            value={u.household_id ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              void onAssignHousehold(u, v === '' ? null : parseInt(v, 10));
+                            }}
+                            style={{ minWidth: 120 }}
+                          >
+                            <option value="">— brak —</option>
+                            {households.map((h) => (
+                              <option key={h.id} value={h.id}>{h.name}</option>
+                            ))}
+                          </select>
+                          {u.household_id != null && (
+                            <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input
+                                type="checkbox"
+                                checked={u.can_edit_in_household}
+                                onChange={() => void onToggleCanEdit(u)}
+                              />
+                              edytor
+                            </label>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <input
                               type="checkbox"
-                              checked={u.can_edit_in_household}
-                              onChange={() => void onToggleCanEdit(u)}
+                              checked={u.can_use_ai}
+                              onChange={() => void onToggleCanUseAi(u)}
                             />
-                            edytor
+                            włączone
                           </label>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <input
-                            type="checkbox"
-                            checked={u.can_use_ai}
-                            onChange={() => void onToggleCanUseAi(u)}
-                          />
-                          włączone
-                        </label>
-                        <div style={{ color: 'var(--ink-3)' }}>
-                          tok: {u.ai_used_tokens_this_month}{u.ai_monthly_token_limit != null ? ` / ${u.ai_monthly_token_limit}` : ''}
+                          <div style={{ color: 'var(--ink-3)' }}>
+                            tok: {u.ai_used_tokens_this_month}{u.ai_monthly_token_limit != null ? ` / ${u.ai_monthly_token_limit}` : ''}
+                          </div>
+                          <div style={{ color: 'var(--ink-3)' }}>
+                            $: {(u.ai_used_cost_cents_this_month / 100).toFixed(2)}{u.ai_monthly_cost_limit_cents != null ? ` / ${(u.ai_monthly_cost_limit_cents / 100).toFixed(2)}` : ''}
+                          </div>
                         </div>
-                        <div style={{ color: 'var(--ink-3)' }}>
-                          $: {(u.ai_used_cost_cents_this_month / 100).toFixed(2)}{u.ai_monthly_cost_limit_cents != null ? ` / ${(u.ai_monthly_cost_limit_cents / 100).toFixed(2)}` : ''}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <button className="btn" onClick={() => onSetTokenLimit(u)}>Limit tok.</button>
+                          <button className="btn" onClick={() => onSetCostLimit(u)}>Limit $</button>
+                          <button className="btn" onClick={() => onResetUsage(u)}>Reset AI</button>
+                          <button className="btn" onClick={() => startEdit(u)} disabled={editingId !== null}>Edytuj login</button>
+                          <button className="btn" onClick={() => onResetPassword(u)}>Zmień hasło</button>
+                          {u.id !== currentUserId && (
+                            <button className="btn" onClick={() => void onDelete(u)}>Usuń</button>
+                          )}
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        <button className="btn" onClick={() => onSetTokenLimit(u)}>Limit tok.</button>
-                        <button className="btn" onClick={() => onSetCostLimit(u)}>Limit $</button>
-                        <button className="btn" onClick={() => onResetUsage(u)}>Reset AI</button>
-                        <button className="btn" onClick={() => startEdit(u)} disabled={editingId !== null}>Edytuj login</button>
-                        <button className="btn" onClick={() => onResetPassword(u)}>Zmień hasło</button>
-                        {u.id !== currentUserId && (
-                          <button className="btn" onClick={() => onDelete(u)}>Usuń</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

@@ -63,6 +63,13 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   const [expandedDayMacros, setExpandedDayMacros] = useState(false);
   const dragRef = useRef<DragState | null>(null);
 
+  const todayIndex = useMemo(() => {
+    const today = new Date();
+    const start = new Date(weekStart);
+    const diff = Math.round((today.getTime() - start.getTime()) / 86400000);
+    return diff >= 0 && diff < 7 ? diff : -1;
+  }, [weekStart]);
+
   useEffect(() => {
     setGoalsForm(macroTargets);
   }, [macroTargets]);
@@ -319,6 +326,51 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
     );
   };
 
+  const WeekDotStrip = () => {
+    const R = 14;
+    const circ = 2 * Math.PI * R;
+    return (
+      <div className="week-dots">
+        {DAYS.map((d, i) => {
+          const count = plan.filter((p) => p.day === i).length;
+          const pct = enabledMeals.length > 0 ? Math.min(1, count / enabledMeals.length) : 0;
+          const isToday = i === todayIndex;
+          return (
+            <div key={d} className={`week-dot-item${isToday ? ' week-dot-today' : ''}`}>
+              <svg width={34} height={34} viewBox="0 0 34 34">
+                <circle cx={17} cy={17} r={R} fill={isToday ? 'var(--accent-soft)' : 'none'} stroke="var(--line-soft)" strokeWidth={2} />
+                {count > 0 && (
+                  <circle
+                    cx={17} cy={17} r={R}
+                    fill="none"
+                    stroke={isToday ? 'var(--accent)' : 'var(--ink-3)'}
+                    strokeWidth={2.5}
+                    strokeDasharray={`${pct * circ} ${circ}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 17 17)"
+                    style={{ transition: 'stroke-dasharray .3s' }}
+                  />
+                )}
+                <text
+                  x={17} y={17}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={9}
+                  fontFamily="var(--mono)"
+                  fill={isToday ? 'var(--accent-deep)' : 'var(--ink-2)'}
+                  fontWeight={isToday ? 600 : 400}
+                >
+                  {d}
+                </text>
+              </svg>
+              <div className="week-dot-count mono">{count > 0 ? `${count}/${enabledMeals.length}` : ''}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderGrid = (compact = false) => (
     <div
       className={`plan-grid ${compact ? 'plan-grid-compact' : ''}`}
@@ -382,12 +434,12 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
             </div>
             <div
               className="plan-row-cells"
-              style={{ gridTemplateColumns: `repeat(${enabledMeals.length}, 1fr)` }}
+              style={isNarrow ? undefined : { gridTemplateColumns: `repeat(${enabledMeals.length}, 1fr)` }}
             >
               {enabledMeals.map((meal) => (
                 <div key={meal} className="plan-row-meal">
                   <div className="plan-row-meal-label">{meal}</div>
-                  <Cell day={day} meal={meal} compact={false} />
+                  <Cell day={day} meal={meal} compact={isNarrow} />
                 </div>
               ))}
             </div>
@@ -578,6 +630,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
         </div>
       </div>
 
+      {isNarrow && <WeekDotStrip />}
       {layout === 'rows' ? renderRows() : layout === 'compact' ? renderGrid(true) : renderGrid(false)}
 
       <div className="library">

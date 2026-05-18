@@ -897,8 +897,9 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
       </div>
       {showNew && <NewRecipeModal onClose={() => setShowNew(false)} onSave={handleSave} />}
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+      <div className="recipe-filter-bar" style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <div
+          className="recipe-search-box"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -926,7 +927,7 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
             }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="recipe-tag-chips" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {allTags.map((t) => (
             <button
               key={t}
