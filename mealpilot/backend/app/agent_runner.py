@@ -1093,6 +1093,7 @@ async def _run_openai(
                 "model": model,
                 "messages": messages,
                 "tools": TOOL_DEFS_OPENAI,
+                "tool_choice": "auto",
             }
             resp = await client.post(endpoint, headers=headers, json=body)
             resp.raise_for_status()
@@ -1101,7 +1102,16 @@ async def _run_openai(
             choices = data.get("choices") or []
             if not choices:
                 err = data.get("error", {})
-                err_msg = err.get("message", json.dumps(data)) if isinstance(err, dict) else str(err)
+                if isinstance(err, dict):
+                    parts = [err.get("message", "")]
+                    meta = err.get("metadata") or {}
+                    if isinstance(meta, dict) and meta.get("raw"):
+                        parts.append(f"raw: {meta['raw']}")
+                    elif meta:
+                        parts.append(f"metadata: {json.dumps(meta)}")
+                    err_msg = " | ".join(p for p in parts if p) or json.dumps(data)
+                else:
+                    err_msg = str(err) if err else json.dumps(data)
                 raise RuntimeError(f"OpenAI: brak pola 'choices' — {err_msg}")
 
             msg = choices[0]["message"]
@@ -1112,7 +1122,12 @@ async def _run_openai(
             if not tool_calls:
                 break
 
-            messages.append(msg)
+            # Strip extra fields (refusal, audio, …) that newer models return
+            # but the API rejects when echoed back in the request.
+            clean_msg: Dict[str, Any] = {"role": msg["role"], "content": msg.get("content")}
+            if tool_calls:
+                clean_msg["tool_calls"] = tool_calls
+            messages.append(clean_msg)
             for call in tool_calls:
                 call_id = call.get("id", str(uuid.uuid4()))
                 name = call.get("function", {}).get("name", "")
