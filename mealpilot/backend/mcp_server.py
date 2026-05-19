@@ -90,15 +90,32 @@ def _current_week_start() -> str:
 TOOLS: List[Tool] = [
     Tool(
         name="list_recipes",
-        description="Zwraca wszystkie przepisy zalogowanego użytkownika.",
+        description=(
+            "Zwraca pełną listę przepisów widocznych dla użytkownika (własne + dzielone w household). "
+            "Bez filtrów. Odpowiedź: tablica obiektów Recipe — każdy zawiera pola: "
+            "id (string), title, tags (string[]), meal_types (string[]), servings (int), "
+            "prep_time i cook_time (minuty, int), kcal/p/f/c (sumy dla CAŁEGO przepisu — wszystkich porcji), "
+            "hue (0–360, kolor karty w UI), ingredients ([{name, qty, unit}]), steps (string[]), "
+            "image_filename (string|null), created_by (user id), owner_user_id (int|null — gdy ustawiony, prywatny), "
+            "owner_household_id (int|null — gdy ustawiony, dzielony w household). "
+            "Może zwrócić pustą tablicę. Dla wyszukiwania użyj filter_recipes."
+        ),
         inputSchema={"type": "object", "properties": {}, "additionalProperties": False},
     ),
     Tool(
         name="get_recipe",
-        description="Szczegóły jednego przepisu (składniki, kroki, makro).",
+        description=(
+            "Zwraca pełny obiekt Recipe (taka sama struktura jak w list_recipes) dla podanego ID. "
+            "Błąd 404, jeśli przepis nie istnieje lub użytkownik nie ma do niego dostępu."
+        ),
         inputSchema={
             "type": "object",
-            "properties": {"recipe_id": {"type": "string"}},
+            "properties": {
+                "recipe_id": {
+                    "type": "string",
+                    "description": "ID przepisu (pole `id` z list_recipes/filter_recipes).",
+                }
+            },
             "required": ["recipe_id"],
             "additionalProperties": False,
         },
@@ -106,64 +123,104 @@ TOOLS: List[Tool] = [
     Tool(
         name="list_tags",
         description=(
-            "Wszystkie unikalne tagi używane w bibliotece przepisów. Wywołaj jako pierwsze, "
-            "by wiedzieć jakimi wartościami operuje użytkownik."
+            "Zwraca {\"tags\": string[]} — posortowaną listę unikalnych tagów używanych "
+            "w widocznych dla użytkownika przepisach (np. 'azjatyckie', 'wegetariańskie'). "
+            "Wywołaj jako pierwsze przed filter_recipes, aby wiedzieć jakim słownictwem "
+            "operuje użytkownik (filtrowanie po tagach jest case-sensitive i wymaga DOKŁADNEGO dopasowania)."
         ),
         inputSchema={"type": "object", "properties": {}, "additionalProperties": False},
     ),
     Tool(
         name="list_meal_types",
-        description="Wszystkie unikalne typy posiłków zdefiniowane w przepisach.",
+        description=(
+            "Zwraca {\"meal_types\": string[]} — posortowaną listę unikalnych typów posiłków "
+            "(np. 'śniadanie', 'obiad', 'kolacja') zdefiniowanych w widocznych przepisach. "
+            "Filtrowanie wymaga DOKŁADNEGO dopasowania wartości — najpierw pobierz słownik."
+        ),
         inputSchema={"type": "object", "properties": {}, "additionalProperties": False},
     ),
     Tool(
         name="filter_recipes",
         description=(
-            "Zwraca przepisy spełniające podane kryteria. Użyj gdy użytkownik chce np. "
-            "'coś azjatyckiego na obiad' lub 'lekkie śniadanie poniżej 400 kcal'."
+            "Zwraca tablicę Recipe (ta sama struktura co list_recipes) spełniających kryteria. "
+            "Semantyka: `tags` — AND (wszystkie wymagane), `meal_types` — OR (przynajmniej jeden), "
+            "`max_kcal` — pełna suma przepisu (nie na porcję!) ≤ wartość, "
+            "`min_protein` — pełne białko przepisu (g) ≥ wartość. "
+            "Bez argumentów zachowuje się jak list_recipes. Może zwrócić pustą tablicę. "
+            "Wartości tagów/meal_types są case-sensitive — najpierw użyj list_tags / list_meal_types."
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "meal_types": {"type": "array", "items": {"type": "string"}},
-                "max_kcal": {"type": "number"},
-                "min_protein": {"type": "number"},
+                "tags": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Wszystkie tagi muszą wystąpić (AND). Dokładne dopasowanie.",
+                },
+                "meal_types": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Przynajmniej jeden typ musi pasować (OR). Dokładne dopasowanie.",
+                },
+                "max_kcal": {
+                    "type": "number",
+                    "description": "Górny limit kcal sumarycznie dla całego przepisu (nie na porcję).",
+                },
+                "min_protein": {
+                    "type": "number",
+                    "description": "Dolny limit białka w gramach sumarycznie dla całego przepisu.",
+                },
             },
             "additionalProperties": False,
         },
     ),
     Tool(
         name="create_recipe",
-        description="Dodaje nowy przepis do biblioteki użytkownika.",
+        description=(
+            "Tworzy nowy przepis. Zwraca pełny obiekt Recipe (z polami created_by, owner_*, "
+            "image_filename=null). Błąd 409, jeśli `id` jest już zajęte. "
+            "Pola kcal/p/f/c traktuj jako sumy dla CAŁEGO przepisu (wszystkich porcji łącznie) — "
+            "jeśli użytkownik nie podał makro, wywołaj najpierw estimate_recipe_macros."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
-                "id": {"type": "string"},
-                "title": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "meal_types": {"type": "array", "items": {"type": "string"}},
-                "servings": {"type": "integer"},
-                "prep_time": {"type": "integer"},
-                "cook_time": {"type": "integer"},
-                "kcal": {"type": "number"},
-                "p": {"type": "number"},
-                "f": {"type": "number"},
-                "c": {"type": "number"},
-                "hue": {"type": "integer"},
+                "id": {
+                    "type": "string",
+                    "description": "Unikalne ID (slug). Musi być nowe — błąd 409 gdy zajęte.",
+                },
+                "title": {"type": "string", "description": "Nazwa przepisu wyświetlana w UI."},
+                "tags": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Tagi tematyczne (np. 'azjatyckie'). Trzymaj się słownictwa z list_tags.",
+                },
+                "meal_types": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Typy posiłków (np. 'obiad'). Wartości spójne z list_meal_types.",
+                },
+                "servings": {"type": "integer", "description": "Liczba porcji (domyślnie 1)."},
+                "prep_time": {"type": "integer", "description": "Czas przygotowania w minutach."},
+                "cook_time": {"type": "integer", "description": "Czas gotowania w minutach."},
+                "kcal": {"type": "number", "description": "Kalorie sumarycznie dla całego przepisu (wszystkich porcji)."},
+                "p": {"type": "number", "description": "Białko (g) sumarycznie dla całego przepisu."},
+                "f": {"type": "number", "description": "Tłuszcz (g) sumarycznie dla całego przepisu."},
+                "c": {"type": "number", "description": "Węglowodany (g) sumarycznie dla całego przepisu."},
+                "hue": {"type": "integer", "description": "Odcień karty w UI (0–360, domyślnie 40)."},
                 "ingredients": {
                     "type": "array",
+                    "description": "Składniki dla podanej liczby porcji (servings).",
                     "items": {
                         "type": "object",
                         "properties": {
                             "name": {"type": "string"},
-                            "qty": {"type": "number"},
-                            "unit": {"type": "string"},
+                            "qty": {"type": "number", "description": "Ilość w jednostce `unit`."},
+                            "unit": {"type": "string", "description": "Jednostka, np. 'g', 'ml', 'szt', 'łyżka'."},
                         },
                         "required": ["name", "qty", "unit"],
                     },
                 },
-                "steps": {"type": "array", "items": {"type": "string"}},
+                "steps": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Kolejne kroki przygotowania, każdy jako oddzielny string.",
+                },
             },
             "required": ["id", "title"],
             "additionalProperties": False,
@@ -171,24 +228,36 @@ TOOLS: List[Tool] = [
     ),
     Tool(
         name="update_recipe",
-        description="Aktualizuje wybrane pola istniejącego przepisu.",
+        description=(
+            "Aktualizuje wybrane pola istniejącego przepisu (PATCH-semantyka — pomijaj pola, których nie zmieniasz). "
+            "Zwraca pełny zaktualizowany obiekt Recipe. Tablice (ingredients, steps, tags, meal_types) "
+            "są NADPISYWANE w całości — przekaż pełną nową wersję, nie różnicę. "
+            "Błąd 403 gdy użytkownik nie jest właścicielem przepisu, 404 gdy nie istnieje."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
-                "recipe_id": {"type": "string"},
+                "recipe_id": {"type": "string", "description": "ID przepisu do edycji."},
                 "title": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "meal_types": {"type": "array", "items": {"type": "string"}},
+                "tags": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Nadpisuje całą listę tagów.",
+                },
+                "meal_types": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Nadpisuje całą listę typów posiłków.",
+                },
                 "servings": {"type": "integer"},
-                "prep_time": {"type": "integer"},
-                "cook_time": {"type": "integer"},
-                "kcal": {"type": "number"},
-                "p": {"type": "number"},
-                "f": {"type": "number"},
-                "c": {"type": "number"},
-                "hue": {"type": "integer"},
+                "prep_time": {"type": "integer", "description": "Minuty."},
+                "cook_time": {"type": "integer", "description": "Minuty."},
+                "kcal": {"type": "number", "description": "Suma dla całego przepisu (wszystkich porcji)."},
+                "p": {"type": "number", "description": "Białko (g) sumarycznie dla całego przepisu."},
+                "f": {"type": "number", "description": "Tłuszcz (g) sumarycznie dla całego przepisu."},
+                "c": {"type": "number", "description": "Węglowodany (g) sumarycznie dla całego przepisu."},
+                "hue": {"type": "integer", "description": "0–360."},
                 "ingredients": {
                     "type": "array",
+                    "description": "Nadpisuje całą listę składników.",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -199,7 +268,10 @@ TOOLS: List[Tool] = [
                         "required": ["name", "qty", "unit"],
                     },
                 },
-                "steps": {"type": "array", "items": {"type": "string"}},
+                "steps": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Nadpisuje całą listę kroków.",
+                },
             },
             "required": ["recipe_id"],
             "additionalProperties": False,
@@ -207,10 +279,14 @@ TOOLS: List[Tool] = [
     ),
     Tool(
         name="delete_recipe",
-        description="Usuwa przepis i powiązane wpisy w planie tygodnia.",
+        description=(
+            "Usuwa przepis ORAZ wszystkie powiązane wpisy w planach tygodni (bez pytania). "
+            "Operacja nieodwracalna — zawsze potwierdź z użytkownikiem przed wywołaniem. "
+            "Zwraca {\"ok\": true}. Błąd 403 gdy nie jesteś właścicielem, 404 gdy nie istnieje."
+        ),
         inputSchema={
             "type": "object",
-            "properties": {"recipe_id": {"type": "string"}},
+            "properties": {"recipe_id": {"type": "string", "description": "ID przepisu do usunięcia."}},
             "required": ["recipe_id"],
             "additionalProperties": False,
         },
@@ -218,40 +294,67 @@ TOOLS: List[Tool] = [
     Tool(
         name="get_week_plan",
         description=(
-            "Zwraca plan posiłków na dany tydzień wraz z tytułami przepisów."
-            " week_start musi być poniedziałkiem w formacie YYYY-MM-DD."
+            "Zwraca plan posiłków na podany tydzień. Format odpowiedzi: "
+            "{\"week_start\": \"YYYY-MM-DD\", \"entries\": [{day: 0-6 (0=poniedziałek), "
+            "meal: string (np. 'śniadanie','obiad','kolacja'), recipe_id: string, "
+            "servings: int (liczba porcji do zjedzenia w tym slocie), recipe_title: string}]}. "
+            "Pole `recipe_title` jest doklejone przez MCP (nie ma go w surowym API). "
+            "entries może być pustą tablicą gdy nic nie zaplanowano."
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string"}},
+            "properties": {
+                "week_start": {
+                    "type": "string",
+                    "description": "Data poniedziałku w formacie YYYY-MM-DD. Inne dni dadzą pusty plan.",
+                }
+            },
             "required": ["week_start"],
             "additionalProperties": False,
         },
     ),
     Tool(
         name="get_current_week_plan",
-        description="Plan na bieżący tydzień (week_start liczony automatycznie).",
+        description=(
+            "Jak get_week_plan, ale week_start jest liczony automatycznie "
+            "(poniedziałek bieżącego tygodnia w strefie serwera). "
+            "Użyj, gdy użytkownik mówi 'ten tydzień' / 'teraz'."
+        ),
         inputSchema={"type": "object", "properties": {}, "additionalProperties": False},
     ),
     Tool(
         name="set_week_plan",
         description=(
-            "Zastępuje cały plan tygodnia. UWAGA: zawsze pokaż użytkownikowi podgląd "
-            "i poczekaj na potwierdzenie przed wywołaniem."
+            "DESTRUKTYWNE: usuwa wszystkie istniejące wpisy planu w tym tygodniu i zastępuje je `entries`. "
+            "Pusta lista entries = wyczyszczenie planu. Wszystkie recipe_id muszą być widoczne dla "
+            "użytkownika — inaczej błąd 400 z listą brakujących. "
+            "Zwraca WeekPlan (jak get_week_plan, ale bez recipe_title). "
+            "UWAGA: zawsze pokaż użytkownikowi podgląd i poczekaj na potwierdzenie przed wywołaniem. "
+            "Do drobnych zmian preferuj add_plan_entry / remove_plan_entry."
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "week_start": {"type": "string"},
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."},
                 "entries": {
                     "type": "array",
+                    "description": "Komplet wpisów dla tygodnia — wszystko poza tą listą zostanie usunięte.",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "day": {"type": "integer", "minimum": 0, "maximum": 6},
-                            "meal": {"type": "string"},
+                            "day": {
+                                "type": "integer", "minimum": 0, "maximum": 6,
+                                "description": "0=poniedziałek, 6=niedziela.",
+                            },
+                            "meal": {
+                                "type": "string",
+                                "description": "Slot posiłku, np. 'śniadanie', 'obiad', 'kolacja'. (day, meal) musi być unikalne.",
+                            },
                             "recipe_id": {"type": "string"},
-                            "servings": {"type": "integer"},
+                            "servings": {
+                                "type": "integer",
+                                "description": "Liczba porcji do zjedzenia w tym slocie (skalowanie względem servings przepisu).",
+                            },
                         },
                         "required": ["day", "meal", "recipe_id", "servings"],
                     },
@@ -263,15 +366,19 @@ TOOLS: List[Tool] = [
     ),
     Tool(
         name="add_plan_entry",
-        description="Dodaje jeden slot do planu, nie kasując reszty.",
+        description=(
+            "Dodaje lub NADPISUJE jeden slot (day+meal) w planie tygodnia, zachowując resztę wpisów. "
+            "Jeśli w tej parze (day, meal) już coś było — zostanie zastąpione. "
+            "Zwraca pełen zaktualizowany WeekPlan. Błąd 400 gdy recipe_id niewidoczne dla użytkownika."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
-                "week_start": {"type": "string"},
-                "day": {"type": "integer", "minimum": 0, "maximum": 6},
-                "meal": {"type": "string"},
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."},
+                "day": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0=poniedziałek."},
+                "meal": {"type": "string", "description": "Slot, np. 'obiad'."},
                 "recipe_id": {"type": "string"},
-                "servings": {"type": "integer"},
+                "servings": {"type": "integer", "description": "Liczba porcji w tym slocie."},
             },
             "required": ["week_start", "day", "meal", "recipe_id", "servings"],
             "additionalProperties": False,
@@ -279,11 +386,14 @@ TOOLS: List[Tool] = [
     ),
     Tool(
         name="remove_plan_entry",
-        description="Usuwa slot (dzień + posiłek) z planu tygodnia.",
+        description=(
+            "Usuwa wpis pasujący do (day, meal) z planu tygodnia (no-op, jeśli go nie ma). "
+            "Zwraca pełen zaktualizowany WeekPlan."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
-                "week_start": {"type": "string"},
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."},
                 "day": {"type": "integer", "minimum": 0, "maximum": 6},
                 "meal": {"type": "string"},
             },
@@ -294,22 +404,32 @@ TOOLS: List[Tool] = [
     Tool(
         name="get_week_nutrition_summary",
         description=(
-            "Suma kcal/białka/tłuszczu/węglowodanów dla każdego dnia tygodnia "
-            "na podstawie planu i przepisów."
+            "Liczy sumy makroskładników na każdy dzień tygodnia. Wartości skalowane są w stosunku "
+            "do (entry.servings / recipe.servings), więc odpowiadają faktycznej ilości do zjedzenia. "
+            "Odpowiedź: obiekt {\"0\": {kcal, p, f, c}, \"1\": {...}, ... \"6\": {...}} "
+            "(klucze to dni: 0=poniedziałek..6=niedziela), wartości zaokrąglone do 2 miejsc. "
+            "Dni bez wpisów mają same zera."
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string"}},
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
     ),
     Tool(
         name="get_shopping_list",
-        description="Aktualna lista zakupów na dany tydzień.",
+        description=(
+            "Zwraca aktualną listę zakupów dla tygodnia, posortowaną po category, name. "
+            "Format: tablica obiektów {id (int, używane w check_shopping_item), week_start, "
+            "name, qty (number), unit (string — znormalizowane: 'g'/'ml'/'szt' itd.), "
+            "category (polska kategoria np. 'Nabiał', 'Warzywa i owoce', 'Inne'), "
+            "checked (bool — czy odhaczone), is_custom (bool — true gdy użytkownik dopisał ręcznie, "
+            "false gdy wygenerowane z planu)}. Pusta tablica jeśli nie wygenerowano listy."
+        ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string"}},
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -317,36 +437,49 @@ TOOLS: List[Tool] = [
     Tool(
         name="generate_shopping_list",
         description=(
-            "Generuje listę zakupów z planu tygodnia (agreguje składniki). "
-            "Nadpisuje poprzednią listę."
+            "DESTRUKTYWNE: usuwa wszystkie wygenerowane wpisy listy zakupów dla tygodnia "
+            "(ręczne dopiski z is_custom=true są zachowane) i tworzy nową listę z planu — "
+            "agreguje składniki ze wszystkich entries (skalowanie servings), normalizuje jednostki "
+            "(kg→g, l→ml), kategoryzuje po nazwie. Zwraca pełną nową listę (struktura jak get_shopping_list)."
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string"}},
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
     ),
     Tool(
         name="check_shopping_item",
-        description="Oznacza pozycję jako kupioną lub odznacza.",
+        description=(
+            "Ustawia stan odhaczenia pojedynczej pozycji listy zakupów. "
+            "Zwraca zaktualizowany obiekt pozycji (jak element z get_shopping_list)."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
-                "week_start": {"type": "string"},
-                "item_id": {"type": "integer"},
-                "checked": {"type": "boolean"},
+                "item_id": {
+                    "type": "integer",
+                    "description": "Pole `id` z get_shopping_list (NIE recipe_id ani nazwa).",
+                },
+                "checked": {
+                    "type": "boolean",
+                    "description": "true = oznacz jako kupione, false = odznacz.",
+                },
             },
-            "required": ["week_start", "item_id", "checked"],
+            "required": ["item_id", "checked"],
             "additionalProperties": False,
         },
     ),
     Tool(
         name="clear_shopping_list",
-        description="Usuwa wszystkie pozycje listy zakupów danego tygodnia.",
+        description=(
+            "DESTRUKTYWNE: usuwa WSZYSTKIE pozycje (wygenerowane i ręczne) z listy zakupów tygodnia. "
+            "Zwraca {\"ok\": true}. Zawsze potwierdź z użytkownikiem."
+        ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string"}},
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -354,24 +487,31 @@ TOOLS: List[Tool] = [
     Tool(
         name="estimate_recipe_macros",
         description=(
-            "Szacuje makroskładniki (kcal, białko, tłuszcz, węglowodany) dla przepisu "
-            "na podstawie listy składników, używając skonfigurowanego modelu AI. "
-            "Zwraca sumy dla CAŁEGO przepisu (wszystkich porcji łącznie). "
-            "Użyj przed create_recipe gdy użytkownik nie podał makro."
+            "Wywołuje skonfigurowany model LLM, aby oszacować makro przepisu na podstawie składników. "
+            "Zwraca {\"kcal\": number, \"p\": number, \"f\": number, \"c\": number} — SUMY dla CAŁEGO "
+            "przepisu (wszystkich porcji łącznie, nie na porcję). Wartości można wprost przekazać do "
+            "create_recipe / update_recipe. "
+            "Wymaga skonfigurowanego LLM w add-onie (424 gdy brak), zlicza się do dziennej kwoty AI "
+            "użytkownika (424 gdy wyczerpana), może zwrócić 502 jeśli LLM odpowie nie-JSON-em. "
+            "Użyj przed create_recipe, gdy użytkownik nie podał makro."
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "title": {"type": "string", "description": "Nazwa przepisu"},
-                "servings": {"type": "integer", "description": "Liczba porcji"},
+                "title": {"type": "string", "description": "Nazwa przepisu (kontekst dla modelu)."},
+                "servings": {
+                    "type": "integer",
+                    "description": "Liczba porcji, dla której podano `ingredients` — model dostaje to w prompcie, ale wynik i tak jest sumą dla całego przepisu.",
+                },
                 "ingredients": {
                     "type": "array",
+                    "description": "Składniki w ilości odpowiadającej `servings`.",
                     "items": {
                         "type": "object",
                         "properties": {
                             "name": {"type": "string"},
                             "qty": {"type": "number"},
-                            "unit": {"type": "string"},
+                            "unit": {"type": "string", "description": "np. 'g', 'ml', 'szt', 'łyżka'."},
                         },
                         "required": ["name", "qty", "unit"],
                     },
@@ -521,7 +661,7 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
     if name == "check_shopping_item":
         return await _request(
             "PATCH",
-            f"/api/shopping/{args['week_start']}/items/{args['item_id']}",
+            f"/api/shopping/items/{args['item_id']}",
             json_body={"checked": bool(args["checked"])},
         )
 

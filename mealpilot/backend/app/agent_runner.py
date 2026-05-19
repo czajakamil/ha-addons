@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from . import models
+from .ownership import visible_filter, get_household_id, default_owner_kwargs
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,6 +83,24 @@ def _recipe_to_dict(r: models.Recipe) -> Dict[str, Any]:
     }
 
 
+def _recipe_to_summary(r: models.Recipe) -> Dict[str, Any]:
+    return {
+        "id": r.id,
+        "title": r.title,
+        "tags": list(r.tags or []),
+        "meal_types": list(r.meal_types or []),
+        "servings": r.servings,
+        "prep_time": r.prep_time,
+        "cook_time": r.cook_time,
+        "kcal": r.kcal,
+        "p": r.p,
+        "f": r.f,
+        "c": r.c,
+        "ingredients_count": len(r.ingredients or []),
+        "steps_count": len(r.steps or []),
+    }
+
+
 def _plan_entry_to_dict(e: models.MealPlanEntry) -> Dict[str, Any]:
     return {
         "day": e.day,
@@ -109,15 +128,17 @@ def _shopping_item_to_dict(it: models.ShoppingItem) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def tool_list_recipes(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
-    return [_recipe_to_dict(r) for r in rows]
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
+    return [_recipe_to_summary(r) for r in rows]
 
 
 def tool_get_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     recipe_id = str(args.get("recipe_id", ""))
+    hh = get_household_id(db, user.id)
     r = (
         db.query(models.Recipe)
-        .filter(models.Recipe.id == recipe_id, models.Recipe.user_id == user.id)
+        .filter(models.Recipe.id == recipe_id, visible_filter(models.Recipe, user, hh))
         .one_or_none()
     )
     if not r:
@@ -126,7 +147,8 @@ def tool_get_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any
 
 
 def tool_list_tags(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set = set()
     for r in rows:
         for t in (r.tags or []):
@@ -136,7 +158,8 @@ def tool_list_tags(db: Session, user: models.User, _args: Dict[str, Any]) -> Any
 
 
 def tool_list_meal_types(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set = set()
     for r in rows:
         for m in (r.meal_types or []):
@@ -146,7 +169,8 @@ def tool_list_meal_types(db: Session, user: models.User, _args: Dict[str, Any]) 
 
 
 def tool_filter_recipes(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
-    rows = db.query(models.Recipe).filter(models.Recipe.user_id == user.id).all()
+    hh = get_household_id(db, user.id)
+    rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     tags_filter = list(args.get("tags") or [])
     mt_filter = list(args.get("meal_types") or [])
     max_kcal = args.get("max_kcal")
@@ -164,7 +188,7 @@ def tool_filter_recipes(db: Session, user: models.User, args: Dict[str, Any]) ->
             continue
         if min_protein is not None and (r.p or 0) < float(min_protein):
             continue
-        result.append(_recipe_to_dict(r))
+        result.append(_recipe_to_summary(r))
     return result
 
 
@@ -173,12 +197,17 @@ def tool_create_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     if not recipe_id:
         raise ValueError("id is required")
     if db.get(models.Recipe, recipe_id):
-        raise ValueError(f"Recipe with id '{recipe_id}' already exists")
+        base = recipe_id
+        n = 2
+        while db.get(models.Recipe, f"{base}-{n}"):
+            n += 1
+        recipe_id = f"{base}-{n}"
     ingredients = [
         i if isinstance(i, dict) else i for i in (args.get("ingredients") or [])
     ]
     r = models.Recipe(
-        user_id=user.id,
+        created_by=user.id,
+        **default_owner_kwargs(user),
         id=recipe_id,
         title=str(args.get("title", "")),
         tags=list(args.get("tags") or []),
@@ -202,9 +231,10 @@ def tool_create_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
 
 def tool_update_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     recipe_id = str(args.get("recipe_id", ""))
+    hh = get_household_id(db, user.id)
     r = (
         db.query(models.Recipe)
-        .filter(models.Recipe.id == recipe_id, models.Recipe.user_id == user.id)
+        .filter(models.Recipe.id == recipe_id, visible_filter(models.Recipe, user, hh))
         .one_or_none()
     )
     if not r:
@@ -224,27 +254,37 @@ def tool_update_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
 
 def tool_delete_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     recipe_id = str(args.get("recipe_id", ""))
+    hh = get_household_id(db, user.id)
     r = (
         db.query(models.Recipe)
-        .filter(models.Recipe.id == recipe_id, models.Recipe.user_id == user.id)
+        .filter(models.Recipe.id == recipe_id, visible_filter(models.Recipe, user, hh))
         .one_or_none()
     )
     if not r:
         raise ValueError(f"Recipe not found: {recipe_id}")
+    affected_weeks = {
+        w for (w,) in db.query(models.MealPlanEntry.week_start).filter(
+            models.MealPlanEntry.recipe_id == recipe_id,
+            visible_filter(models.MealPlanEntry, user, hh),
+        ).distinct().all()
+    }
     db.query(models.MealPlanEntry).filter(
         models.MealPlanEntry.recipe_id == recipe_id,
-        models.MealPlanEntry.user_id == user.id,
+        visible_filter(models.MealPlanEntry, user, hh),
     ).delete(synchronize_session=False)
     db.delete(r)
     db.commit()
+    for week_start in affected_weeks:
+        _regenerate_auto_shopping(db, user, week_start)
     return {"deleted": recipe_id}
 
 
 def _get_plan_entries(db: Session, user: models.User, week_start: str) -> List[Dict[str, Any]]:
+    hh = get_household_id(db, user.id)
     rows = (
         db.query(models.MealPlanEntry)
         .filter(
-            models.MealPlanEntry.user_id == user.id,
+            visible_filter(models.MealPlanEntry, user, hh),
             models.MealPlanEntry.week_start == week_start,
         )
         .order_by(models.MealPlanEntry.day, models.MealPlanEntry.meal)
@@ -254,11 +294,12 @@ def _get_plan_entries(db: Session, user: models.User, week_start: str) -> List[D
 
 
 def _enrich_plan(db: Session, user: models.User, week_start: str, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+    hh = get_household_id(db, user.id)
     recipe_ids = {e["recipe_id"] for e in entries}
     recipes = {}
     if recipe_ids:
         for r in db.query(models.Recipe).filter(
-            models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id
+            models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh)
         ).all():
             recipes[r.id] = r.title
     enriched = [
@@ -281,14 +322,28 @@ def tool_get_current_week_plan(db: Session, user: models.User, _args: Dict[str, 
 
 
 def _replace_plan(db: Session, user: models.User, week_start: str, entries: List[Dict[str, Any]]) -> None:
+    hh = get_household_id(db, user.id)
+    recipe_ids = {str(e["recipe_id"]) for e in entries if e.get("recipe_id")}
+    if recipe_ids:
+        visible_ids = {
+            r.id
+            for r in db.query(models.Recipe.id).filter(
+                models.Recipe.id.in_(recipe_ids),
+                visible_filter(models.Recipe, user, hh),
+            ).all()
+        }
+        missing = recipe_ids - visible_ids
+        if missing:
+            raise ValueError(f"Recipe not found or not visible: {', '.join(sorted(missing))}")
     db.query(models.MealPlanEntry).filter(
-        models.MealPlanEntry.user_id == user.id,
+        visible_filter(models.MealPlanEntry, user, hh),
         models.MealPlanEntry.week_start == week_start,
     ).delete(synchronize_session=False)
     for e in entries:
         db.add(
             models.MealPlanEntry(
-                user_id=user.id,
+                created_by=user.id,
+                **default_owner_kwargs(user),
                 week_start=week_start,
                 day=int(e["day"]),
                 meal=str(e["meal"]),
@@ -340,8 +395,9 @@ def tool_get_week_nutrition_summary(db: Session, user: models.User, args: Dict[s
     recipe_ids = {e["recipe_id"] for e in plan_entries}
     recipes: Dict[str, models.Recipe] = {}
     if recipe_ids:
+        hh = get_household_id(db, user.id)
         for r in db.query(models.Recipe).filter(
-            models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id
+            models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh)
         ).all():
             recipes[r.id] = r
 
@@ -367,10 +423,11 @@ def tool_get_week_nutrition_summary(db: Session, user: models.User, args: Dict[s
 
 def tool_get_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
+    hh = get_household_id(db, user.id)
     rows = (
         db.query(models.ShoppingItem)
         .filter(
-            models.ShoppingItem.user_id == user.id,
+            visible_filter(models.ShoppingItem, user, hh),
             models.ShoppingItem.week_start == week_start,
         )
         .order_by(models.ShoppingItem.category, models.ShoppingItem.name)
@@ -379,13 +436,12 @@ def tool_get_shopping_list(db: Session, user: models.User, args: Dict[str, Any])
     return [_shopping_item_to_dict(it) for it in rows]
 
 
-def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
-    week_start = str(args.get("week_start", ""))
-
+def _regenerate_auto_shopping(db: Session, user: models.User, week_start: str) -> None:
+    hh = get_household_id(db, user.id)
     plan_rows = (
         db.query(models.MealPlanEntry)
         .filter(
-            models.MealPlanEntry.user_id == user.id,
+            visible_filter(models.MealPlanEntry, user, hh),
             models.MealPlanEntry.week_start == week_start,
         )
         .all()
@@ -393,18 +449,18 @@ def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, 
 
     if not plan_rows:
         db.query(models.ShoppingItem).filter(
-            models.ShoppingItem.user_id == user.id,
+            visible_filter(models.ShoppingItem, user, hh),
             models.ShoppingItem.week_start == week_start,
             models.ShoppingItem.is_custom == 0,
         ).delete(synchronize_session=False)
         db.commit()
-        return tool_get_shopping_list(db, user, args)
+        return
 
     recipe_ids = {p.recipe_id for p in plan_rows}
     recipes: Dict[str, models.Recipe] = {
         r.id: r
         for r in db.query(models.Recipe)
-        .filter(models.Recipe.id.in_(recipe_ids), models.Recipe.user_id == user.id)
+        .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
         .all()
     }
 
@@ -430,7 +486,7 @@ def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, 
     existing = (
         db.query(models.ShoppingItem)
         .filter(
-            models.ShoppingItem.user_id == user.id,
+            visible_filter(models.ShoppingItem, user, hh),
             models.ShoppingItem.week_start == week_start,
         )
         .all()
@@ -440,7 +496,7 @@ def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, 
     }
 
     db.query(models.ShoppingItem).filter(
-        models.ShoppingItem.user_id == user.id,
+        visible_filter(models.ShoppingItem, user, hh),
         models.ShoppingItem.week_start == week_start,
         models.ShoppingItem.is_custom == 0,
     ).delete(synchronize_session=False)
@@ -449,7 +505,8 @@ def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, 
         name = display_name[(name_key, unit)]
         db.add(
             models.ShoppingItem(
-                user_id=user.id,
+                created_by=user.id,
+                **default_owner_kwargs(user),
                 week_start=week_start,
                 name=name,
                 qty=round(qty, 3),
@@ -460,20 +517,24 @@ def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, 
             )
         )
     db.commit()
+
+
+def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+    week_start = str(args.get("week_start", ""))
+    _regenerate_auto_shopping(db, user, week_start)
     return tool_get_shopping_list(db, user, args)
 
 
 def tool_check_shopping_item(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
-    week_start = str(args.get("week_start", ""))
     item_id = int(args.get("item_id", 0))
     checked = bool(args.get("checked", False))
 
+    hh = get_household_id(db, user.id)
     item = (
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
-            models.ShoppingItem.user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
+            visible_filter(models.ShoppingItem, user, hh),
         )
         .one_or_none()
     )
@@ -496,10 +557,11 @@ def tool_add_shopping_item(db: Session, user: models.User, args: Dict[str, Any])
     category_arg = args.get("category")
     category = str(category_arg) if category_arg else _category_of(name)
 
+    hh = get_household_id(db, user.id)
     existing = (
         db.query(models.ShoppingItem)
         .filter(
-            models.ShoppingItem.user_id == user.id,
+            visible_filter(models.ShoppingItem, user, hh),
             models.ShoppingItem.week_start == week_start,
             models.ShoppingItem.name == name,
             models.ShoppingItem.unit == unit,
@@ -514,7 +576,8 @@ def tool_add_shopping_item(db: Session, user: models.User, args: Dict[str, Any])
         return _shopping_item_to_dict(existing)
 
     item = models.ShoppingItem(
-        user_id=user.id,
+        created_by=user.id,
+        **default_owner_kwargs(user),
         week_start=week_start,
         name=name,
         qty=round(qty, 3),
@@ -530,15 +593,14 @@ def tool_add_shopping_item(db: Session, user: models.User, args: Dict[str, Any])
 
 
 def tool_remove_shopping_item(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
-    week_start = str(args.get("week_start", ""))
     item_id = int(args.get("item_id", 0))
 
+    hh = get_household_id(db, user.id)
     deleted = (
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
-            models.ShoppingItem.user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
+            visible_filter(models.ShoppingItem, user, hh),
         )
         .delete(synchronize_session=False)
     )
@@ -550,8 +612,9 @@ def tool_remove_shopping_item(db: Session, user: models.User, args: Dict[str, An
 
 def tool_clear_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
+    hh = get_household_id(db, user.id)
     db.query(models.ShoppingItem).filter(
-        models.ShoppingItem.user_id == user.id,
+        visible_filter(models.ShoppingItem, user, hh),
         models.ShoppingItem.week_start == week_start,
     ).delete(synchronize_session=False)
     db.commit()
@@ -590,7 +653,7 @@ TOOL_HANDLERS = {
 TOOL_CHANGED: Dict[str, List[str]] = {
     "create_recipe": ["recipes"],
     "update_recipe": ["recipes"],
-    "delete_recipe": ["recipes", "plan"],
+    "delete_recipe": ["recipes", "plan", "shopping"],
     "set_week_plan": ["plan"],
     "add_plan_entry": ["plan"],
     "remove_plan_entry": ["plan"],
@@ -608,7 +671,7 @@ TOOL_CHANGED: Dict[str, List[str]] = {
 TOOL_DEFS = [
     {
         "name": "list_recipes",
-        "description": "Zwraca wszystkie przepisy zalogowanego użytkownika.",
+        "description": "Zwraca skróty wszystkich przepisów (bez składników i kroków). Po szczegóły użyj get_recipe.",
         "input_schema": {"type": "object", "properties": {}},
     },
     {
@@ -632,7 +695,7 @@ TOOL_DEFS = [
     },
     {
         "name": "filter_recipes",
-        "description": "Zwraca przepisy spełniające kryteria.",
+        "description": "Zwraca skróty przepisów spełniających kryteria (bez składników i kroków). Po szczegóły użyj get_recipe.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -821,11 +884,10 @@ TOOL_DEFS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "week_start": {"type": "string"},
                 "item_id": {"type": "integer"},
                 "checked": {"type": "boolean"},
             },
-            "required": ["week_start", "item_id", "checked"],
+            "required": ["item_id", "checked"],
         },
     },
     {
@@ -849,10 +911,9 @@ TOOL_DEFS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "week_start": {"type": "string"},
                 "item_id": {"type": "integer"},
             },
-            "required": ["week_start", "item_id"],
+            "required": ["item_id"],
         },
     },
     {
@@ -889,38 +950,41 @@ def _call_tool(
     user: models.User,
     name: str,
     input_args: Dict[str, Any],
-    tool_events: List[Dict[str, Any]],
     changed_set: set,
 ) -> Tuple[str, bool]:
     """Execute a single tool call. Returns (result_text, is_error)."""
     handler = TOOL_HANDLERS.get(name)
-    is_error = False
     if not handler:
-        result_text = f"Unknown tool: {name}"
-        is_error = True
-    else:
-        try:
-            out = handler(db, user, input_args)
-            result_text = json.dumps(out, ensure_ascii=False)
-            # Track changed domains
-            for domain in TOOL_CHANGED.get(name, []):
-                changed_set.add(domain)
-        except Exception as exc:
-            result_text = str(exc)
-            is_error = True
-
-    tool_events.append({
-        "tool_use_id": str(uuid.uuid4()),
-        "name": name,
-        "input": input_args,
-        "output": None if is_error else json.loads(result_text) if result_text else None,
-        "error": result_text if is_error else None,
-    })
-    return result_text, is_error
+        return f"Unknown tool: {name}", True
+    try:
+        out = handler(db, user, input_args)
+        for domain in TOOL_CHANGED.get(name, []):
+            changed_set.add(domain)
+        return json.dumps(out, ensure_ascii=False), False
+    except Exception as exc:
+        return str(exc), True
 
 
 def _is_anthropic(endpoint: str) -> bool:
     return "anthropic.com" in endpoint or "/v1/messages" in endpoint
+
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
+def _safe_json_parse(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return text
+
+
+def JSON_str(obj: Any) -> str:
+    try:
+        return json.dumps(obj, ensure_ascii=False)
+    except Exception:
+        return str(obj)
 
 
 # ---------------------------------------------------------------------------
@@ -979,10 +1043,7 @@ async def _run_anthropic(
                 tu_id = tu.get("id", str(uuid.uuid4()))
                 name = tu.get("name", "")
                 input_args = tu.get("input") or {}
-                # Override tool_use_id in events with the real one from Anthropic
-                # so we can reference it
-                result_text, is_error = _call_tool(db, user, name, input_args, [], changed_set)
-                # Re-use same event but fix tool_use_id
+                result_text, is_error = _call_tool(db, user, name, input_args, changed_set)
                 tool_events.append({
                     "tool_use_id": tu_id,
                     "name": name,
@@ -1060,7 +1121,7 @@ async def _run_openai(
                 except json.JSONDecodeError:
                     input_args = {}
 
-                result_text, is_error = _call_tool(db, user, name, input_args, [], changed_set)
+                result_text, is_error = _call_tool(db, user, name, input_args, changed_set)
                 tool_events.append({
                     "tool_use_id": call_id,
                     "name": name,
@@ -1075,24 +1136,6 @@ async def _run_openai(
                 })
 
     return final_text or "(agent przekroczył limit kroków)"
-
-
-# ---------------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------------
-
-def _safe_json_parse(text: str) -> Any:
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        return text
-
-
-def JSON_str(obj: Any) -> str:
-    try:
-        return json.dumps(obj, ensure_ascii=False)
-    except Exception:
-        return str(obj)
 
 
 # ---------------------------------------------------------------------------
@@ -1160,3 +1203,103 @@ async def run_agent(
         "tool_events": tool_events,
         "changed": sorted(changed_set),
     }
+
+
+# ---------------------------------------------------------------------------
+# Conversation title generation
+# ---------------------------------------------------------------------------
+
+_TITLE_SYSTEM_PROMPT = (
+    "Tworzysz bardzo krótki, opisowy tytuł rozmowy po polsku. "
+    "Maksymalnie 5 słów, do 40 znaków. Bez cudzysłowów, bez kropki na końcu, "
+    "bez prefiksów typu 'Rozmowa:' czy 'Temat:'. Zwróć wyłącznie sam tytuł."
+)
+
+
+def _clean_title(text: str) -> str:
+    t = (text or "").strip()
+    # Strip surrounding quotes/backticks if present
+    while t and t[0] in "\"'`„«»" and t[-1] in "\"'`„«»":
+        t = t[1:-1].strip()
+    # Strip leading "Tytuł:" / "Temat:" / "Title:" prefixes
+    t = re.sub(r"^(tytuł|temat|title)\s*[:\-–—]\s*", "", t, flags=re.IGNORECASE)
+    # Collapse whitespace/newlines
+    t = re.sub(r"\s+", " ", t).strip()
+    # Trim trailing punctuation
+    t = t.rstrip(".!?,;: ")
+    if len(t) > 60:
+        t = t[:60].rstrip()
+    return t
+
+
+async def generate_conversation_title(
+    model: str,
+    user_text: str,
+    assistant_text: str,
+) -> str:
+    """
+    Ask the LLM for a 3-5 word Polish title summarizing this exchange.
+    Returns a cleaned title or "" on failure.
+    """
+    endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
+    api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
+    if not endpoint or not api_key or not model:
+        return ""
+
+    # Trim inputs to keep prompt cheap
+    u = (user_text or "").strip()[:500]
+    a = (assistant_text or "").strip()[:500]
+    prompt = (
+        "Wiadomość użytkownika:\n"
+        f"{u}\n\n"
+        "Odpowiedź asystenta:\n"
+        f"{a}\n\n"
+        "Zwróć krótki, opisowy tytuł tej rozmowy."
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            if _is_anthropic(endpoint):
+                resp = await client.post(
+                    endpoint,
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                    },
+                    json={
+                        "model": model,
+                        "max_tokens": 120,
+                        "system": _TITLE_SYSTEM_PROMPT,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                blocks = data.get("content") or []
+                texts = [b.get("text", "") for b in blocks if b.get("type") == "text"]
+                return _clean_title(" ".join(texts))
+            else:
+                resp = await client.post(
+                    endpoint,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_key}",
+                    },
+                    json={
+                        "model": model,
+                        "max_tokens": 120,
+                        "messages": [
+                            {"role": "system", "content": _TITLE_SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt},
+                        ],
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                choices = data.get("choices") or []
+                if not choices:
+                    return ""
+                return _clean_title(choices[0].get("message", {}).get("content", ""))
+    except Exception:
+        return ""

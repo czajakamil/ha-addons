@@ -260,11 +260,20 @@ def delete_recipe(
     user: models.User = Depends(get_current_user),
 ):
     r = _editable_recipe(db, user, recipe_id)
+    affected_weeks = {
+        w for (w,) in db.query(models.MealPlanEntry.week_start)
+        .filter(models.MealPlanEntry.recipe_id == recipe_id)
+        .distinct().all()
+    }
     db.query(models.MealPlanEntry).filter(
         models.MealPlanEntry.recipe_id == recipe_id
     ).delete(synchronize_session=False)
     db.delete(r)
     db.commit()
+    if affected_weeks:
+        from ..agent_runner import _regenerate_auto_shopping
+        for week_start in affected_weeks:
+            _regenerate_auto_shopping(db, user, week_start)
     return None
 
 

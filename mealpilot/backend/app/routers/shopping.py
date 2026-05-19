@@ -152,20 +152,19 @@ def generate_shopping_list(
     return get_shopping_list(week_start, db, user)
 
 
-@router.patch("/{week_start}/items/{item_id}", response_model=schemas.ShoppingItemOut)
-def patch_shopping_item(
-    week_start: str,
+@router.patch("/items/{item_id}", response_model=schemas.ShoppingItemOut)
+def patch_shopping_item_by_id(
     item_id: int,
     payload: schemas.ShoppingItemPatch,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    hh = get_household_id(db, user.id)
     item = (
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
+            visible_filter(models.ShoppingItem, user, hh),
         )
         .one_or_none()
     )
@@ -175,6 +174,17 @@ def patch_shopping_item(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.patch("/{week_start}/items/{item_id}", response_model=schemas.ShoppingItemOut)
+def patch_shopping_item(
+    week_start: str,
+    item_id: int,
+    payload: schemas.ShoppingItemPatch,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    return patch_shopping_item_by_id(item_id, payload, db, user)
 
 
 @router.post("/{week_start}/items", response_model=schemas.ShoppingItemOut)
@@ -224,6 +234,30 @@ def add_shopping_item(
 
 
 @router.delete(
+    "/items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_shopping_item_by_id(
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    hh = get_household_id(db, user.id)
+    deleted = (
+        db.query(models.ShoppingItem)
+        .filter(
+            models.ShoppingItem.id == item_id,
+            visible_filter(models.ShoppingItem, user, hh),
+        )
+        .delete(synchronize_session=False)
+    )
+    if not deleted:
+        raise HTTPException(404, "Shopping item not found")
+    db.commit()
+    return None
+
+
+@router.delete(
     "/{week_start}/items/{item_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
@@ -233,19 +267,7 @@ def delete_shopping_item(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    deleted = (
-        db.query(models.ShoppingItem)
-        .filter(
-            models.ShoppingItem.id == item_id,
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
-        )
-        .delete(synchronize_session=False)
-    )
-    if not deleted:
-        raise HTTPException(404, "Shopping item not found")
-    db.commit()
-    return None
+    return delete_shopping_item_by_id(item_id, db, user)
 
 
 @router.delete("/{week_start}", status_code=status.HTTP_204_NO_CONTENT)

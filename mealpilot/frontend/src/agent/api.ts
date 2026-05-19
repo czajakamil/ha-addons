@@ -122,6 +122,7 @@ export interface AgentRunResponseDTO {
   tool_events: AgentToolEventDTO[];
   changed: string[];
   message_id: number;
+  title?: string | null;
 }
 
 export async function runAgentOnServer(convId: number): Promise<AgentRunResponseDTO> {

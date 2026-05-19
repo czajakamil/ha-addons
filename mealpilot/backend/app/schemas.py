@@ -415,6 +415,7 @@ class AgentRunResponse(BaseModel):
     tool_events: List[AgentToolEventOut] = []
     changed: List[str] = []
     message_id: int
+    title: Optional[str] = None
 
 
 class MacroEstimateRequest(BaseModel):

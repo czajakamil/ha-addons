@@ -1161,15 +1161,19 @@ input, textarea, select { font-family: inherit; }
   padding: 8px 0;
 }
 .chat-input {
-  display: flex; gap: 8px;
+  position: relative;
+  display: block;
   padding: 12px;
+  padding-right: 12px;
+  padding-bottom: 56px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
 }
 .chat-input textarea {
-  flex: 1;
+  display: block;
+  width: 100%;
   border: 0;
   resize: none;
   background: transparent;
@@ -1178,8 +1182,14 @@ input, textarea, select { font-family: inherit; }
   font-family: var(--sans);
   line-height: 1.5;
   color: var(--ink);
+  min-height: calc(1.5em * 2);
+  padding: 0;
 }
-.chat-input button { align-self: flex-end; }
+.chat-input button {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
 
 
 /* ===== Auth ===== */
@@ -1459,12 +1469,26 @@ button.linklike:hover { text-decoration: underline; }
     gap: 8px;
     align-items: center;
     flex-wrap: nowrap;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--line, rgba(0,0,0,0.08));
   }
-  .main--chat .page-head > div:nth-child(2) { flex: 1; min-width: 0; }
+  .main--chat .page-head > div:nth-child(2) { flex: 1; min-width: 0; text-align: center; }
   .main--chat .page-head .eyebrow { display: none; }
   .main--chat .page-head h1 { font-size: 17px !important; margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .main--chat .page-head .sub { display: none; }
-  .main--chat .page-head > button:last-child { padding: 6px 10px; font-size: 12px; align-self: center !important; flex-shrink: 0; }
+  .main--chat .page-head > button:last-child { align-self: center !important; flex-shrink: 0; }
+  .main--chat .chat-mobile-back {
+    padding: 6px 8px;
+    font-size: 12px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+  .main--chat .chat-info-btn {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .main--chat .chat-info-btn-label { display: none; }
+  .main--chat .chat-mobile-back-label { display: none; }
   .chat-suggestions { padding: 4px 0; gap: 4px; }
   .chat-suggestions .chip { font-size: 12px; padding: 4px 8px; }
 }
@@ -1576,9 +1600,9 @@ button.linklike:hover { text-decoration: underline; }
   .user-add-submit, .user-add-submit .btn { width: 100%; }
 
   /* Chat input — bigger touch target, prevent zoom on iOS */
-  .chat-input { padding: 10px; gap: 6px; }
+  .chat-input { padding: 10px; padding-bottom: 56px; }
   .chat-input textarea { font-size: 16px; }
-  .chat-input button { padding: 10px 14px; }
+  .chat-input button { padding: 10px 14px; right: 10px; bottom: 10px; }
 
   /* Inputs: prevent iOS zoom */
   .edit-input,

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..agent_runner import run_agent
+from ..agent_runner import generate_conversation_title, run_agent
 from ..ai_usage import check_quota, record_usage
 from ..db import get_db
 from ..dependencies import get_current_user
@@ -257,7 +257,7 @@ async def run_conversation(
                 tool_use_id=ev["tool_use_id"],
                 tool_name=ev["name"],
                 input=ev["input"] or {},
-                output=ev["output"],
+                output=ev.get("error") if ev.get("error") else ev["output"],
                 is_error=1 if ev.get("error") else 0,
                 started_at=now,
                 finished_at=now,
@@ -265,6 +265,22 @@ async def run_conversation(
         )
 
     conv.updated_at = now
+
+    # Generate LLM-based conversation title on the first user→assistant turn
+    # (history at run-start was just [user-message]). Skips on agent errors.
+    generated_title: str | None = None
+    is_first_turn = len(history) == 1 and history[0].get("role") == "user"
+    if is_first_turn and reply and not reply.startswith("❗"):
+        first_user_text = str(history[0].get("content") or "")
+        try:
+            generated_title = await generate_conversation_title(
+                settings.model or "", first_user_text, reply
+            )
+        except Exception:
+            generated_title = None
+        if generated_title:
+            conv.title = generated_title
+
     db.commit()
     db.refresh(assistant_msg)
 
@@ -282,6 +298,7 @@ async def run_conversation(
         ],
         changed=changed,
         message_id=assistant_msg.id,
+        title=generated_title or None,
     )
 
 

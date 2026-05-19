@@ -8,7 +8,6 @@ import {
   editMessage,
   getConversation,
   listConversations,
-  patchConversation,
   runAgentOnServer,
   type AgentToolEventDTO,
   type ConversationDTO,
@@ -55,6 +54,15 @@ export function ChatScreen() {
   const [loading, setLoading] = useState(true);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const endRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const maxH = Math.floor(window.innerHeight / 3);
+    el.style.height = `${Math.min(el.scrollHeight, maxH)}px`;
+  }, [input]);
 
   const settings = getSettings();
   const configured = isConfigured(settings);
@@ -129,7 +137,7 @@ export function ChatScreen() {
   const runAndPersistAssistant = async (convId: number): Promise<void> => {
     try {
       const result = await runAgentOnServer(convId);
-      const { reply, tool_events, changed, message_id } = result;
+      const { reply, tool_events, changed, message_id, title: newTitle } = result;
 
       // Build a MessageDTO from the server response to add to local state
       const assistantMsg: MessageDTO = {
@@ -142,7 +150,7 @@ export function ChatScreen() {
           tool_use_id: ev.tool_use_id,
           tool_name: ev.name,
           input: ev.input,
-          output: ev.output,
+          output: ev.error ?? ev.output,
           is_error: Boolean(ev.error),
           started_at: new Date().toISOString(),
           finished_at: new Date().toISOString(),
@@ -151,9 +159,18 @@ export function ChatScreen() {
 
       setActiveDetail((prev) =>
         prev && prev.id === convId
-          ? { ...prev, messages: [...prev.messages, assistantMsg] }
+          ? {
+              ...prev,
+              title: newTitle || prev.title,
+              messages: [...prev.messages, assistantMsg],
+            }
           : prev,
       );
+      if (newTitle) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === convId ? { ...c, title: newTitle } : c)),
+        );
+      }
 
       // Refresh data for changed domains
       await refreshChanged(changed);
@@ -189,19 +206,6 @@ export function ChatScreen() {
         messages: [...activeDetail.messages, persistedUser],
       };
       setActiveDetail(updated);
-
-      const isFirstMessage = activeDetail.messages.length === 0;
-      if (isFirstMessage) {
-        try {
-          const newTitle = userText.slice(0, 40);
-          await patchConversation(convId, newTitle);
-          setConversations((prev) =>
-            prev.map((c) => (c.id === convId ? { ...c, title: newTitle } : c)),
-          );
-        } catch {
-          // title update is non-critical
-        }
-      }
 
       await runAndPersistAssistant(convId);
     } catch (e) {
@@ -303,10 +307,12 @@ export function ChatScreen() {
           <button
             className="btn chat-mobile-back"
             onClick={() => setMobileView('list')}
-            aria-label="Wróć do listy"
+            aria-label="Wróć do listy konwersacji"
+            title="Wróć do listy konwersacji"
             type="button"
           >
-            <Icon name="x" size={14} /> Konwersacje
+            <Icon name="chev-l" size={14} />
+            <span className="chat-mobile-back-label">Konwersacje</span>
           </button>
           <div>
             <div className="eyebrow">
@@ -320,13 +326,14 @@ export function ChatScreen() {
             </div>
           </div>
           <button
-            className="btn"
+            className="btn chat-info-btn"
             onClick={() => setShowInfo(true)}
             title="Co potrafi agent?"
+            aria-label="Co potrafi agent?"
             style={{ alignSelf: 'flex-start', gap: 6 }}
           >
             <Icon name="info" size={14} />
-            Co potrafi?
+            <span className="chat-info-btn-label">Co potrafi?</span>
           </button>
         </div>
 
@@ -444,6 +451,7 @@ export function ChatScreen() {
           )}
         </div>
 
+        {!renderedMessages.some((m) => m.role === 'user') && (
         <div className="chat-suggestions">
           {SUGGESTIONS.map((s) => (
             <button
@@ -456,9 +464,11 @@ export function ChatScreen() {
             </button>
           ))}
         </div>
+        )}
 
         <div className="chat-input">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -467,8 +477,9 @@ export function ChatScreen() {
                 void send();
               }
             }}
-            placeholder="Napisz po polsku — np. „zaplanuj 4 dni z kurczakiem na ~2000 kcal"
+            placeholder="Co gotujemy?"
             rows={2}
+            style={{ overflowY: 'auto' }}
           />
           <button className="btn primary" onClick={() => void send()} disabled={!input.trim() || busy}>
             <Icon name="send" size={14} /> Wyślij

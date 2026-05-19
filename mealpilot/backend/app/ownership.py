@@ -20,9 +20,18 @@ from sqlalchemy import or_
 from . import models
 
 
+_MISSING = object()
+
+
 def get_household_id(db: Session, user_id: int) -> Optional[int]:
+    cache = db.info.setdefault("_household_id_cache", {})
+    hit = cache.get(user_id, _MISSING)
+    if hit is not _MISSING:
+        return hit
     row = db.get(models.HouseholdMember, user_id)
-    return row.household_id if row else None
+    hh = row.household_id if row else None
+    cache[user_id] = hh
+    return hh
 
 
 def get_membership(db: Session, user_id: int) -> Optional[models.HouseholdMember]:
