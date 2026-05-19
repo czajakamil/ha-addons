@@ -33,7 +33,16 @@ export function categoryOf(name: string): string {
   return 'Inne';
 }
 
-export const WEEK_START = '2026-05-04';
+export function currentWeekStart(): string {
+  const today = new Date();
+  const day = today.getDay(); // 0=Sun, 1=Mon, ...
+  const offset = day === 0 ? 6 : day - 1; // days since Monday
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - offset);
+  return monday.toISOString().slice(0, 10);
+}
+
+export const WEEK_START = currentWeekStart();
 
 interface State {
   recipes: Recipe[];

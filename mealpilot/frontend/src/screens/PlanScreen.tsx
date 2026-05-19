@@ -7,7 +7,7 @@ import {
   MEAL_TYPES_ALL,
   PLAN_CHANGED,
   RECIPES_CHANGED,
-  WEEK_START,
+  currentWeekStart,
   getPlan,
   getRecipes,
   recipeBy,
@@ -16,6 +16,7 @@ import {
   deleteTemplate,
   applyTemplate,
   emitPlanChanged,
+  loadPlan,
 } from '../data';
 import type { MacroTarget, PlanEntry, SetTweak, Tweaks, WeekTemplate } from '../types';
 
@@ -35,8 +36,8 @@ interface DragState {
 }
 
 export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTargetsChange, favoriteIds }: Props) {
-  const [weekStart, setWeekStart] = useState(WEEK_START);
-  const [plan, setPlan] = useState<PlanEntry[]>(() => [...getPlan(WEEK_START)]);
+  const [weekStart, setWeekStart] = useState(currentWeekStart);
+  const [plan, setPlan] = useState<PlanEntry[]>(() => [...getPlan(currentWeekStart())]);
 
   useEffect(() => {
     const onPlanChanged = () => setPlan([...getPlan(weekStart)]);
@@ -88,7 +89,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   const enabledMeals = tweaks.meals || ['Śniadanie', 'Obiad', 'Kolacja'];
 
   const cellEntries = (day: number, meal: string) =>
-    plan.filter((p) => p.day === day && p.meal === meal);
+    plan.filter((p) => p.day === day && p.meal.toLowerCase() === meal.toLowerCase());
 
   const moveTo = (entry: { recipe_id: string; servings: number }, fromKey: string, day: number, meal: string) => {
     setPlan((prev) => {
@@ -170,7 +171,9 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   const shiftWeek = (n: number) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + n * 7);
-    setWeekStart(d.toISOString().slice(0, 10));
+    const ws = d.toISOString().slice(0, 10);
+    setWeekStart(ws);
+    loadPlan(ws).then(() => setPlan([...getPlan(ws)]));
   };
 
   const toggleMeal = (id: string) => {
@@ -544,7 +547,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
                 borderRight: '1px solid var(--line-soft)',
                 fontSize: 12,
               }}
-              onClick={() => setWeekStart(WEEK_START)}
+              onClick={() => setWeekStart(currentWeekStart())}
             >
               Bieżący
             </button>

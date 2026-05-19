@@ -23,6 +23,18 @@ from .ownership import visible_filter, get_household_id, default_owner_kwargs
 
 MAX_STEPS = 10
 
+_CANONICAL_MEALS = ['Śniadanie', 'II Śniadanie', 'Obiad', 'Przekąska', 'Kolacja']
+
+
+def _normalize_meal(meal: str) -> str:
+    """Return canonical meal name (case-insensitive match), or capitalize first char."""
+    stripped = meal.strip()
+    lower = stripped.lower()
+    for cm in _CANONICAL_MEALS:
+        if cm.lower() == lower:
+            return cm
+    return stripped[:1].upper() + stripped[1:] if stripped else stripped
+
 
 def _current_week_start() -> str:
     """Return the ISO date string of the most recent Monday."""
@@ -356,7 +368,8 @@ def _replace_plan(db: Session, user: models.User, week_start: str, entries: List
 
 def tool_set_week_plan(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
-    entries = list(args.get("entries") or [])
+    raw_entries = list(args.get("entries") or [])
+    entries = [{**e, "meal": _normalize_meal(str(e.get("meal", "")))} for e in raw_entries]
     _replace_plan(db, user, week_start, entries)
     result_entries = _get_plan_entries(db, user, week_start)
     return _enrich_plan(db, user, week_start, result_entries)
@@ -365,7 +378,7 @@ def tool_set_week_plan(db: Session, user: models.User, args: Dict[str, Any]) -> 
 def tool_add_plan_entry(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     day = int(args.get("day", 0))
-    meal = str(args.get("meal", ""))
+    meal = _normalize_meal(str(args.get("meal", "")))
     recipe_id = str(args.get("recipe_id", ""))
     servings = int(args.get("servings") or 1)
 
@@ -380,7 +393,7 @@ def tool_add_plan_entry(db: Session, user: models.User, args: Dict[str, Any]) ->
 def tool_remove_plan_entry(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     day = int(args.get("day", 0))
-    meal = str(args.get("meal", ""))
+    meal = _normalize_meal(str(args.get("meal", "")))
 
     entries = _get_plan_entries(db, user, week_start)
     filtered = [e for e in entries if not (e["day"] == day and e["meal"] == meal)]

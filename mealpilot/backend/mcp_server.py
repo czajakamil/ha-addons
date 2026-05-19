@@ -83,6 +83,18 @@ def _current_week_start() -> str:
     return _monday_of(date.today()).isoformat()
 
 
+_CANONICAL_MEALS = ['Śniadanie', 'II Śniadanie', 'Obiad', 'Przekąska', 'Kolacja']
+
+
+def _normalize_meal(meal: str) -> str:
+    stripped = meal.strip()
+    lower = stripped.lower()
+    for cm in _CANONICAL_MEALS:
+        if cm.lower() == lower:
+            return cm
+    return stripped[:1].upper() + stripped[1:] if stripped else stripped
+
+
 # ---------------------------------------------------------------------------
 # Tool definitions
 # ---------------------------------------------------------------------------
@@ -610,14 +622,15 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
 
     if name == "add_plan_entry":
         ws = args["week_start"]
+        meal = _normalize_meal(str(args["meal"]))
         entries = await _get_plan_entries(ws)
         entries = [
             e for e in entries
-            if not (int(e["day"]) == int(args["day"]) and e["meal"] == args["meal"])
+            if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())
         ]
         entries.append({
             "day": int(args["day"]),
-            "meal": args["meal"],
+            "meal": meal,
             "recipe_id": args["recipe_id"],
             "servings": int(args["servings"]),
         })
@@ -625,10 +638,11 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
 
     if name == "remove_plan_entry":
         ws = args["week_start"]
+        meal = _normalize_meal(str(args["meal"]))
         entries = await _get_plan_entries(ws)
         entries = [
             e for e in entries
-            if not (int(e["day"]) == int(args["day"]) and e["meal"] == args["meal"])
+            if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())
         ]
         return await _put_plan(ws, entries)
 
