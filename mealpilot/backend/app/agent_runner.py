@@ -1151,7 +1151,19 @@ async def run_agent(
                 history, db, user, tool_events, changed_set,
             )
     except httpx.HTTPStatusError as exc:
-        reply = f"❗ Błąd: {exc.response.status_code} {exc.response.text[:300]}"
+        resp_text = exc.response.text[:300]
+        if resp_text.lstrip().lower().startswith("<!doctype") or resp_text.lstrip().startswith("<html"):
+            current_url = os.environ.get("MEALPILOT_AI_API_URL", "")
+            reply = (
+                f"❗ Błąd konfiguracji: serwer AI zwrócił kod {exc.response.status_code} ze stroną HTML zamiast odpowiedzi API.\n\n"
+                f"Skonfigurowany adres URL: {current_url!r}\n\n"
+                f"Sprawdź ustawienia dodatku w Home Assistant. Przykładowe poprawne adresy:\n"
+                f"• Anthropic: https://api.anthropic.com/v1/messages\n"
+                f"• OpenAI: https://api.openai.com/v1/chat/completions\n"
+                f"• OpenRouter: https://openrouter.ai/api/v1/chat/completions"
+            )
+        else:
+            reply = f"❗ Błąd: {exc.response.status_code} {resp_text}"
     except Exception as exc:
         reply = f"❗ Błąd: {exc}"
 
