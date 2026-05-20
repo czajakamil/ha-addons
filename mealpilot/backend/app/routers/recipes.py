@@ -271,9 +271,9 @@ def delete_recipe(
     db.delete(r)
     db.commit()
     if affected_weeks:
-        from ..agent_runner import _regenerate_auto_shopping
+        from ..agent.tools import regenerate_auto_shopping
         for week_start in affected_weeks:
-            _regenerate_auto_shopping(db, user, week_start)
+            regenerate_auto_shopping(db, user, week_start)
     return None
 
 
