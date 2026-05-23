@@ -1,3 +1,3 @@
-## 0.2.7
-- Updated the import for the auto shopping regeneration function in the recipe deletion process to use the new module path.
-- Enhanced the agent settings prompts to clarify the use of recipe IDs and the importance of fetching existing values before making changes, ensuring better adherence to guidelines for recipe creation and planning.
+## 0.2.8
+- Naprawa błędu odświezania strony po kliknięciu przycisku "Biezacy tydzien"
+- Naprawa błędu z estymacją makroskładników przez AI
