@@ -547,7 +547,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
                 borderRight: '1px solid var(--line-soft)',
                 fontSize: 12,
               }}
-              onClick={() => setWeekStart(currentWeekStart())}
+              onClick={() => { const ws = currentWeekStart(); setWeekStart(ws); loadPlan(ws).then(() => setPlan([...getPlan(ws)])); }}
             >
               Bieżący
             </button>

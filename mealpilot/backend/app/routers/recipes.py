@@ -117,18 +117,20 @@ def _is_anthropic(endpoint: str) -> bool:
     return "anthropic.com" in endpoint or "/v1/messages" in endpoint
 
 
-async def _call_llm(endpoint: str, api_key: str, model: str, prompt: str) -> str:
+async def _call_llm(endpoint: str, api_key: str, model: str, prompt: str, json_mode: bool = False, system_prompt: str | None = None) -> str:
     if _is_anthropic(endpoint):
         headers = {
             "Content-Type": "application/json",
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
         }
-        body = {
+        body: dict = {
             "model": model,
             "max_tokens": 256,
             "messages": [{"role": "user", "content": prompt}],
         }
+        if system_prompt:
+            body["system"] = system_prompt
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(endpoint, headers=headers, json=body)
         resp.raise_for_status()
@@ -139,11 +141,17 @@ async def _call_llm(endpoint: str, api_key: str, model: str, prompt: str) -> str
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
         }
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
         body = {
             "model": model,
             "max_tokens": 256,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
         }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(endpoint, headers=headers, json=body)
         resp.raise_for_status()
@@ -177,12 +185,16 @@ async def estimate_macros(
         f"Liczba porcji: {payload.servings}\n"
         f"Składniki:\n{ing_lines}\n\n"
         "Oszacuj makroskładniki dla CAŁEGO przepisu (wszystkich porcji łącznie).\n"
-        "Odpowiedz TYLKO w formacie JSON, bez żadnego dodatkowego tekstu:\n"
-        '{"kcal": <liczba>, "p": <białko g>, "f": <tłuszcz g>, "c": <węglowodany g>}'
+        "Zwróć WYŁĄCZNIE obiekt JSON w tej formie (same liczby, bez jednostek, bez opisu):\n"
+        '{"kcal": 0, "p": 0, "f": 0, "c": 0}'
     )
 
     try:
-        text = await _call_llm(endpoint, api_key, model, prompt)
+        text = await _call_llm(
+            endpoint, api_key, model, prompt,
+            json_mode=True,
+            system_prompt="You are a nutrition data API. Always respond with raw JSON only, no markdown, no explanation.",
+        )
     except httpx.HTTPStatusError as e:
         raise HTTPException(502, f"Błąd LLM: {e.response.status_code} {e.response.text[:200]}")
     except Exception as e:
