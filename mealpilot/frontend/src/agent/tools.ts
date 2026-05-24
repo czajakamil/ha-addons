@@ -1,11 +1,14 @@
 import {
   apiFetch,
+  deleteRating,
   emitPlanChanged,
   emitRecipesChanged,
   emitShoppingChanged,
   loadPlan,
   loadRecipes,
   loadShopping,
+  rateRecipe,
+  refreshRecipe,
 } from '../data';
 
 export interface ToolDef {
@@ -61,6 +64,9 @@ interface Recipe {
   p: number;
   f: number;
   c: number;
+  avg_rating?: number | null;
+  rating_count?: number;
+  my_rating?: number | null;
 }
 interface PlanEntry {
   day: number;
@@ -89,26 +95,35 @@ async function putPlan(ws: string, entries: PlanEntry[]): Promise<unknown> {
   return result;
 }
 
-async function enrichPlan(plan: WeekPlan): Promise<WeekPlan & { entries: (PlanEntry & { recipe_title: string })[] }> {
+async function enrichPlan(plan: WeekPlan): Promise<WeekPlan & { entries: (PlanEntry & { recipe_title: string; avg_rating: number | null; rating_count: number; my_rating: number | null })[] }> {
   const recipes = await getRecipes();
-  const titles = new Map(recipes.map((r) => [r.id, r.title]));
+  const recipeMap = new Map(recipes.map((r) => [r.id, r]));
   return {
     ...plan,
-    entries: (plan.entries || []).map((e) => ({ ...e, recipe_title: titles.get(e.recipe_id) || '' })),
+    entries: (plan.entries || []).map((e) => {
+      const r = recipeMap.get(e.recipe_id);
+      return {
+        ...e,
+        recipe_title: r?.title ?? '',
+        avg_rating: r?.avg_rating ?? null,
+        rating_count: r?.rating_count ?? 0,
+        my_rating: r?.my_rating ?? null,
+      };
+    }),
   };
 }
 
 export const TOOLS: ToolDef[] = [
   {
     name: 'list_recipes',
-    description: 'Zwraca wszystkie przepisy zalogowanego użytkownika.',
+    description: 'Zwraca wszystkie przepisy zalogowanego użytkownika. Każdy obiekt Recipe zawiera pola ocen: avg_rating (średnia gwiazdkowa 1–5 lub null gdy brak ocen), rating_count (liczba ocen) oraz my_rating (Twoja osobista ocena lub null). Użyj tych pól przy rekomendacjach.',
     group: 'Przepisy',
     parameters: { type: 'object', properties: {} },
     handler: () => req('GET', '/recipes'),
   },
   {
     name: 'get_recipe',
-    description: 'Szczegóły jednego przepisu (składniki, kroki, makro).',
+    description: 'Szczegóły jednego przepisu (składniki, kroki, makro). Zwraca też pola ocen: avg_rating, rating_count, my_rating — jak w list_recipes.',
     group: 'Przepisy',
     parameters: {
       type: 'object',
@@ -263,6 +278,38 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'rate_recipe',
+    description:
+      'Ustawia lub usuwa ocenę przepisu (1–5 gwiazdek) w imieniu zalogowanego użytkownika. ' +
+      'Jeśli użytkownik mówi coś pozytywnego o przepisie (np. „świetny", „pyszny", „polecam"), zaproponuj wystawienie oceny i poczekaj na potwierdzenie. ' +
+      'rating=0 usuwa istniejącą ocenę. Po wywołaniu zwraca zaktualizowany obiekt Recipe z nowymi polami avg_rating i my_rating.',
+    group: 'Przepisy' as ToolGroup,
+    parameters: {
+      type: 'object',
+      properties: {
+        recipe_id: { type: 'string', description: 'ID przepisu do oceny.' },
+        rating: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 5,
+          description: 'Ocena 1–5. Podaj 0, aby usunąć istniejącą ocenę.',
+        },
+      },
+      required: ['recipe_id', 'rating'],
+    },
+    handler: async (a) => {
+      const rating = Number(a.rating);
+      if (rating === 0) {
+        await deleteRating(String(a.recipe_id));
+      } else {
+        await rateRecipe(String(a.recipe_id), rating);
+      }
+      const updated = await refreshRecipe(String(a.recipe_id));
+      emitRecipesChanged();
+      return updated;
+    },
+  },
+  {
     name: 'get_week_plan',
     description: 'Plan posiłków na dany tydzień z tytułami przepisów. week_start = poniedziałek (YYYY-MM-DD).',
     group: 'Plan tygodnia',
@@ -290,7 +337,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'set_week_plan',
     description:
-      'Zastępuje cały plan tygodnia. UWAGA: zawsze najpierw pokaż użytkownikowi podgląd i poczekaj na potwierdzenie.',
+      'Zastępuje cały plan tygodnia. UWAGA: zawsze najpierw pokaż użytkownikowi podgląd i poczekaj na potwierdzenie. Przy wyborze przepisów preferuj te z wysoką avg_rating i/lub wysoką my_rating, jeśli masz wybór.',
     group: 'Plan tygodnia',
     parameters: {
       type: 'object',
@@ -316,7 +363,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'add_plan_entry',
-    description: 'Dodaje jeden slot do planu (zastępując ewentualny istniejący na tym dniu/posiłku).',
+    description: 'Dodaje jeden slot do planu (zastępując ewentualny istniejący na tym dniu/posiłku). Przy wyborze przepisu preferuj wysoko ocenione (avg_rating, my_rating).',
     group: 'Plan tygodnia',
     parameters: {
       type: 'object',

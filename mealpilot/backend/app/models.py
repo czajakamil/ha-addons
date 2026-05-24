@@ -198,6 +198,34 @@ class WeekTemplate(Base):
     created_at = Column(DateTime, nullable=False, default=_utcnow)
 
 
+class RecipeRating(Base):
+    __tablename__ = "recipe_ratings"
+    __table_args__ = (
+        UniqueConstraint("recipe_id", "user_id", name="uq_rating_recipe_user"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+class RecipeNote(Base):
+    __tablename__ = "recipe_notes"
+    __table_args__ = (
+        UniqueConstraint("recipe_id", "user_id", name="uq_note_recipe_user"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    note = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
 class ShoppingItem(Base):
     __tablename__ = "shopping_items"
     __table_args__ = (

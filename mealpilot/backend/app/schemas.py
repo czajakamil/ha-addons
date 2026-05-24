@@ -214,6 +214,33 @@ class Recipe(RecipeBase):
     created_by: int
     owner_user_id: Optional[int] = None
     owner_household_id: Optional[int] = None
+    avg_rating: Optional[float] = None
+    rating_count: int = 0
+    my_rating: Optional[int] = None
+    my_note: Optional[str] = None
+
+
+class RatingUpsert(BaseModel):
+    rating: int = Field(ge=1, le=5)
+
+
+class RatingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    recipe_id: str
+    rating: int
+
+
+class RecipeNoteUpsert(BaseModel):
+    note: str = Field(max_length=5000)
+
+
+class RecipeNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    recipe_id: str
+    note: str
+    updated_at: datetime
 
 
 class PlanEntry(BaseModel):

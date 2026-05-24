@@ -1,12 +1,15 @@
 # MealPilot — specyfikacja serwera MCP dla agenta AI
 
+> Dokument odzwierciedla **aktualny stan kodu** (maj 2026).  
+> Poprzednia wersja opisywała planowaną implementację; wszystkie wymienione endpointy i narzędzia już istnieją.
+
 ## Kontekst projektu
 
 Aplikacja **MealPilot** do planowania posiłków. Stack:
 
-- **Backend**: FastAPI (Python), SQLite przez SQLAlchemy, sesje cookie (`mealpilot_session`)
+- **Backend**: FastAPI (Python), SQLite przez SQLAlchemy
 - **Frontend**: React + TypeScript (Vite)
-- **Auth**: sesja po stronie serwera — każde żądanie musi nieść ciasteczko sesji; zależność `get_current_user` wstrzykuje obiekt `User` do każdego endpointu
+- **Auth**: sesja cookie (`mealpilot_session`) **lub** API key przez nagłówek `X-MealPilot-Token`
 
 ### Modele bazy danych
 
@@ -15,230 +18,317 @@ class User:
     id: int (PK)
     username: str (unique)
     password_hash: str
-    role: str  # "admin" | "user"
+    role: str              # "admin" | "user"
     is_active: int
+    session_version: int
+    can_use_ai: bool
+    ai_monthly_token_limit: int | null
+    ai_monthly_cost_limit_cents: int | null
+    ai_used_tokens_this_month: int
+    ai_used_cost_cents_this_month: int
+    ai_usage_period_start: datetime
+    created_at: datetime
+
+class Household:
+    id: int (PK)
+    name: str
+    created_at: datetime
+
+class HouseholdMember:
+    user_id: int (FK→users, PK)
+    household_id: int (FK→households)
+    can_edit: bool
+    joined_at: datetime
+
+class AgentSettings:
+    user_id: int (FK, PK)
+    endpoint: str          # URL endpointu LLM (np. OpenAI-compatible lub Anthropic)
+    api_key: str
+    model: str
+    system_prompt: str
+    ui_prefs: JSON         # { recipes_grouped, macro_targets, favorite_recipe_ids }
+    updated_at: datetime
+
+class ApiKey:
+    id: int (PK)
+    user_id: int (FK)
+    name: str
+    prefix: str
+    key_hash: str (unique)
+    created_at: datetime
+    last_used_at: datetime | null
 
 class Recipe:
-    id: str (PK)          # slug czytelny dla ludzi, np. "kurczak-z-ryzem"
-    user_id: int (FK)
+    id: str (PK)               # slug, np. "kurczak-z-ryzem"
+    created_by: int (FK→users) # kolumna bazy: "user_id"
+    owner_user_id: int | null  # dokładnie jedno z owner_* musi być ustawione
+    owner_household_id: int | null
     title: str
-    tags: JSON[str]       # np. ["azjatycki", "zdrowe", "bez-glutenu"]
-    meal_types: JSON[str] # np. ["śniadanie", "obiad", "kolacja"]
+    tags: JSON[str]
+    meal_types: JSON[str]
     servings: int
-    prep_time: int        # minuty
-    cook_time: int        # minuty
-    kcal: float
-    p: float              # białko [g]
-    f: float              # tłuszcze [g]
-    c: float              # węglowodany [g]
-    hue: int              # kolor karty w UI (0-360)
-    ingredients: JSON     # [{name, qty, unit}]
+    prep_time: int             # minuty
+    cook_time: int             # minuty
+    kcal: float                # SUMA dla całego przepisu (wszystkich porcji)
+    p: float                   # białko [g] — SUMA
+    f: float                   # tłuszcze [g] — SUMA
+    c: float                   # węglowodany [g] — SUMA
+    hue: int                   # kolor karty (0–360)
+    ingredients: JSON          # [{name, qty, unit}]
     steps: JSON[str]
     image_filename: str | null
 
+class RecipeRating:
+    id: int (PK)
+    recipe_id: str (FK, CASCADE)
+    user_id: int (FK)
+    rating: int (1–5)
+    created_at: datetime
+    updated_at: datetime
+    # UNIQUE(recipe_id, user_id)
+
+class RecipeNote:
+    id: int (PK)
+    recipe_id: str (FK, CASCADE)
+    user_id: int (FK)
+    note: str (max 5000 znaków)
+    created_at: datetime
+    updated_at: datetime
+    # UNIQUE(recipe_id, user_id)
+
 class MealPlanEntry:
     id: int (PK, autoincrement)
-    user_id: int (FK)
-    week_start: str       # format "YYYY-MM-DD" (poniedziałek)
-    day: int              # 0=poniedziałek … 6=niedziela
-    meal: str             # "śniadanie" | "obiad" | "kolacja" | dowolna wartość
+    created_by: int (FK→users)  # kolumna bazy: "user_id"
+    owner_user_id: int | null
+    owner_household_id: int | null
+    week_start: str             # "YYYY-MM-DD" (poniedziałek)
+    day: int                    # 0=poniedziałek … 6=niedziela
+    meal: str                   # "Śniadanie"|"II Śniadanie"|"Obiad"|"Przekąska"|"Kolacja"
     recipe_id: str (FK)
-    servings: int
+    servings: int               # porcje do zjedzenia w tym slocie
+
+class WeekTemplate:
+    id: int (PK)
+    created_by: int (FK→users)
+    owner_user_id: int | null
+    owner_household_id: int | null
+    name: str
+    entries: JSON              # [{day, meal, recipe_id, servings}]
+    created_at: datetime
+
+class AgentConversation:
+    id: int (PK)
+    user_id: int (FK)
+    title: str | null
+    model: str
+    created_at: datetime
+    updated_at: datetime
+
+class AgentMessage:
+    id: int (PK)
+    conversation_id: int (FK, CASCADE)
+    role: str                  # "user" | "assistant"
+    content: str
+    created_at: datetime
+
+class AgentToolUse:
+    id: int (PK)
+    message_id: int (FK, CASCADE)
+    tool_use_id: str
+    tool_name: str
+    input: JSON
+    output: JSON | null
+    is_error: int              # 0 | 1
+    started_at: datetime
+    finished_at: datetime | null
 
 class ShoppingItem:
     id: int (PK, autoincrement)
-    user_id: int (FK)
+    created_by: int (FK→users)  # kolumna bazy: "user_id"
+    owner_user_id: int | null
+    owner_household_id: int | null
     week_start: str
     name: str
     qty: float
     unit: str
-    category: str         # np. "Mięso, ryby, białko" | "Nabiał" | "Warzywa i owoce" | "Suche i zboża" | "Tłuszcze i przyprawy" | "Spiżarnia" | "Inne"
-    checked: int          # 0 | 1
+    category: str              # patrz sekcja kategorii poniżej
+    checked: int               # 0 | 1
+    is_custom: int             # 0=wygenerowane z planu, 1=dopisane ręcznie
+    # UNIQUE(user_id, week_start, name, unit)
 ```
 
-### Istniejące endpointy REST
+**Kategorie zakupów** (przydzielane przez słownik regex):
+`"Mięso, ryby, białko"` | `"Nabiał"` | `"Warzywa i owoce"` | `"Suche i zboża"` | `"Tłuszcze i przyprawy"` | `"Spiżarnia"` | `"Inne"`
+
+---
+
+## Istniejące endpointy REST
+
+### Przepisy (`/api/recipes`)
 
 ```
-GET    /api/recipes                  → lista przepisów usera
-GET    /api/recipes/{id}             → szczegóły przepisu
-POST   /api/recipes                  → utwórz przepis
-PUT    /api/recipes/{id}             → zaktualizuj przepis
-DELETE /api/recipes/{id}             → usuń przepis
-POST   /api/recipes/{id}/image       → upload zdjęcia
-DELETE /api/recipes/{id}/image       → usuń zdjęcie
+GET    /api/recipes                          → lista przepisów widocznych dla usera
+GET    /api/recipes/meta/tags                → {tags: string[]}  (unikalne, posortowane)
+GET    /api/recipes/meta/meal_types          → {meal_types: string[]}
+GET    /api/recipes/{id}                     → szczegóły przepisu (z ratings, my_note)
+POST   /api/recipes                          → utwórz przepis  (201)
+PUT    /api/recipes/{id}                     → zaktualizuj przepis
+DELETE /api/recipes/{id}                     → usuń przepis + wpisy planu (204)
+PUT    /api/recipes/{id}/rating              → upsert oceny {rating: 1-5}
+DELETE /api/recipes/{id}/rating              → usuń ocenę (204)
+PUT    /api/recipes/{id}/note                → upsert notatki {note: str}
+DELETE /api/recipes/{id}/note                → usuń notatkę (204)
+PUT    /api/recipes/{id}/ownership           → {share_with_household: bool}
+POST   /api/recipes/{id}/image               → upload zdjęcia
+DELETE /api/recipes/{id}/image               → usuń zdjęcie
+POST   /api/recipes/estimate-macros          → LLM-szacowanie makro z listy składników
+```
 
-GET    /api/plan/{week_start}        → plan tygodnia
-PUT    /api/plan/{week_start}        → zastąp cały plan (tablica PlanEntry)
+**Filtry GET /api/recipes** (wszystkie opcjonalne):
+- `tags: str` — CSV; przepis musi mieć **wszystkie** (AND, case-sensitive)
+- `meal_types: str` — CSV; przepis musi pasować do **co najmniej jednego** (OR, case-sensitive)
+- `max_kcal: float` — kcal sumarycznie dla całego przepisu
+- `min_protein: float` — białko (g) sumarycznie
+- `min_my_rating: int (1–5)` — brak oceny = wykluczony
+- `min_avg_rating: float (1.0–5.0)` — brak ocen = wykluczony
 
+**Schemat Recipe** (w odpowiedzi):
+```
+{
+  id, title, tags, meal_types, servings, prep_time, cook_time,
+  kcal, p, f, c,              ← SUMY dla całego przepisu (nie na porcję!)
+  hue, ingredients [{name, qty, unit}], steps,
+  image_filename, created_by,
+  owner_user_id, owner_household_id,
+  avg_rating, rating_count,   ← agregaty wszystkich ocen
+  my_rating, my_note          ← ocena i notatka zalogowanego usera
+}
+```
+
+### Plan tygodnia (`/api/plan`)
+
+```
+GET    /api/plan/{week_start}   → WeekPlan = {week_start, entries:[{day,meal,recipe_id,servings}]}
+PUT    /api/plan/{week_start}   → zastąp cały plan (tablica PlanEntry)
+```
+
+`week_start` musi być **poniedziałkiem** (YYYY-MM-DD). `PUT` zwraca błąd 400 z listą nieznanych recipe_id.
+
+### Lista zakupów (`/api/shopping`)
+
+```
+GET    /api/shopping/{week_start}             → ShoppingItem[]  (posortowane po category, name)
+POST   /api/shopping/{week_start}/generate    → generuje/odświeża listę z planu (is_custom=false
+                                                 pozycje usuwane i tworzone od nowa; is_custom=true ZOSTAJĄ)
+PATCH  /api/shopping/{week_start}/items/{id}  → {checked: bool}  → ShoppingItemOut
+PATCH  /api/shopping/items/{id}               → j.w. (skrót bez week_start w ścieżce)
+POST   /api/shopping/{week_start}/items       → dodaj ręczną pozycję (is_custom=1)
+DELETE /api/shopping/{week_start}/items/{id}  → usuń pozycję (204)
+DELETE /api/shopping/items/{id}               → j.w. (skrót)
+DELETE /api/shopping/{week_start}             → wyczyść całą listę (204)
+```
+
+**Logika `generate`**: Pobiera `MealPlanEntry` tygodnia, dla każdego mnoży składniki przez `(entry.servings / recipe.servings)`, sumuje po `(name.lower(), unit)`, normalizuje `kg→g` i `l→ml`, przypisuje kategorię przez słownik regex. Poprzednie `is_custom=0` są usuwane; stan `checked` z poprzedniej generacji jest zachowywany.
+
+### Pozostałe
+
+```
 GET    /healthz
 POST   /api/auth/login
 POST   /api/auth/logout
 GET    /api/auth/me
+POST   /api/auth/api-keys        → tworzy API key {name} → {id, name, prefix, key (tylko raz!)}
+GET    /api/auth/api-keys        → lista kluczy (bez wartości)
+DELETE /api/auth/api-keys/{id}   → usuń klucz (204)
+GET    /api/settings/agent       → AgentSettings
+PUT    /api/settings/agent       → zapisz ustawienia LLM/agenta
+GET    /api/settings/ui-prefs    → UiPrefs
+PATCH  /api/settings/ui-prefs    → zaktualizuj prefs
+...plan templates, admin, households (pominięto — nieistotne dla agenta MCP)
 ```
-
-> **Uwaga**: Endpointy listy zakupów (`/api/shopping/…`) **jeszcze nie istnieją** — model `ShoppingItem` jest w bazie, ale brakuje routera. ShoppingScreen w obecnej wersji agreguje składniki lokalnie z danych w pamięci.
 
 ---
 
-## Cel zadania
+## Serwer MCP (`backend/mcp_server.py`)
 
-Zaimplementuj:
+### Uruchomienie
 
-1. **Brakujące endpointy REST** potrzebne agentowi (opisane poniżej)
-2. **Serwer MCP** (`mcp_server.py`) eksponujący narzędzia agenta jako tools MCP
-3. Serwer MCP ma działać jako **stdio server** (standardowy transport dla MCP)
-
----
-
-## Brakujące endpointy REST do dodania
-
-### A. Filtrowanie przepisów
-
-```
-GET /api/recipes?tags=azjatycki,kolacja&meal_types=obiad&max_kcal=700&min_protein=30
+```bash
+MEALPILOT_API_KEY=mp_xxx python mcp_server.py
 ```
 
-Parametry query (wszystkie opcjonalne):
-- `tags: str` — lista tagów oddzielona przecinkami; przepis musi mieć **wszystkie** podane tagi
-- `meal_types: str` — lista typów posiłku oddzielona przecinkami; przepis musi pasować do **co najmniej jednego**
-- `max_kcal: float`
-- `min_protein: float` — minimalne białko (pole `p`) na porcję
+Transport: **stdio**. Zmienne środowiskowe:
 
-### B. Metadane słownikowe
+| Zmienna | Domyślnie | Opis |
+|---|---|---|
+| `MEALPILOT_BASE_URL` | `http://localhost:8000` | Adres backendu |
+| `MEALPILOT_API_KEY` | `""` | API key (preferowany) |
+| `MEALPILOT_SESSION_COOKIE` | `""` | Ciasteczko sesji (fallback) |
+| `MEALPILOT_COOKIE_NAME` | `mealpilot_session` | Nazwa cookie |
 
+Auth: jeśli `API_KEY` ustawione → nagłówek `X-MealPilot-Token`; inaczej → `Cookie: mealpilot_session=<wartość>`.
+
+### Narzędzia MCP
+
+#### Grupa 1 — Przepisy
+
+| Narzędzie | HTTP | Opis |
+|---|---|---|
+| `list_recipes` | `GET /api/recipes` | Wszystkie widoczne przepisy |
+| `get_recipe` | `GET /api/recipes/{recipe_id}` | Szczegóły jednego przepisu |
+| `list_tags` | `GET /api/recipes/meta/tags` | `{tags: string[]}` — wywołaj przed filter/create |
+| `list_meal_types` | `GET /api/recipes/meta/meal_types` | `{meal_types: string[]}` |
+| `filter_recipes` | `GET /api/recipes?...` | Filtrowanie po tags/meal_types/max_kcal/min_protein/min_my_rating/min_avg_rating |
+| `create_recipe` | `POST /api/recipes` | Tworzy przepis; przy 409 zmień slug i ponów |
+| `update_recipe` | `PUT /api/recipes/{recipe_id}` | PATCH-semantyka; tablice nadpisywane w całości |
+| `delete_recipe` | `DELETE /api/recipes/{recipe_id}` | [DESTRUKCYJNE] usuwa przepis + wpisy planu |
+| `rate_recipe` | `PUT/DELETE /api/recipes/{id}/rating` | rating 1–5; rating=0 usuwa ocenę |
+| `estimate_recipe_macros` | `POST /api/recipes/estimate-macros` | LLM szacuje kcal/p/f/c z listy składników |
+
+**Uwaga do `filter_recipes`**: parametry `tags`/`meal_types` są **case-sensitive** — zawsze najpierw `list_tags`/`list_meal_types`. Pola `kcal/p/f/c` to sumy całego przepisu, nie na porcję.
+
+**Uwaga do `estimate_recipe_macros`**: Błąd 424 = brak LLM lub wyczerpana kwota (nie ponawiaj, poproś o makro ręcznie). Błąd 502 = zły format odpowiedzi (można ponowić raz).
+
+#### Grupa 2 — Plan tygodnia
+
+| Narzędzie | HTTP | Opis |
+|---|---|---|
+| `get_week_plan` | `GET /api/plan/{week_start}` + enrichment | Plan z `recipe_title` doklejonym do każdego entry |
+| `get_current_week_plan` | j.w., `week_start` liczony automatycznie | Skrót dla "bieżący tydzień" |
+| `set_week_plan` | `PUT /api/plan/{week_start}` | [DESTRUKCYJNE][POTWIERDŹ] zastępuje cały plan |
+| `add_plan_entry` | `GET` + `PUT /api/plan/{week_start}` | Dodaje/nadpisuje slot (day+meal), reszta bez zmian |
+| `remove_plan_entry` | `GET` + `PUT /api/plan/{week_start}` | Usuwa slot, no-op gdy nie istnieje |
+| `get_week_nutrition_summary` | obliczenia lokalne na danych z GET | Sumy makro per dzień, skalowane wg servings |
+
+`week_start` **musi być poniedziałkiem** (YYYY-MM-DD). Oblicz: `data - timedelta(days=data.weekday())`.
+
+`get_week_plan` / `get_current_week_plan` zwracają enriched entries z `recipe_title`, `avg_rating`, `rating_count`, `my_rating`.  
+`set_/add_/remove_plan_entry` zwracają WeekPlan bez tych pól.
+
+`get_week_nutrition_summary` → `{"0":{kcal,p,f,c}, ..., "6":{...}}` — wartości zaokrąglone do 2 miejsc; dni bez wpisów = same zera.
+
+#### Grupa 3 — Lista zakupów
+
+| Narzędzie | HTTP | Opis |
+|---|---|---|
+| `get_shopping_list` | `GET /api/shopping/{week_start}` | Lista pozycji, posortowana po (category, name) |
+| `generate_shopping_list` | `POST /api/shopping/{week_start}/generate` | [DESTRUKCYJNE] regeneruje z planu; is_custom=true ZOSTAJĄ |
+| `check_shopping_item` | `PATCH /api/shopping/items/{item_id}` | Odhacza/odznacza; `item_id` to pole `id` z get_shopping_list |
+| `clear_shopping_list` | `DELETE /api/shopping/{week_start}` | [DESTRUKCYJNE][POTWIERDŹ] usuwa wszystkie pozycje (też ręczne) |
+
+**Schemat ShoppingItem** (zwracany przez narzędzia):
 ```
-GET /api/recipes/meta/tags        → {"tags": ["azjatycki", "vege", ...]}  (unikalne, posortowane)
-GET /api/recipes/meta/meal_types  → {"meal_types": ["śniadanie", "obiad", ...]}
+{
+  id: int,         ← użyj w check_shopping_item, NIE recipe_id ani nazwa
+  week_start: str,
+  name: str,
+  qty: float,
+  unit: str,       ← znormalizowana: "g"/"ml"/"szt"...
+  category: str,   ← PL, np. "Nabiał"|"Warzywa i owoce"|"Inne"
+  checked: bool,
+  is_custom: bool  ← true = dopisane ręcznie
+}
 ```
-
-### C. Lista zakupów (nowy router `/api/shopping`)
-
-```
-GET    /api/shopping/{week_start}             → lista pozycji (ShoppingItem[])
-POST   /api/shopping/{week_start}/generate    → agreguje składniki z planu → zapisuje/nadpisuje listę
-PATCH  /api/shopping/{week_start}/items/{id}  → {"checked": true/false}
-DELETE /api/shopping/{week_start}             → czyści całą listę
-```
-
-**Logika `generate`**: Dla każdego `MealPlanEntry` z danego tygodnia pobierz przepis, przemnóż składniki przez `(entry.servings / recipe.servings)`, zsumuj po `(name.lower(), unit)`. Jeśli `unit` to `g` i `kg` dla tej samej nazwy — przelicz do `g`. Przypisz kategorię przez słownik słów kluczowych (taki sam jak w `ShoppingScreen.tsx` w frontendzie). Wstaw do `shopping_items` z `ON CONFLICT ... DO UPDATE`.
-
----
-
-## Specyfikacja narzędzi MCP
-
-Serwer MCP należy napisać używając biblioteki `mcp` (PyPI: `mcp`).  
-Każde narzędzie wykonuje request HTTP do lokalnego backendu FastAPI (`http://localhost:8000`) z sesją cookie.  
-Serwer MCP musi przyjąć jako argument (env var `MEALPILOT_SESSION_COOKIE`) wartość ciasteczka sesji do wstrzyknięcia w każdy request.
-
-### Grupa 1 — Przepisy
-
-#### `list_recipes`
-- Opis: Zwraca wszystkie przepisy zalogowanego użytkownika.
-- Parametry: brak
-- HTTP: `GET /api/recipes`
-- Zwraca: lista obiektów `Recipe` (id, title, tags, meal_types, kcal, p, f, c, servings, prep_time, cook_time, ingredients)
-
-#### `get_recipe`
-- Opis: Szczegóły jednego przepisu łącznie ze składnikami i krokami.
-- Parametry: `recipe_id: string`
-- HTTP: `GET /api/recipes/{recipe_id}`
-
-#### `list_tags`
-- Opis: Wszystkie unikalne tagi używane w bibliotece przepisów. Wywołaj jako pierwsze, by wiedzieć jakimi wartościami operuje użytkownik.
-- Parametry: brak
-- HTTP: `GET /api/recipes/meta/tags`
-- Zwraca: `{tags: string[]}`
-
-#### `list_meal_types`
-- Opis: Wszystkie unikalne typy posiłków zdefiniowane w przepisach.
-- Parametry: brak
-- HTTP: `GET /api/recipes/meta/meal_types`
-- Zwraca: `{meal_types: string[]}`
-
-#### `filter_recipes`
-- Opis: Zwraca przepisy spełniające podane kryteria. Użyj gdy użytkownik chce np. "coś azjatyckiego na obiad" lub "lekkie śniadanie poniżej 400 kcal".
-- Parametry (wszystkie opcjonalne):
-  - `tags: string[]` — przepis musi zawierać wszystkie podane tagi
-  - `meal_types: string[]` — przepis musi pasować do co najmniej jednego
-  - `max_kcal: number`
-  - `min_protein: number` — minimalne białko na porcję [g]
-- HTTP: `GET /api/recipes?tags=...&meal_types=...&max_kcal=...&min_protein=...`
-
-#### `create_recipe`
-- Opis: Dodaje nowy przepis do biblioteki użytkownika.
-- Parametry: `id, title, tags, meal_types, servings, prep_time, cook_time, kcal, p, f, c, hue, ingredients [{name, qty, unit}], steps`
-- HTTP: `POST /api/recipes`
-
-#### `update_recipe`
-- Opis: Aktualizuje wybrane pola istniejącego przepisu.
-- Parametry: `recipe_id` + dowolny podzbiór pól (title, tags, meal_types, kcal, p, f, c, ingredients, steps…)
-- HTTP: `PUT /api/recipes/{recipe_id}`
-
-#### `delete_recipe`
-- Opis: Usuwa przepis. Usuwa też powiązane wpisy w planie tygodnia.
-- Parametry: `recipe_id: string`
-- HTTP: `DELETE /api/recipes/{recipe_id}`
-
----
-
-### Grupa 2 — Plan tygodnia
-
-#### `get_week_plan`
-- Opis: Zwraca plan posiłków na dany tydzień wraz z rozwinięciem nazw przepisów (dołącz title każdego recipe_id).
-- Parametry: `week_start: string` (format `YYYY-MM-DD`, musi być poniedziałek)
-- HTTP: `GET /api/plan/{week_start}` + enrichment przez `GET /api/recipes`
-
-#### `get_current_week_plan`
-- Opis: Skrót — plan na bieżący tydzień (oblicz `week_start` sam na podstawie dzisiejszej daty).
-- Parametry: brak
-- HTTP: jak wyżej z automatycznie obliczonym `week_start`
-
-#### `set_week_plan`
-- Opis: Zastępuje cały plan tygodnia. **Uwaga**: zawsze pokaż podgląd użytkownikowi i poczekaj na potwierdzenie przed wywołaniem tego narzędzia.
-- Parametry:
-  - `week_start: string`
-  - `entries: [{day: 0-6, meal: string, recipe_id: string, servings: int}]`
-- HTTP: `PUT /api/plan/{week_start}`
-
-#### `add_plan_entry`
-- Opis: Dodaje jeden slot do planu bez kasowania reszty. Najpierw pobiera aktualny plan, dodaje wpis, wysyła całość.
-- Parametry: `week_start, day: 0-6, meal: string, recipe_id: string, servings: int`
-- HTTP: `GET` + `PUT /api/plan/{week_start}`
-
-#### `remove_plan_entry`
-- Opis: Usuwa konkretny slot (dzień + posiłek) z planu.
-- Parametry: `week_start, day: 0-6, meal: string`
-- HTTP: `GET` + `PUT /api/plan/{week_start}` (z filtrowaniem)
-
-#### `get_week_nutrition_summary`
-- Opis: Oblicza sumę kcal, białka, tłuszczu i węglowodanów dla każdego dnia tygodnia na podstawie planu.
-- Parametry: `week_start: string`
-- Logika: pobierz plan + przepisy, przelicz `wartość * (entry.servings / recipe.servings)`, pogrupuj po `day`
-- Zwraca: `{0: {kcal, p, f, c}, 1: {...}, ...}`
-
----
-
-### Grupa 3 — Lista zakupów
-
-#### `get_shopping_list`
-- Opis: Zwraca aktualną listę zakupów na dany tydzień.
-- Parametry: `week_start: string`
-- HTTP: `GET /api/shopping/{week_start}`
-
-#### `generate_shopping_list`
-- Opis: Generuje listę zakupów z planu tygodnia (agreguje składniki wszystkich przepisów). Nadpisuje poprzednią listę.
-- Parametry: `week_start: string`
-- HTTP: `POST /api/shopping/{week_start}/generate`
-
-#### `check_shopping_item`
-- Opis: Oznacza pozycję jako kupioną lub odznacza.
-- Parametry: `week_start: string, item_id: int, checked: boolean`
-- HTTP: `PATCH /api/shopping/{week_start}/items/{item_id}`
-
-#### `clear_shopping_list`
-- Opis: Usuwa wszystkie pozycje z listy zakupów danego tygodnia.
-- Parametry: `week_start: string`
-- HTTP: `DELETE /api/shopping/{week_start}`
 
 ---
 
@@ -249,37 +339,38 @@ Jesteś agentem MealPilot — pomagasz użytkownikowi planować posiłki na tydz
 
 Zasady:
 1. Zanim zaproponujesz plan, wywołaj list_tags i list_meal_types, żeby znać dostępne wartości.
-2. Zanim cokolwiek dostosujesz, sprawdź get_current_week_plan — nie nadpisuj tego co już jest, chyba że user tego chce.
+2. Zanim cokolwiek dostosujesz, sprawdź get_current_week_plan — nie nadpisuj tego co już jest,
+   chyba że user tego chce.
 3. Przed wywołaniem set_week_plan zawsze pokaż użytkownikowi propozycję i czekaj na potwierdzenie.
-4. Przy planowaniu uwzględniaj różnorodność — nie powtarzaj tego samego przepisu więcej niż 3 razy w tygodniu.
+4. Przy planowaniu uwzględniaj różnorodność — nie powtarzaj tego samego przepisu więcej niż 3 razy
+   w tygodniu.
 5. Jeśli user pyta o kalorie/makra, użyj get_week_nutrition_summary.
-6. Odpowiadaj po polsku. Bądź konkretny i zwięzły.
+6. Przy tworzeniu przepisu bez podanych makro — wywołaj estimate_recipe_macros przed create_recipe.
+7. Jeśli user chwali lub krytykuje przepis, zaproponuj zaktualizowanie oceny (rate_recipe).
+8. Odpowiadaj po polsku. Bądź konkretny i zwięzły.
 ```
 
 ---
 
-## Struktura plików do stworzenia
+## Struktura plików (aktualny stan)
 
 ```
 backend/
   app/
     routers/
-      recipes.py        ← dodaj filtry + /meta/tags + /meta/meal_types
-      plan.py           ← bez zmian
-      shopping.py       ← NOWY router (cały CRUD listy zakupów + generate)
-    schemas.py          ← dodaj ShoppingItemOut, ShoppingListOut
-    main.py             ← zarejestruj shopping.router
-  mcp_server.py         ← NOWY serwer MCP (stdio)
-  requirements.txt      ← dodaj: mcp>=1.0, httpx
+      recipes.py        ← filtrowanie + /meta/tags + /meta/meal_types + /estimate-macros + ratings + notes
+      plan.py           ← GET/PUT plan tygodnia z household support
+      shopping.py       ← pełny CRUD listy zakupów + generate + ręczne pozycje
+      agent.py          ← konwersacje agenta (historia, LLM call)
+      settings.py       ← AgentSettings, UiPrefs, ApiKeys
+      auth.py           ← login/logout/me/api-keys
+      templates.py      ← szablony tygodnia
+      admin_users.py    ← zarządzanie userami (admin)
+      admin_households.py ← zarządzanie household (admin)
+    models.py           ← wszystkie modele SQLAlchemy (patrz wyżej)
+    schemas.py          ← Pydantic: Recipe, ShoppingItemOut, PlanEntry, AgentSettings, ...
+    ownership.py        ← logika widoczności przepisów/planu (personal vs household)
+    main.py             ← rejestracja wszystkich routerów
+  mcp_server.py         ← serwer MCP (stdio), 14 narzędzi
+  requirements.txt      ← mcp>=1.0, httpx, fastapi, sqlalchemy, ...
 ```
-
----
-
-## Wymagania techniczne
-
-- `mcp_server.py` uruchamiany przez `python mcp_server.py`; transport: **stdio**
-- Do requestów HTTP użyj `httpx` (async) z `httpx.AsyncClient`
-- Sesja przekazywana przez env var `MEALPILOT_SESSION_COOKIE` — wstrzykiwana jako nagłówek `Cookie: mealpilot_session=<wartość>`
-- Url backendu przez env var `MEALPILOT_BASE_URL` (domyślnie `http://localhost:8000`)
-- Każde narzędzie MCP zwraca `TextContent` z JSON lub czytelnym komunikatem błędu
-- Błędy HTTP (4xx, 5xx) zwracaj jako `isError=True` z treścią odpowiedzi

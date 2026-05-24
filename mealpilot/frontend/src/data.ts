@@ -153,6 +153,42 @@ export async function uploadRecipeImage(id: string, file: File): Promise<Recipe>
   return r;
 }
 
+export async function refreshRecipe(id: string): Promise<Recipe> {
+  const r = await jsonOrThrow<Recipe>(await apiFetch(`/recipes/${encodeURIComponent(id)}`));
+  state.recipes = state.recipes.map((x) => (x.id === id ? r : x));
+  return r;
+}
+
+export async function rateRecipe(id: string, rating: number): Promise<void> {
+  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/rating`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rating }),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+}
+
+export async function deleteRating(id: string): Promise<void> {
+  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/rating`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+}
+
+export async function saveRecipeNote(id: string, note: string): Promise<void> {
+  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/note`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  state.recipes = state.recipes.map((r) => (r.id === id ? { ...r, my_note: note } : r));
+}
+
+export async function deleteRecipeNote(id: string): Promise<void> {
+  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/note`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  state.recipes = state.recipes.map((r) => (r.id === id ? { ...r, my_note: null } : r));
+}
+
 export async function deleteRecipeImage(id: string): Promise<Recipe> {
   const r = await jsonOrThrow<Recipe>(
     await apiFetch(`/recipes/${encodeURIComponent(id)}/image`, {

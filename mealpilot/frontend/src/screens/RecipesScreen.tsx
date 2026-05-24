@@ -6,14 +6,19 @@ import {
   MEAL_TYPES_ALL,
   RECIPES_CHANGED,
   createRecipe,
+  deleteRating,
   deleteRecipe,
   deleteRecipeImage,
+  deleteRecipeNote,
   emitRecipesChanged,
   estimateMacros,
   getRecipes,
   loadRecipes,
+  rateRecipe,
   recipeBy,
   recipeImageUrl,
+  refreshRecipe,
+  saveRecipeNote,
   updateRecipe,
   updateRecipeOwnership,
   uploadRecipeImage,
@@ -242,6 +247,71 @@ function MealTypePicker({ value, onChange, suggestions }: MealTypePickerProps) {
       onChange={onChange}
       suggestions={suggestions}
     />
+  );
+}
+
+interface StarRatingProps {
+  avg?: number | null;
+  count?: number;
+  my?: number | null;
+  interactive?: boolean;
+  onRate?: (star: number) => void;
+  size?: 'sm' | 'md';
+}
+
+function StarRating({ avg, count = 0, my, interactive = false, onRate, size = 'sm' }: StarRatingProps) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const starSize = size === 'md' ? 20 : 14;
+  const display = hovered ?? my ?? null;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: size === 'md' ? 4 : 2 }}>
+      {[1, 2, 3, 4, 5].map((star) => {
+        const filled = display != null ? star <= display : avg != null && star <= Math.round(avg);
+        const half = avg != null && display == null && star === Math.ceil(avg) && avg % 1 >= 0.3 && avg % 1 < 0.75;
+        return (
+          <svg
+            key={star}
+            width={starSize}
+            height={starSize}
+            viewBox="0 0 24 24"
+            fill={filled ? 'oklch(0.75 0.18 80)' : half ? 'url(#half)' : 'none'}
+            stroke={filled || half ? 'oklch(0.65 0.16 75)' : 'var(--ink-faint)'}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ cursor: interactive ? 'pointer' : 'default', flexShrink: 0 }}
+            onMouseEnter={() => interactive && setHovered(star)}
+            onMouseLeave={() => interactive && setHovered(null)}
+            onClick={() => {
+              if (!interactive || !onRate) return;
+              if (my === star) onRate(0);
+              else onRate(star);
+            }}
+          >
+            {half && (
+              <defs>
+                <linearGradient id="half">
+                  <stop offset="50%" stopColor="oklch(0.75 0.18 80)" />
+                  <stop offset="50%" stopColor="transparent" />
+                </linearGradient>
+              </defs>
+            )}
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        );
+      })}
+      {size === 'md' && avg != null && count > 0 && (
+        <span style={{ fontSize: 12, color: 'var(--ink-3)', marginLeft: 4 }}>
+          {avg.toFixed(1)} <span style={{ color: 'var(--ink-faint)' }}>({count})</span>
+        </span>
+      )}
+      {size === 'sm' && count > 0 && avg != null && (
+        <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginLeft: 2 }}>
+          {avg.toFixed(1)}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -692,6 +762,7 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, curre
   const isHousehold = r.owner_household_id != null;
   const isCreator = r.created_by === currentUserId;
   const [busy, setBusy] = useState(false);
+  const [ratingBusy, setRatingBusy] = useState(false);
   const toggleOwnership = async () => {
     setBusy(true);
     try {
@@ -701,6 +772,23 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, curre
       alert(`Nie udało się zmienić widoczności: ${(e as Error).message}`);
     } finally {
       setBusy(false);
+    }
+  };
+  const handleRate = async (star: number) => {
+    if (ratingBusy) return;
+    setRatingBusy(true);
+    try {
+      if (star === 0) {
+        await deleteRating(r.id);
+      } else {
+        await rateRecipe(r.id, star);
+      }
+      await refreshRecipe(r.id);
+      emitRecipesChanged();
+    } catch (e) {
+      alert(`Nie udało się zapisać oceny: ${(e as Error).message}`);
+    } finally {
+      setRatingBusy(false);
     }
   };
   return (
@@ -805,6 +893,17 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, curre
             f={Math.round(r.f / r.servings)}
             c={Math.round(r.c / r.servings)}
             variant="bar"
+          />
+        </div>
+        <div
+          style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <StarRating
+            my={r.my_rating}
+            interactive
+            size="sm"
+            onRate={handleRate}
           />
         </div>
       </div>
@@ -1014,6 +1113,10 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
+  const [ratingBusy, setRatingBusy] = useState(false);
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onPickImage = () => fileInputRef.current?.click();
@@ -1371,6 +1474,43 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               {r.title}
             </h1>
           )}
+          {!editing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, marginBottom: 4 }}>
+              <div>
+                <div className="eyebrow" style={{ fontSize: 10, marginBottom: 4 }}>Twoja ocena</div>
+                <StarRating
+                  my={baseR?.my_rating}
+                  interactive
+                  size="md"
+                  onRate={async (star) => {
+                    if (ratingBusy || !baseR) return;
+                    setRatingBusy(true);
+                    try {
+                      if (star === 0) {
+                        await deleteRating(baseR.id);
+                      } else {
+                        await rateRecipe(baseR.id, star);
+                      }
+                      const updated = await refreshRecipe(baseR.id);
+                      Object.assign(baseR, updated);
+                      setDraft((d) => (d ? { ...d, avg_rating: updated.avg_rating, rating_count: updated.rating_count, my_rating: updated.my_rating } : d));
+                      emitRecipesChanged();
+                    } catch (e) {
+                      alert(`Nie udało się zapisać oceny: ${(e as Error).message}`);
+                    } finally {
+                      setRatingBusy(false);
+                    }
+                  }}
+                />
+              </div>
+              {baseR?.owner_household_id != null && (baseR?.rating_count ?? 0) > 1 && (
+                <div>
+                  <div className="eyebrow" style={{ fontSize: 10, marginBottom: 4 }}>Średnia ocen</div>
+                  <StarRating avg={baseR?.avg_rating} count={baseR?.rating_count} size="md" />
+                </div>
+              )}
+            </div>
+          )}
           <div
             style={{
               display: 'flex',
@@ -1645,6 +1785,123 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                 c={Math.round(r.c / r.servings)}
                 variant="donut"
               />
+            )}
+          </div>
+
+          <div
+            style={{
+              marginTop: 20,
+              padding: '16px 18px',
+              background: 'var(--paper-2)',
+              border: '1px dashed var(--line)',
+              borderRadius: 'var(--r)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: noteEditing || baseR?.my_note ? 10 : 0,
+              }}
+            >
+              <div className="eyebrow">Moje notatki</div>
+              {!noteEditing && (
+                <button
+                  className="btn ghost"
+                  style={{ fontSize: 11, padding: '3px 8px' }}
+                  onClick={() => {
+                    setNoteDraft(baseR?.my_note ?? '');
+                    setNoteEditing(true);
+                  }}
+                >
+                  {baseR?.my_note ? 'Edytuj' : '+ Dodaj'}
+                </button>
+              )}
+            </div>
+            {noteEditing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <textarea
+                  autoFocus
+                  className="edit-input"
+                  style={{ minHeight: 90, resize: 'vertical', fontSize: 13 }}
+                  placeholder="Twoje prywatne notatki do tego przepisu…"
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  {baseR?.my_note && (
+                    <button
+                      className="btn ghost"
+                      style={{ fontSize: 12, color: 'var(--terra)' }}
+                      disabled={noteSaving}
+                      onClick={async () => {
+                        if (!baseR) return;
+                        setNoteSaving(true);
+                        try {
+                          await deleteRecipeNote(baseR.id);
+                          Object.assign(baseR, { my_note: null });
+                          setDraft((d) => (d ? { ...d, my_note: null } : d));
+                          emitRecipesChanged();
+                          setNoteEditing(false);
+                        } catch (e) {
+                          alert(`Nie udało się usunąć notatki: ${(e as Error).message}`);
+                        } finally {
+                          setNoteSaving(false);
+                        }
+                      }}
+                    >
+                      Usuń notatkę
+                    </button>
+                  )}
+                  <button
+                    className="btn ghost"
+                    style={{ fontSize: 12 }}
+                    disabled={noteSaving}
+                    onClick={() => setNoteEditing(false)}
+                  >
+                    Anuluj
+                  </button>
+                  <button
+                    className="btn primary"
+                    style={{ fontSize: 12 }}
+                    disabled={noteSaving || !noteDraft.trim()}
+                    onClick={async () => {
+                      if (!baseR) return;
+                      setNoteSaving(true);
+                      try {
+                        await saveRecipeNote(baseR.id, noteDraft.trim());
+                        Object.assign(baseR, { my_note: noteDraft.trim() });
+                        setDraft((d) => (d ? { ...d, my_note: noteDraft.trim() } : d));
+                        emitRecipesChanged();
+                        setNoteEditing(false);
+                      } catch (e) {
+                        alert(`Nie udało się zapisać notatki: ${(e as Error).message}`);
+                      } finally {
+                        setNoteSaving(false);
+                      }
+                    }}
+                  >
+                    {noteSaving ? 'Zapisuję…' : 'Zapisz'}
+                  </button>
+                </div>
+              </div>
+            ) : baseR?.my_note ? (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: 'var(--ink-2)',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {baseR.my_note}
+              </p>
+            ) : (
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>
+                Brak notatek — kliknij „+ Dodaj", aby dodać prywatną notatkę.
+              </p>
             )}
           </div>
         </div>

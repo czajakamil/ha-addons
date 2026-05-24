@@ -23,6 +23,10 @@ export interface Recipe {
   created_by?: number;
   owner_user_id?: number | null;
   owner_household_id?: number | null;
+  avg_rating?: number | null;
+  rating_count?: number;
+  my_rating?: number | null;
+  my_note?: string | null;
 }
 
 export interface PlanEntry {

@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -22,6 +23,55 @@ from ..ownership import (
 )
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
+
+
+def _with_ratings(db: Session, user_id: int, recipes: list) -> list:
+    """Annotate recipe ORM objects with avg_rating, rating_count, my_rating, my_note."""
+    recipe_ids = [r.id for r in recipes]
+    avg_map: dict = {}
+    count_map: dict = {}
+    my_map: dict = {}
+    note_map: dict = {}
+    if recipe_ids:
+        for rid, avg_r, cnt in (
+            db.query(
+                models.RecipeRating.recipe_id,
+                func.avg(models.RecipeRating.rating),
+                func.count(models.RecipeRating.id),
+            )
+            .filter(models.RecipeRating.recipe_id.in_(recipe_ids))
+            .group_by(models.RecipeRating.recipe_id)
+            .all()
+        ):
+            avg_map[rid] = round(float(avg_r), 2)
+            count_map[rid] = cnt
+        for rid, r in (
+            db.query(models.RecipeRating.recipe_id, models.RecipeRating.rating)
+            .filter(
+                models.RecipeRating.recipe_id.in_(recipe_ids),
+                models.RecipeRating.user_id == user_id,
+            )
+            .all()
+        ):
+            my_map[rid] = r
+        for rid, note in (
+            db.query(models.RecipeNote.recipe_id, models.RecipeNote.note)
+            .filter(
+                models.RecipeNote.recipe_id.in_(recipe_ids),
+                models.RecipeNote.user_id == user_id,
+            )
+            .all()
+        ):
+            note_map[rid] = note
+    result = []
+    for r in recipes:
+        d = schemas.Recipe.model_validate(r).model_dump()
+        d["avg_rating"] = avg_map.get(r.id)
+        d["rating_count"] = count_map.get(r.id, 0)
+        d["my_rating"] = my_map.get(r.id)
+        d["my_note"] = note_map.get(r.id)
+        result.append(d)
+    return result
 
 
 def _visible_recipe(db: Session, user: models.User, recipe_id: str) -> models.Recipe:
@@ -58,6 +108,8 @@ def list_recipes(
     meal_types: Optional[str] = Query(default=None),
     max_kcal: Optional[float] = Query(default=None),
     min_protein: Optional[float] = Query(default=None),
+    min_my_rating: Optional[int] = Query(default=None, ge=1, le=5),
+    min_avg_rating: Optional[float] = Query(default=None, ge=1.0, le=5.0),
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -80,7 +132,19 @@ def list_recipes(
             return False
         return True
 
-    return [r for r in rows if matches(r)]
+    base_filtered = [r for r in rows if matches(r)]
+    enriched = _with_ratings(db, user.id, base_filtered)
+
+    result = []
+    for d in enriched:
+        if min_my_rating is not None:
+            if d.get("my_rating") is None or d["my_rating"] < min_my_rating:
+                continue
+        if min_avg_rating is not None:
+            if d.get("avg_rating") is None or d["avg_rating"] < min_avg_rating:
+                continue
+        result.append(d)
+    return result
 
 
 @router.get("/meta/tags")
@@ -225,7 +289,8 @@ def get_recipe(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    return _visible_recipe(db, user, recipe_id)
+    r = _visible_recipe(db, user, recipe_id)
+    return _with_ratings(db, user.id, [r])[0]
 
 
 @router.post("", response_model=schemas.Recipe, status_code=status.HTTP_201_CREATED)
@@ -289,6 +354,44 @@ def delete_recipe(
     return None
 
 
+@router.put("/{recipe_id}/rating", response_model=schemas.RatingOut)
+def upsert_rating(
+    recipe_id: str,
+    payload: schemas.RatingUpsert,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    _visible_recipe(db, user, recipe_id)
+    existing = (
+        db.query(models.RecipeRating)
+        .filter(models.RecipeRating.recipe_id == recipe_id, models.RecipeRating.user_id == user.id)
+        .one_or_none()
+    )
+    if existing:
+        existing.rating = payload.rating
+    else:
+        existing = models.RecipeRating(recipe_id=recipe_id, user_id=user.id, rating=payload.rating)
+        db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+@router.delete("/{recipe_id}/rating", status_code=status.HTTP_204_NO_CONTENT)
+def delete_rating(
+    recipe_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    _visible_recipe(db, user, recipe_id)
+    db.query(models.RecipeRating).filter(
+        models.RecipeRating.recipe_id == recipe_id,
+        models.RecipeRating.user_id == user.id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return None
+
+
 @router.post("/{recipe_id}/image", response_model=schemas.Recipe)
 async def upload_recipe_image(
     recipe_id: str,
@@ -342,6 +445,44 @@ def update_recipe_ownership(
     db.commit()
     db.refresh(r)
     return r
+
+
+@router.put("/{recipe_id}/note", response_model=schemas.RecipeNoteOut)
+def upsert_note(
+    recipe_id: str,
+    payload: schemas.RecipeNoteUpsert,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    _visible_recipe(db, user, recipe_id)
+    existing = (
+        db.query(models.RecipeNote)
+        .filter(models.RecipeNote.recipe_id == recipe_id, models.RecipeNote.user_id == user.id)
+        .one_or_none()
+    )
+    if existing:
+        existing.note = payload.note
+    else:
+        existing = models.RecipeNote(recipe_id=recipe_id, user_id=user.id, note=payload.note)
+        db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+@router.delete("/{recipe_id}/note", status_code=status.HTTP_204_NO_CONTENT)
+def delete_note(
+    recipe_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    _visible_recipe(db, user, recipe_id)
+    db.query(models.RecipeNote).filter(
+        models.RecipeNote.recipe_id == recipe_id,
+        models.RecipeNote.user_id == user.id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return None
 
 
 @router.delete("/{recipe_id}/image", response_model=schemas.Recipe)
