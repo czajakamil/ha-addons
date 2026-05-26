@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode, useCallback } from 'react';
 import { Icon } from '../components/Icon';
 import { Macro } from '../components/Macro';
 import { RecipeThumb } from '../components/RecipeThumb';
@@ -24,6 +24,75 @@ import {
   uploadRecipeImage,
 } from '../data';
 import type { Ingredient, Recipe } from '../types';
+
+function useSortable(onReorder: (from: number, to: number) => void) {
+  const fromIdx = useRef<number | null>(null);
+  const overIdxRef = useRef<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+
+  const startTouch = useCallback((i: number) => {
+    fromIdx.current = i;
+    overIdxRef.current = i;
+
+    const handleMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const row = el?.closest('[data-sort-idx]') as HTMLElement | null;
+      if (row) {
+        const idx = parseInt(row.dataset.sortIdx ?? '', 10);
+        if (!isNaN(idx)) {
+          overIdxRef.current = idx;
+          setOverIdx(idx);
+        }
+      }
+    };
+
+    const handleEnd = () => {
+      const from = fromIdx.current;
+      const to = overIdxRef.current;
+      if (from !== null && to !== null && from !== to) onReorder(from, to);
+      fromIdx.current = null;
+      overIdxRef.current = null;
+      setOverIdx(null);
+      document.removeEventListener('touchmove', handleMove, { capture: true } as EventListenerOptions);
+    };
+
+    document.addEventListener('touchmove', handleMove, { passive: false, capture: true });
+    document.addEventListener('touchend', handleEnd, { once: true });
+  }, [onReorder]);
+
+  const rowProps = useCallback((i: number) => ({
+    draggable: true as const,
+    'data-sort-idx': String(i),
+    onDragStart: () => { fromIdx.current = i; },
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      overIdxRef.current = i;
+      setOverIdx(i);
+    },
+    onDrop: () => {
+      if (fromIdx.current !== null && fromIdx.current !== i) onReorder(fromIdx.current, i);
+      fromIdx.current = null;
+      overIdxRef.current = null;
+      setOverIdx(null);
+    },
+    onDragEnd: () => {
+      fromIdx.current = null;
+      overIdxRef.current = null;
+      setOverIdx(null);
+    },
+  }), [onReorder]);
+
+  const handleProps = useCallback((i: number) => ({
+    onTouchStart: (e: React.TouchEvent) => {
+      e.stopPropagation();
+      startTouch(i);
+    },
+  }), [startTouch]);
+
+  return { overIdx, rowProps, handleProps };
+}
 
 const INGREDIENT_UNITS = [
   'g',
@@ -383,11 +452,32 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
     }));
   const remIng = (i: number) =>
     setForm((f) => ({ ...f, ingredients: f.ingredients.filter((_, idx) => idx !== i) }));
+  const moveIng = useCallback((from: number, to: number) => {
+    setForm((f) => {
+      const arr = [...f.ingredients];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return { ...f, ingredients: arr };
+    });
+  }, []);
+
+  const { overIdx: dragIngOver, rowProps: ingRowProps, handleProps: ingHandleProps } = useSortable(moveIng);
+
   const addStep = () => setForm((f) => ({ ...f, steps: [...f.steps, ''] }));
   const updStep = (i: number, v: string) =>
     setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? v : s)) }));
   const remStep = (i: number) =>
     setForm((f) => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
+  const moveStep = useCallback((from: number, to: number) => {
+    setForm((f) => {
+      const arr = [...f.steps];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return { ...f, steps: arr };
+    });
+  }, []);
+
+  const { overIdx: dragStepOver, rowProps: stepRowProps, handleProps: stepHandleProps } = useSortable(moveStep);
 
   const submit = async () => {
     if (!form.title.trim()) {
@@ -500,7 +590,7 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
             <div className="eyebrow" style={{ color: 'var(--ink-faint)' }}>
               Makro (łącznie dla wszystkich porcji)
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10 }}>
+            <div className="macro-edit-grid">
               <LabelField label="Kcal">
                 <input
                   className="edit-input"
@@ -617,7 +707,21 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {form.ingredients.map((ing, i) => (
-                <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div
+                  key={i}
+                  {...ingRowProps(i)}
+                  style={{
+                    display: 'flex', gap: 6, alignItems: 'center',
+                    borderTop: dragIngOver === i ? '2px solid var(--accent)' : '2px solid transparent',
+                    transition: 'border-color 0.1s',
+                  }}
+                >
+                  <span
+                    {...ingHandleProps(i)}
+                    style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, touchAction: 'none' }}
+                  >
+                    <Icon name="dnd" size={14} />
+                  </span>
                   <input
                     className="edit-num"
                     style={{ width: 64 }}
@@ -680,15 +784,24 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {form.steps.map((s, i) => (
-                <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                <div
+                  key={i}
+                  {...stepRowProps(i)}
+                  style={{
+                    display: 'flex', gap: 6, alignItems: 'flex-start',
+                    borderTop: dragStepOver === i ? '2px solid var(--accent)' : '2px solid transparent',
+                    transition: 'border-color 0.1s',
+                  }}
+                >
+                  <span
+                    {...stepHandleProps(i)}
+                    style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 8, touchAction: 'none' }}
+                  >
+                    <Icon name="dnd" size={14} />
+                  </span>
                   <span
                     className="mono"
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--ink-faint)',
-                      minWidth: 20,
-                      paddingTop: 8,
-                    }}
+                    style={{ fontSize: 12, color: 'var(--ink-faint)', minWidth: 16, paddingTop: 8 }}
                   >
                     {i + 1}.
                   </span>
@@ -1174,6 +1287,30 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
     [],
   );
 
+  const moveDetailIng = useCallback((from: number, to: number) => {
+    setDraft((d) => {
+      if (!d) return d;
+      const arr = [...d.ingredients];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return { ...d, ingredients: arr };
+    });
+  }, []);
+
+  const { overIdx: dragDetailIngOver, rowProps: detailIngRowProps, handleProps: detailIngHandleProps } = useSortable(moveDetailIng);
+
+  const moveDetailStep = useCallback((from: number, to: number) => {
+    setDraft((d) => {
+      if (!d) return d;
+      const arr = [...d.steps];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return { ...d, steps: arr };
+    });
+  }, []);
+
+  const { overIdx: dragDetailStepOver, rowProps: detailStepRowProps, handleProps: detailStepHandleProps } = useSortable(moveDetailStep);
+
   if (!baseR || !draft) return null;
   const r = editing ? draft : baseR;
 
@@ -1310,93 +1447,99 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
             style={{ display: 'none' }}
             onChange={onImageChosen}
           />
-          <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 6 }}>
-            <button className="btn" onClick={onPickImage} disabled={imageBusy}>
-              {imageBusy ? 'Przesyłam…' : r.image_filename ? 'Zmień zdjęcie' : 'Dodaj zdjęcie'}
-            </button>
-            {r.image_filename && (
-              <button className="btn" onClick={onRemoveImage} disabled={imageBusy}>
-                Usuń zdjęcie
-              </button>
-            )}
-          </div>
-          <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6 }}>
-            <button
-              className="btn"
-              onClick={() => onToggleFavorite(baseR.id)}
-              title={isFavorite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
-              style={{ color: isFavorite ? 'oklch(0.55 0.22 15)' : undefined }}
-            >
-              <Icon name="heart" size={14} filled={isFavorite} />
-              {isFavorite ? ' Ulubiony' : ' Dodaj do ulubionych'}
-            </button>
-            {!editing && baseR.created_by === currentUserId && (
-              <button
-                className="btn"
-                disabled={ownershipBusy}
-                onClick={async () => {
-                  const isHousehold = baseR.owner_household_id != null;
-                  setOwnershipBusy(true);
-                  try {
-                    const updated = await updateRecipeOwnership(baseR.id, !isHousehold);
-                    Object.assign(baseR, updated);
-                    setDraft((d) => (d ? { ...d, ...updated } : d));
-                    emitRecipesChanged();
-                  } catch (err) {
-                    alert(`Nie udało się zmienić widoczności: ${(err as Error).message}`);
-                  } finally {
-                    setOwnershipBusy(false);
-                  }
-                }}
-                title={
-                  baseR.owner_household_id != null
-                    ? 'Aktualnie widoczny dla całej grupy domowej — kliknij, aby zrobić prywatnym'
-                    : 'Aktualnie prywatny — kliknij, aby udostępnić grupie domowej'
-                }
-              >
-                <Icon name="users" size={13} />{' '}
-                {ownershipBusy
-                  ? '…'
-                  : baseR.owner_household_id != null
-                    ? 'Zrób prywatnym'
-                    : 'Udostępnij grupie domowej'}
-              </button>
-            )}
-            {!editing && (
-              <button className="btn" onClick={() => setEditing(true)}>
-                Edytuj
-              </button>
-            )}
-            {!editing && (
-              <button className="btn" onClick={remove} disabled={deleting} title="Usuń przepis">
-                {deleting ? (
-                  'Usuwam…'
+          <div className="rd-overlay-bar">
+            <div className="rd-overlay-left">
+              <button className="btn" onClick={onPickImage} disabled={imageBusy}>
+                {imageBusy ? (
+                  'Przesyłam…'
                 ) : (
                   <>
-                    <Icon name="x" size={13} /> Usuń
+                    <Icon name={r.image_filename ? 'pencil' : 'plus'} size={14} />
+                    <span className="rd-btn-label">{r.image_filename ? ' Zmień zdjęcie' : ' Dodaj zdjęcie'}</span>
                   </>
                 )}
               </button>
-            )}
-            {editing && (
-              <>
-                <button className="btn" onClick={cancel} disabled={saving}>
-                  Anuluj
+              {r.image_filename && (
+                <button className="btn" onClick={onRemoveImage} disabled={imageBusy} title="Usuń zdjęcie">
+                  <Icon name="x" size={13} />
+                  <span className="rd-btn-label"> Usuń zdjęcie</span>
                 </button>
-                <button className="btn primary" onClick={save} disabled={saving}>
-                  {saving ? (
-                    'Zapisywanie…'
-                  ) : (
-                    <>
-                      <Icon name="check" size={13} /> Zapisz
-                    </>
-                  )}
+              )}
+            </div>
+            <div className="rd-overlay-right">
+              <button
+                className="btn"
+                onClick={() => onToggleFavorite(baseR.id)}
+                title={isFavorite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
+                style={{ color: isFavorite ? 'oklch(0.55 0.22 15)' : undefined }}
+              >
+                <Icon name="heart" size={14} filled={isFavorite} />
+                <span className="rd-btn-label">{isFavorite ? ' Ulubiony' : ' Ulubione'}</span>
+              </button>
+              {!editing && baseR.created_by === currentUserId && (
+                <button
+                  className="btn"
+                  disabled={ownershipBusy}
+                  onClick={async () => {
+                    const isHousehold = baseR.owner_household_id != null;
+                    setOwnershipBusy(true);
+                    try {
+                      const updated = await updateRecipeOwnership(baseR.id, !isHousehold);
+                      Object.assign(baseR, updated);
+                      setDraft((d) => (d ? { ...d, ...updated } : d));
+                      emitRecipesChanged();
+                    } catch (err) {
+                      alert(`Nie udało się zmienić widoczności: ${(err as Error).message}`);
+                    } finally {
+                      setOwnershipBusy(false);
+                    }
+                  }}
+                  title={
+                    baseR.owner_household_id != null
+                      ? 'Aktualnie widoczny dla całej grupy domowej — kliknij, aby zrobić prywatnym'
+                      : 'Aktualnie prywatny — kliknij, aby udostępnić grupie domowej'
+                  }
+                >
+                  <Icon name="users" size={13} />
+                  <span className="rd-btn-label">
+                    {' '}{ownershipBusy ? '…' : baseR.owner_household_id != null ? 'Zrób prywatnym' : 'Udostępnij'}
+                  </span>
                 </button>
-              </>
-            )}
-            <button className="btn icon" onClick={onClose}>
-              <Icon name="x" size={14} />
-            </button>
+              )}
+              {!editing && (
+                <button className="btn" onClick={() => setEditing(true)} title="Edytuj przepis">
+                  <Icon name="pencil" size={13} />
+                  <span className="rd-btn-label"> Edytuj</span>
+                </button>
+              )}
+              {!editing && (
+                <button className="btn danger" onClick={remove} disabled={deleting} title="Usuń przepis">
+                  {deleting ? '…' : <Icon name="trash" size={13} />}
+                  <span className="rd-btn-label">{deleting ? '' : ' Usuń'}</span>
+                </button>
+              )}
+              {editing && (
+                <>
+                  <button className="btn" onClick={cancel} disabled={saving}>
+                    <Icon name="x" size={13} />
+                    <span className="rd-btn-label"> Anuluj</span>
+                  </button>
+                  <button className="btn primary" onClick={save} disabled={saving}>
+                    {saving ? (
+                      '…'
+                    ) : (
+                      <>
+                        <Icon name="check" size={13} />
+                        <span className="rd-btn-label"> Zapisz</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+              <button className="btn icon" onClick={onClose} title="Zamknij">
+                <Icon name="x" size={14} />
+              </button>
+            </div>
           </div>
         </div>
         <div style={{ padding: '24px 28px 28px' }}>
@@ -1596,9 +1739,22 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               </div>
               <ul className="rd-ingredients">
                 {r.ingredients.map((ing, i) => (
-                  <li key={i}>
+                  <li
+                    key={i}
+                    {...(editing ? detailIngRowProps(i) : {})}
+                    style={editing ? {
+                      borderTop: dragDetailIngOver === i ? '2px solid var(--accent)' : '2px solid transparent',
+                      transition: 'border-color 0.1s',
+                    } : undefined}
+                  >
                     {editing ? (
                       <>
+                        <span
+                          {...detailIngHandleProps(i)}
+                          style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, touchAction: 'none' }}
+                        >
+                          <Icon name="dnd" size={14} />
+                        </span>
                         <input
                           className="edit-num"
                           style={{ width: 54 }}
@@ -1672,7 +1828,22 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               </div>
               <ol className="rd-steps">
                 {r.steps.map((s, i) => (
-                  <li key={i}>
+                  <li
+                    key={i}
+                    {...(editing ? detailStepRowProps(i) : {})}
+                    style={editing ? {
+                      borderTop: dragDetailStepOver === i ? '2px solid var(--accent)' : '2px solid transparent',
+                      transition: 'border-color 0.1s',
+                    } : undefined}
+                  >
+                    {editing && (
+                      <span
+                        {...detailStepHandleProps(i)}
+                        style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, touchAction: 'none' }}
+                      >
+                        <Icon name="dnd" size={14} />
+                      </span>
+                    )}
                     <span className="rd-step-n serif">{i + 1}</span>
                     {editing ? (
                       <>
@@ -1712,7 +1883,7 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               Makroskładniki / porcję
             </div>
             {editing ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10 }}>
+              <div className="macro-edit-grid">
                 <LabelField label="Kcal">
                   <input
                     className="edit-input"

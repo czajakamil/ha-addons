@@ -1,3 +1,9 @@
+## 0.2.10
+- Przeciąganie składników i kroków (drag & drop + touch) w edytorze przepisów
+- Responsywny pasek akcji na detalu przepisu — ikony zamiast tekstu na małych ekranach
+- Responsywna siatka makroskładników w edycji (2 kolumny na mobile)
+- Nowa ikona `trash` dla przycisku usuwania przepisu
+
 ## 0.2.9
 - Ocenianie przepisów (1–5 gwiazdek) — każdy użytkownik może wystawić swoją ocenę
 - Notatki do przepisów — możliwość dodania prywatnej notatki do każdego przepisu

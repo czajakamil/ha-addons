@@ -864,6 +864,31 @@ input, textarea, select { font-family: inherit; }
   max-height: 90vh;
   overflow: auto;
 }
+.rd-overlay-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px;
+  gap: 6px;
+  pointer-events: none;
+}
+.rd-overlay-left,
+.rd-overlay-right {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+.rd-overlay-right { justify-content: flex-end; }
+@media (max-width: 640px) {
+  .rd-overlay-bar { padding: 8px; gap: 4px; }
+  .rd-overlay-right { max-width: 55%; }
+  .rd-btn-label { display: none; }
+  .rd-overlay-left .btn,
+  .rd-overlay-right .btn { padding: 6px 8px; min-height: 32px; font-size: 12px; }
+}
 .rd-grid {
   display: grid;
   grid-template-columns: 1fr 1.3fr;
@@ -871,6 +896,12 @@ input, textarea, select { font-family: inherit; }
   margin-top: 22px;
 }
 @media (max-width: 640px) { .rd-grid { grid-template-columns: 1fr; gap: 18px; } }
+.macro-edit-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 640px) {
+  .macro-edit-grid { grid-template-columns: repeat(2, 1fr); }
+  .macro-edit-grid > :last-child { grid-column: 1 / -1; }
+  .macro-edit-grid > :last-child .btn { height: auto; padding: 8px 14px; }
+}
 .rd-ingredients {
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-direction: column; gap: 7px;

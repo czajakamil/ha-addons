@@ -22,7 +22,8 @@ export type IconName =
   | 'heart'
   | 'bot'
   | 'key'
-  | 'target';
+  | 'target'
+  | 'trash';
 
 interface IconProps {
   name: IconName;
@@ -417,6 +418,21 @@ export function Icon({ name, size = 18, filled = false }: IconProps) {
           <circle cx="12" cy="12" r="9" />
           <circle cx="12" cy="12" r="5" />
           <circle cx="12" cy="12" r="1" fill="currentColor" />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg
+          width={s}
+          height={s}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={stroke}
+          strokeWidth={sw}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
         </svg>
       );
     default:
