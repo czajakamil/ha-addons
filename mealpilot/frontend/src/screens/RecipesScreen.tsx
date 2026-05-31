@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode,
 import { Icon } from '../components/Icon';
 import { Macro } from '../components/Macro';
 import { RecipeThumb } from '../components/RecipeThumb';
+import { CookingMode } from './CookingMode';
 import {
   MEAL_TYPES_ALL,
   RECIPES_CHANGED,
@@ -23,7 +24,7 @@ import {
   updateRecipeOwnership,
   uploadRecipeImage,
 } from '../data';
-import type { Ingredient, Recipe } from '../types';
+import type { Ingredient, Recipe, Step } from '../types';
 
 function useSortable(onReorder: (from: number, to: number) => void) {
   const fromIdx = useRef<number | null>(null);
@@ -411,6 +412,10 @@ const emptyForm: RecipeForm = {
   meal_types: [],
 };
 
+function emptyStep(): Step {
+  return { text: '', duration_minutes: null };
+}
+
 interface NewRecipeModalProps {
   onClose: () => void;
   onSave: (payload: Recipe) => Promise<void>;
@@ -463,9 +468,11 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
 
   const { overIdx: dragIngOver, rowProps: ingRowProps, handleProps: ingHandleProps } = useSortable(moveIng);
 
-  const addStep = () => setForm((f) => ({ ...f, steps: [...f.steps, ''] }));
-  const updStep = (i: number, v: string) =>
-    setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? v : s)) }));
+  const addStep = () => setForm((f) => ({ ...f, steps: [...f.steps, emptyStep()] }));
+  const updStepText = (i: number, text: string) =>
+    setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? { ...s, text } : s)) }));
+  const updStepDuration = (i: number, minutes: number | null) =>
+    setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? { ...s, duration_minutes: minutes } : s)) }));
   const remStep = (i: number) =>
     setForm((f) => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
   const moveStep = useCallback((from: number, to: number) => {
@@ -809,9 +816,26 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
                     className="edit-input"
                     style={{ flex: 1, minHeight: 52, resize: 'vertical' }}
                     placeholder="Opisz krok…"
-                    value={s}
-                    onChange={(e) => updStep(i, e.target.value)}
+                    value={s.text}
+                    onChange={(e) => updStepText(i, e.target.value)}
                   />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, paddingTop: 6, flexShrink: 0 }}>
+                    <span style={{ color: 'var(--ink-faint)', display: 'flex' }}><Icon name="clock" size={12} /></span>
+                    <input
+                      className="edit-num"
+                      type="number"
+                      min="1"
+                      placeholder="—"
+                      title="Czas trwania (minuty)"
+                      style={{ width: 52 }}
+                      value={s.duration_minutes ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1);
+                        updStepDuration(i, v);
+                      }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>min</span>
+                  </div>
                   <button
                     className="btn ghost icon"
                     style={{ padding: 2, marginTop: 6 }}
@@ -1220,6 +1244,7 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
   const [ownershipBusy, setOwnershipBusy] = useState(false);
   const baseR = recipeBy(recipeId);
   const [editing, setEditing] = useState(false);
+  const [cookingMode, setCookingMode] = useState(false);
   const [draft, setDraft] = useState<Recipe | undefined>(baseR);
   const [saving, setSaving] = useState(false);
   const [estimating, setEstimating] = useState(false);
@@ -1331,13 +1356,17 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
     setDraft((d) =>
       d ? { ...d, ingredients: [...d.ingredients, { name: '', qty: 0, unit: 'g' }] } : d,
     );
-  const updateStep = (i: number, val: string) =>
+  const updateStepText = (i: number, text: string) =>
     setDraft((d) =>
-      d ? { ...d, steps: d.steps.map((s, idx) => (idx === i ? val : s)) } : d,
+      d ? { ...d, steps: d.steps.map((s, idx) => (idx === i ? { ...s, text } : s)) } : d,
+    );
+  const updateStepDuration = (i: number, minutes: number | null) =>
+    setDraft((d) =>
+      d ? { ...d, steps: d.steps.map((s, idx) => (idx === i ? { ...s, duration_minutes: minutes } : s)) } : d,
     );
   const removeStep = (i: number) =>
     setDraft((d) => (d ? { ...d, steps: d.steps.filter((_, idx) => idx !== i) } : d));
-  const addStep = () => setDraft((d) => (d ? { ...d, steps: [...d.steps, ''] } : d));
+  const addStep = () => setDraft((d) => (d ? { ...d, steps: [...d.steps, emptyStep()] } : d));
 
   const save = async () => {
     setSaving(true);
@@ -1379,6 +1408,7 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
   };
 
   return (
+    <>
     <div className="modal-bg" onClick={onClose}>
       <div className="recipe-detail card paper-grain" onClick={(e) => e.stopPropagation()}>
         <div style={{ position: 'relative' }}>
@@ -1504,6 +1534,12 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                   <span className="rd-btn-label">
                     {' '}{ownershipBusy ? '…' : baseR.owner_household_id != null ? 'Zrób prywatnym' : 'Udostępnij'}
                   </span>
+                </button>
+              )}
+              {!editing && r.steps.length > 0 && (
+                <button className="btn primary" onClick={() => setCookingMode(true)} title="Tryb gotowania">
+                  <Icon name="pot" size={13} />
+                  <span className="rd-btn-label"> Gotuj</span>
                 </button>
               )}
               {!editing && (
@@ -1850,9 +1886,26 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                         <textarea
                           className="edit-input"
                           style={{ flex: 1, minHeight: 50, resize: 'vertical' }}
-                          value={draft.steps[i]}
-                          onChange={(e) => updateStep(i, e.target.value)}
+                          value={draft.steps[i].text}
+                          onChange={(e) => updateStepText(i, e.target.value)}
                         />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, alignSelf: 'flex-start', paddingTop: 6, flexShrink: 0 }}>
+                          <span style={{ color: 'var(--ink-faint)', display: 'flex' }}><Icon name="clock" size={12} /></span>
+                          <input
+                            className="edit-num"
+                            type="number"
+                            min="1"
+                            placeholder="—"
+                            title="Czas trwania (minuty)"
+                            style={{ width: 52 }}
+                            value={draft.steps[i].duration_minutes ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1);
+                              updateStepDuration(i, v);
+                            }}
+                          />
+                          <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>min</span>
+                        </div>
                         <button
                           className="btn ghost icon"
                           style={{ padding: 2, alignSelf: 'flex-start' }}
@@ -1862,7 +1915,18 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                         </button>
                       </>
                     ) : (
-                      <span>{s}</span>
+                      <>
+                        <span style={{ flex: 1 }}>{s.text}</span>
+                        {s.duration_minutes != null && (
+                          <span
+                            className="chip"
+                            style={{ fontSize: 11, padding: '2px 8px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <Icon name="clock" size={11} />
+                            {s.duration_minutes} min
+                          </span>
+                        )}
+                      </>
                     )}
                   </li>
                 ))}
@@ -2078,5 +2142,9 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
         </div>
       </div>
     </div>
+    {cookingMode && baseR && (
+      <CookingMode recipe={baseR} onClose={() => setCookingMode(false)} />
+    )}
+    </>
   );
 }

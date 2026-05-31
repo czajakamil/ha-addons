@@ -1,3 +1,7 @@
+## 0.2.11
+- Streaming odpowiedzi agenta AI — tekst pojawia się na żywo, a wywołania narzędzi są widoczne w trakcie generowania
+- Nowy tryb gotowania — ekran krok-po-kroku z timerami na każdy etap i sygnałem dźwiękowym po zakończeniu odliczania
+
 ## 0.2.10
 - Przeciąganie składników i kroków (drag & drop + touch) w edytorze przepisów
 - Responsywny pasek akcji na detalu przepisu — ikony zamiast tekstu na małych ekranach

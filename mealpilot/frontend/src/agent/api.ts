@@ -132,3 +132,53 @@ export async function runAgentOnServer(convId: number): Promise<AgentRunResponse
     }),
   );
 }
+
+export type AgentSSEEvent =
+  | { type: 'text_delta'; text: string }
+  | { type: 'tool_start'; tool_use_id: string; name: string; input: Record<string, unknown> }
+  | { type: 'tool_result'; tool_use_id: string; output: unknown; is_error: boolean }
+  | { type: 'done'; message_id: number; changed: string[]; title?: string | null }
+  | { type: 'error'; message: string };
+
+export async function streamAgent(
+  convId: number,
+  onEvent: (event: AgentSSEEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await apiFetch(`/agent/conversations/${convId}/stream`, {
+    method: 'POST',
+    signal,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`${res.status} ${res.statusText}: ${text}`);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+        try {
+          const event = JSON.parse(raw) as AgentSSEEvent;
+          onEvent(event);
+        } catch {
+          // ignore malformed chunk
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}

@@ -8,8 +8,7 @@ import {
   editMessage,
   getConversation,
   listConversations,
-  runAgentOnServer,
-  type AgentToolEventDTO,
+  streamAgent,
   type ConversationDTO,
   type ConversationDetailDTO,
   type MessageDTO,
@@ -35,6 +34,19 @@ const SUGGESTIONS = [
 const GREETING =
   'Cześć! Jestem agentem MealPilot. Mam dostęp do Twoich przepisów, planu tygodnia i listy zakupów. Co planujemy?';
 
+interface PendingTool {
+  tool_use_id: string;
+  name: string;
+  input: Record<string, unknown>;
+  done: boolean;
+  is_error?: boolean;
+}
+
+interface StreamingMsg {
+  text: string;
+  tools: PendingTool[];
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -47,6 +59,7 @@ export function ChatScreen() {
   const [activeDetail, setActiveDetail] = useState<ConversationDetailDTO | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [streamingMsg, setStreamingMsg] = useState<StreamingMsg | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -105,7 +118,7 @@ export function ChatScreen() {
 
   useEffect(() => {
     if (endRef.current) endRef.current.scrollTop = endRef.current.scrollHeight;
-  }, [activeDetail, busy]);
+  }, [activeDetail, streamingMsg]);
 
   const newConvo = async () => {
     setError(null);
@@ -135,49 +148,74 @@ export function ChatScreen() {
   };
 
   const runAndPersistAssistant = async (convId: number): Promise<void> => {
+    let current: StreamingMsg = { text: '', tools: [] };
+    setStreamingMsg(current);
+
     try {
-      const result = await runAgentOnServer(convId);
-      const { reply, tool_events, changed, message_id, title: newTitle } = result;
-
-      // Build a MessageDTO from the server response to add to local state
-      const assistantMsg: MessageDTO = {
-        id: message_id,
-        role: 'assistant',
-        content: reply || '(brak odpowiedzi)',
-        created_at: new Date().toISOString(),
-        tool_uses: tool_events.map((ev: AgentToolEventDTO, idx: number) => ({
-          id: idx,
-          tool_use_id: ev.tool_use_id,
-          tool_name: ev.name,
-          input: ev.input,
-          output: ev.error ?? ev.output,
-          is_error: Boolean(ev.error),
-          started_at: new Date().toISOString(),
-          finished_at: new Date().toISOString(),
-        })),
-      };
-
-      setActiveDetail((prev) =>
-        prev && prev.id === convId
-          ? {
-              ...prev,
-              title: newTitle || prev.title,
-              messages: [...prev.messages, assistantMsg],
-            }
-          : prev,
-      );
-      if (newTitle) {
-        setConversations((prev) =>
-          prev.map((c) => (c.id === convId ? { ...c, title: newTitle } : c)),
-        );
-      }
-
-      // Refresh data for changed domains
-      await refreshChanged(changed);
+      await streamAgent(convId, (event) => {
+        if (event.type === 'text_delta') {
+          current = { ...current, text: current.text + event.text };
+          setStreamingMsg({ ...current });
+        } else if (event.type === 'tool_start') {
+          current = {
+            ...current,
+            tools: [
+              ...current.tools,
+              { tool_use_id: event.tool_use_id, name: event.name, input: event.input, done: false },
+            ],
+          };
+          setStreamingMsg({ ...current });
+        } else if (event.type === 'tool_result') {
+          current = {
+            ...current,
+            tools: current.tools.map((t) =>
+              t.tool_use_id === event.tool_use_id
+                ? { ...t, done: true, is_error: event.is_error }
+                : t,
+            ),
+          };
+          setStreamingMsg({ ...current });
+        } else if (event.type === 'done') {
+          const assistantMsg: MessageDTO = {
+            id: event.message_id,
+            role: 'assistant',
+            content: current.text || '(brak odpowiedzi)',
+            created_at: new Date().toISOString(),
+            tool_uses: current.tools.map((t, idx) => ({
+              id: idx,
+              tool_use_id: t.tool_use_id,
+              tool_name: t.name,
+              input: t.input,
+              output: null,
+              is_error: t.is_error ?? false,
+              started_at: new Date().toISOString(),
+              finished_at: new Date().toISOString(),
+            })),
+          };
+          setStreamingMsg(null);
+          setActiveDetail((prev) =>
+            prev && prev.id === convId
+              ? {
+                  ...prev,
+                  title: event.title || prev.title,
+                  messages: [...prev.messages, assistantMsg],
+                }
+              : prev,
+          );
+          if (event.title) {
+            setConversations((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, title: event.title! } : c)),
+            );
+          }
+          void refreshChanged(event.changed);
+        } else if (event.type === 'error') {
+          throw new Error(event.message);
+        }
+      });
     } catch (e) {
+      setStreamingMsg(null);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
-      // Persist error message to DB so it's visible in history
       try {
         const persisted = await appendMessage(convId, 'assistant', `❗ Błąd: ${msg}`);
         setActiveDetail((prev) =>
@@ -186,7 +224,7 @@ export function ChatScreen() {
             : prev,
         );
       } catch {
-        // swallow secondary error; the main error is already shown
+        // swallow secondary error
       }
     }
   };
@@ -435,17 +473,35 @@ export function ChatScreen() {
               </div>
             );
           })}
-          {busy && (
+          {streamingMsg !== null && (
             <div className="bubble bubble-agent">
               <div className="bubble-avatar">
                 <span className="serif" style={{ fontStyle: 'italic' }}>m</span>
               </div>
               <div className="bubble-body">
-                <div className="bubble-text" style={{ display: 'flex', gap: 4 }}>
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </div>
+                {streamingMsg.tools.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: streamingMsg.text ? 8 : 0 }}>
+                    {streamingMsg.tools.map((t) => (
+                      <span
+                        key={t.tool_use_id}
+                        className={`tool-chip ${t.done ? (t.is_error ? 'tool-chip-error' : 'tool-chip-done') : 'tool-chip-running'}`}
+                      >
+                        {t.done ? (t.is_error ? '✗' : '✓') : '⚙'} {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {streamingMsg.text ? (
+                  <div className="bubble-text" style={{ whiteSpace: 'pre-wrap' }}>
+                    {streamingMsg.text}<span className="cursor-blink" />
+                  </div>
+                ) : streamingMsg.tools.length === 0 ? (
+                  <div className="bubble-text" style={{ display: 'flex', gap: 4 }}>
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </div>
+                ) : null}
               </div>
             </div>
           )}

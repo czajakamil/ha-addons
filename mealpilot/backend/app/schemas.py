@@ -171,6 +171,17 @@ class Ingredient(BaseModel):
     unit: str
 
 
+class RecipeStep(BaseModel):
+    text: str
+    duration_minutes: Optional[int] = None
+
+    @classmethod
+    def coerce(cls, v: Any) -> "RecipeStep":
+        if isinstance(v, str):
+            return cls(text=v)
+        return cls.model_validate(v)
+
+
 class RecipeBase(BaseModel):
     title: str
     tags: List[str] = []
@@ -183,8 +194,15 @@ class RecipeBase(BaseModel):
     c: float = 0
     hue: int = 40
     ingredients: List[Ingredient] = []
-    steps: List[str] = []
+    steps: List[RecipeStep] = []
     meal_types: List[str] = []
+
+    @field_validator("steps", mode="before")
+    @classmethod
+    def coerce_legacy_steps(cls, v: Any) -> List[Any]:
+        if not isinstance(v, list):
+            return v
+        return [{"text": s} if isinstance(s, str) else s for s in v]
 
 
 class RecipeCreate(RecipeBase):
@@ -203,8 +221,15 @@ class RecipeUpdate(BaseModel):
     c: Optional[float] = None
     hue: Optional[int] = None
     ingredients: Optional[List[Ingredient]] = None
-    steps: Optional[List[str]] = None
+    steps: Optional[List[RecipeStep]] = None
     meal_types: Optional[List[str]] = None
+
+    @field_validator("steps", mode="before")
+    @classmethod
+    def coerce_legacy_steps(cls, v: Any) -> Optional[List[Any]]:
+        if v is None or not isinstance(v, list):
+            return v
+        return [{"text": s} if isinstance(s, str) else s for s in v]
 
 
 class Recipe(RecipeBase):

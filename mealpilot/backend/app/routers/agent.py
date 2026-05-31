@@ -1,14 +1,19 @@
+import json
+import os
 from datetime import datetime, timezone
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..agent.prompts import DEFAULT_SYSTEM_PROMPT
+from ..agent.providers import is_anthropic, stream_anthropic, stream_openai
 from ..agent_runner import generate_conversation_title, run_agent
 from ..ai_usage import check_quota, record_usage
-from ..db import get_db
+from ..db import SessionLocal, get_db
 from ..dependencies import get_current_user
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -299,6 +304,155 @@ async def run_conversation(
         changed=changed,
         message_id=assistant_msg.id,
         title=generated_title or None,
+    )
+
+
+@router.post("/conversations/{conv_id}/stream")
+async def stream_conversation(
+    conv_id: int,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conv = _get_conversation(db, conv_id, user.id)
+    check_quota(db, user)
+
+    settings = db.get(models.AgentSettings, user.id)
+    if settings is None:
+        settings = models.AgentSettings(user_id=user.id)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    msgs = (
+        db.execute(
+            select(models.AgentMessage)
+            .where(models.AgentMessage.conversation_id == conv.id)
+            .order_by(models.AgentMessage.created_at, models.AgentMessage.id)
+        )
+        .scalars()
+        .all()
+    )
+    history = [{"role": m.role, "content": m.content} for m in msgs]
+    model = settings.model or ""
+    system_prompt = settings.system_prompt or DEFAULT_SYSTEM_PROMPT
+
+    # Capture ids for use inside the generator (session-independent)
+    captured_conv_id = conv.id
+    captured_user_id = user.id
+    is_first_turn = len(history) == 1 and (history[0].get("role") == "user" if history else False)
+    first_user_text = str(history[0].get("content") or "") if is_first_turn else ""
+
+    def _sse(data: Dict[str, Any]) -> str:
+        return f"data: {json.dumps(data)}\n\n"
+
+    async def generate():
+        stream_db = SessionLocal()
+        tool_events: List[Dict[str, Any]] = []
+        changed_set: set = set()
+        text_parts: List[str] = []
+
+        try:
+            endpoint_url = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
+            api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
+
+            if not endpoint_url:
+                yield _sse({"type": "error", "message": "Brak konfiguracji MEALPILOT_AI_API_URL"})
+                return
+            if not api_key:
+                yield _sse({"type": "error", "message": "Brak konfiguracji MEALPILOT_AI_API_KEY"})
+                return
+
+            stream_user = stream_db.get(models.User, captured_user_id)
+            if stream_user is None:
+                yield _sse({"type": "error", "message": "Użytkownik nie znaleziony"})
+                return
+
+            if is_anthropic(endpoint_url):
+                provider = stream_anthropic(
+                    endpoint_url, api_key, model, system_prompt,
+                    history, stream_db, stream_user, tool_events, changed_set,
+                )
+            else:
+                provider = stream_openai(
+                    endpoint_url, api_key, model, system_prompt,
+                    history, stream_db, stream_user, tool_events, changed_set,
+                )
+
+            async for event in provider:
+                if event["type"] == "text_delta":
+                    text_parts.append(event["text"])
+                yield _sse(event)
+
+        except Exception as exc:
+            yield _sse({"type": "error", "message": str(exc)})
+            stream_db.close()
+            return
+
+        # Persist assistant message
+        reply = "".join(text_parts) or "(brak odpowiedzi)"
+        now = datetime.now(timezone.utc)
+
+        char_count = sum(len(m.get("content") or "") for m in history) + len(reply)
+        for ev in tool_events:
+            char_count += len(str(ev.get("input") or "")) + len(str(ev.get("output") or ""))
+        approx_tokens = max(1, char_count // 4)
+
+        stream_conv = stream_db.get(models.AgentConversation, captured_conv_id)
+        if stream_conv is None:
+            stream_db.close()
+            return
+
+        record_usage(stream_db, stream_user, tokens=approx_tokens)
+
+        assistant_msg = models.AgentMessage(
+            conversation_id=captured_conv_id,
+            role="assistant",
+            content=reply,
+            created_at=now,
+        )
+        stream_db.add(assistant_msg)
+        stream_db.flush()
+
+        for ev in tool_events:
+            stream_db.add(
+                models.AgentToolUse(
+                    message_id=assistant_msg.id,
+                    tool_use_id=ev["tool_use_id"],
+                    tool_name=ev["name"],
+                    input=ev["input"] or {},
+                    output=ev.get("error") if ev.get("error") else ev["output"],
+                    is_error=1 if ev.get("error") else 0,
+                    started_at=now,
+                    finished_at=now,
+                )
+            )
+
+        stream_conv.updated_at = now
+
+        generated_title: str | None = None
+        if is_first_turn and reply and not reply.startswith("❗"):
+            try:
+                generated_title = await generate_conversation_title(model, first_user_text, reply)
+            except Exception:
+                generated_title = None
+            if generated_title:
+                stream_conv.title = generated_title
+
+        stream_db.commit()
+        stream_db.refresh(assistant_msg)
+        stream_db.close()
+
+        yield _sse({
+            "type": "done",
+            "message_id": assistant_msg.id,
+            "changed": sorted(changed_set),
+            "title": generated_title,
+        })
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

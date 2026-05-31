@@ -1,8 +1,9 @@
 """Anthropic agent loop."""
 from __future__ import annotations
 
+import json
 import uuid
-from typing import Any, Dict, List
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import httpx
 from sqlalchemy.orm import Session
@@ -86,3 +87,131 @@ async def run_anthropic(
             messages.append({"role": "user", "content": tool_results})
 
     return final_text or "(agent przekroczył limit kroków)"
+
+
+async def stream_anthropic(
+    endpoint: str,
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    history: List[Dict[str, Any]],
+    db: Session,
+    user: models.User,
+    tool_events: List[Dict[str, Any]],
+    changed_set: set,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    messages = list(history)
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+    }
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        for _step in range(MAX_STEPS):
+            body = {
+                "model": model,
+                "max_tokens": 4096,
+                "system": system_prompt,
+                "messages": messages,
+                "tools": TOOL_DEFS,
+                "stream": True,
+            }
+
+            blocks: Dict[int, Dict[str, Any]] = {}
+            stop_reason: Optional[str] = None
+
+            async with client.stream("POST", endpoint, headers=headers, json=body) as resp:
+                resp.raise_for_status()
+                async for raw_line in resp.aiter_lines():
+                    if not raw_line.startswith("data: "):
+                        continue
+                    payload = json.loads(raw_line[6:])
+                    ev_type = payload.get("type")
+
+                    if ev_type == "content_block_start":
+                        idx = payload["index"]
+                        cb = payload["content_block"]
+                        blocks[idx] = {"type": cb["type"]}
+                        if cb["type"] == "text":
+                            blocks[idx]["text"] = cb.get("text", "")
+                        elif cb["type"] == "tool_use":
+                            blocks[idx].update({
+                                "id": cb.get("id", str(uuid.uuid4())),
+                                "name": cb.get("name", ""),
+                                "input_json": "",
+                            })
+
+                    elif ev_type == "content_block_delta":
+                        idx = payload["index"]
+                        delta = payload["delta"]
+                        if delta["type"] == "text_delta":
+                            t = delta.get("text", "")
+                            blocks[idx]["text"] = blocks[idx].get("text", "") + t
+                            yield {"type": "text_delta", "text": t}
+                        elif delta["type"] == "input_json_delta":
+                            blocks[idx]["input_json"] = (
+                                blocks[idx].get("input_json", "") + delta.get("partial_json", "")
+                            )
+
+                    elif ev_type == "content_block_stop":
+                        idx = payload["index"]
+                        block = blocks.get(idx, {})
+                        if block.get("type") == "tool_use":
+                            try:
+                                input_args = json.loads(block.get("input_json") or "{}")
+                            except json.JSONDecodeError:
+                                input_args = {}
+                            tu_id = block["id"]
+                            name = block["name"]
+                            block["_parsed_input"] = input_args
+
+                            yield {"type": "tool_start", "tool_use_id": tu_id, "name": name, "input": input_args}
+                            result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                            block["_result_text"] = result_text
+                            block["_is_error"] = is_error
+                            tool_events.append({
+                                "tool_use_id": tu_id,
+                                "name": name,
+                                "input": input_args,
+                                "output": None if is_error else safe_json_parse(result_text),
+                                "error": result_text if is_error else None,
+                            })
+                            yield {
+                                "type": "tool_result",
+                                "tool_use_id": tu_id,
+                                "output": None if is_error else safe_json_parse(result_text),
+                                "is_error": is_error,
+                            }
+
+                    elif ev_type == "message_delta":
+                        stop_reason = payload.get("delta", {}).get("stop_reason")
+
+            if stop_reason != "tool_use":
+                break
+
+            api_blocks = []
+            for idx in sorted(blocks.keys()):
+                b = blocks[idx]
+                if b["type"] == "text":
+                    api_blocks.append({"type": "text", "text": b.get("text", "")})
+                elif b["type"] == "tool_use":
+                    api_blocks.append({
+                        "type": "tool_use",
+                        "id": b["id"],
+                        "name": b["name"],
+                        "input": b.get("_parsed_input", {}),
+                    })
+            messages.append({"role": "assistant", "content": api_blocks})
+
+            tool_results = []
+            for idx in sorted(blocks.keys()):
+                b = blocks[idx]
+                if b["type"] == "tool_use":
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": b["id"],
+                        "content": b.get("_result_text", ""),
+                        "is_error": b.get("_is_error", False),
+                    })
+            messages.append({"role": "user", "content": tool_results})

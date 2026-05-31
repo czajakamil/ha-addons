@@ -4,6 +4,11 @@ export interface Ingredient {
   unit: string;
 }
 
+export interface Step {
+  text: string;
+  duration_minutes?: number | null;
+}
+
 export interface Recipe {
   id: string;
   title: string;
@@ -17,7 +22,7 @@ export interface Recipe {
   c: number;
   hue: number;
   ingredients: Ingredient[];
-  steps: string[];
+  steps: Step[];
   meal_types: string[];
   image_filename?: string | null;
   created_by?: number;
