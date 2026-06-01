@@ -1,6 +1,6 @@
 # Kamil's Home Assistant Add-ons
 
-A collection of custom [Home Assistant](https://www.home-assistant.io/) add-ons — each solving a real problem at home, built to production quality rather than "it works on my machine."
+A collection of custom [Home Assistant](https://www.home-assistant.io/) add-ons, each solving a real problem that I had 
 
 [![HA Add-on store](https://img.shields.io/badge/HA-Add--on%20store-41BDF5?logo=home-assistant&logoColor=white)](https://www.home-assistant.io/hassio/installing_third_party_addons/)
 
