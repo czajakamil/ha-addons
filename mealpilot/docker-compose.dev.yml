@@ -1,0 +1,23 @@
+services:
+  mealpilot:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: mealpilot-dev
+    container_name: mealpilot-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      # Stwórz/zaktualizuj admina przy starcie (loguj się tym kontem).
+      # Możesz nadpisać przed 'docker compose up' albo zostawić defaulty.
+      MEALPILOT_ADMIN_USERNAME: ${MEALPILOT_ADMIN_USERNAME:-admin}
+      MEALPILOT_ADMIN_PASSWORD: ${MEALPILOT_ADMIN_PASSWORD:-admin}
+      MEALPILOT_CORS_ORIGINS: "*"
+      MEALPILOT_COOKIE_SECURE: "0"
+      # Opcjonalnie: klucz/URL do AI (Anthropic) — bez tego asystent AI nie działa,
+      # reszta UI tak.
+      MEALPILOT_AI_API_URL: ${MEALPILOT_AI_API_URL:-}
+      MEALPILOT_AI_API_KEY: ${MEALPILOT_AI_API_KEY:-}
+    restart: unless-stopped

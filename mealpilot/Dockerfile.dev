@@ -1,0 +1,33 @@
+# Local dev image — bez HA bashio.
+# Build frontu w stage'u node, backend Python uruchamiany przez uvicorn.
+# Buduj z roota projektu: docker compose -f docker-compose.dev.yml up --build
+
+FROM node:20-alpine AS frontend-build
+WORKDIR /fe
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci || npm install
+COPY frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json \
+     frontend/vite.config.ts frontend/index.html ./
+COPY frontend/src ./src
+RUN npm run build
+
+FROM python:3.12-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY backend/app /app/app
+COPY backend/scripts /app/scripts
+COPY --from=frontend-build /fe/dist /app/static
+
+ENV MEALPILOT_DB=/data/mealpilot.db \
+    MEALPILOT_STATIC_DIR=/app/static \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
