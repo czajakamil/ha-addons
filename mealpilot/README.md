@@ -84,3 +84,11 @@ get_macros_summary  …
 
 Full tool specification: [`AGENT_MCP_SPEC.md`](AGENT_MCP_SPEC.md)
 
+## Screenshots
+
+
+![Weekly Pan](screenshots/image.png)
+
+![Recipies](screenshots/image-1.png)
+
+![Cooking Mode](screenshots/image-2.png)
