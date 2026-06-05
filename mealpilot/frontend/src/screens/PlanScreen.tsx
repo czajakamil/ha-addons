@@ -17,6 +17,7 @@ import {
   applyTemplate,
   emitPlanChanged,
   loadPlan,
+  savePlan,
 } from '../data';
 import type { MacroTarget, PlanEntry, SetTweak, Tweaks, WeekTemplate } from '../types';
 
@@ -63,6 +64,13 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   const [goalsSaving, setGoalsSaving] = useState(false);
   const [expandedDayMacros, setExpandedDayMacros] = useState(false);
   const dragRef = useRef<DragState | null>(null);
+  const isDirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (!isDirtyRef.current) return;
+    isDirtyRef.current = false;
+    void savePlan(weekStart, plan);
+  }, [plan, weekStart]);
 
   const todayIndex = useMemo(() => {
     const today = new Date();
@@ -92,6 +100,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
     plan.filter((p) => p.day === day && p.meal.toLowerCase() === meal.toLowerCase());
 
   const moveTo = (entry: { recipe_id: string; servings: number }, fromKey: string, day: number, meal: string) => {
+    isDirtyRef.current = true;
     setPlan((prev) => {
       let next = prev;
       if (fromKey && fromKey !== 'library') {
@@ -103,10 +112,13 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
     });
   };
 
-  const removeEntry = (day: number, meal: string, recipe: string) =>
+  const removeEntry = (day: number, meal: string, recipe: string) => {
+    isDirtyRef.current = true;
     setPlan((prev) => prev.filter((p) => !(p.day === day && p.meal === meal && p.recipe_id === recipe)));
+  };
 
   const addRecipe = (day: number, meal: string, recipeId: string) => {
+    isDirtyRef.current = true;
     setPlan((prev) => {
       const filtered = prev.filter(
         (p) => !(p.day === day && p.meal === meal && p.recipe_id === recipeId),

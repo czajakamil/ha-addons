@@ -1,3 +1,6 @@
+## 0.2.12
+- Naprawa błędu: dodanie przepisu do planu tygodnia nie było zapisywane — zmiany znikały po odświeżeniu strony
+
 ## 0.2.11
 - Streaming odpowiedzi agenta AI — tekst pojawia się na żywo, a wywołania narzędzi są widoczne w trakcie generowania
 - Nowy tryb gotowania — ekran krok-po-kroku z timerami na każdy etap i sygnałem dźwiękowym po zakończeniu odliczania
