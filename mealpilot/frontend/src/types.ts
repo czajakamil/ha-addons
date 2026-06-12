@@ -25,6 +25,9 @@ export interface Recipe {
   steps: Step[];
   meal_types: string[];
   image_filename?: string | null;
+  is_meal_prep?: boolean;
+  meal_prep_days?: number | null;
+  meal_prep_steps?: Step[];
   created_by?: number;
   owner_user_id?: number | null;
   owner_household_id?: number | null;

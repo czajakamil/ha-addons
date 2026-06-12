@@ -109,6 +109,9 @@ class Recipe(Base):
     steps = Column(JSON, nullable=False, default=list)
     meal_types = Column(JSON, nullable=False, default=list)
     image_filename = Column(String, nullable=True)
+    is_meal_prep = Column(Boolean, nullable=False, default=False)
+    meal_prep_days = Column(Integer, nullable=True)
+    meal_prep_steps = Column(JSON, nullable=False, default=list)
 
 
 class MealPlanEntry(Base):

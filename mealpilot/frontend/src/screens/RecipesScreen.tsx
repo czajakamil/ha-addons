@@ -95,6 +95,103 @@ function useSortable(onReorder: (from: number, to: number) => void) {
   return { overIdx, rowProps, handleProps };
 }
 
+interface StepsEditorProps {
+  steps: Step[];
+  onChange: (steps: Step[]) => void;
+  label: string;
+}
+
+function StepsEditor({ steps, onChange, label }: StepsEditorProps) {
+  const addStep = () => onChange([...steps, { text: '', duration_minutes: null }]);
+  const updText = (i: number, text: string) =>
+    onChange(steps.map((s, idx) => (idx === i ? { ...s, text } : s)));
+  const updDuration = (i: number, minutes: number | null) =>
+    onChange(steps.map((s, idx) => (idx === i ? { ...s, duration_minutes: minutes } : s)));
+  const remStep = (i: number) => onChange(steps.filter((_, idx) => idx !== i));
+  const moveStep = useCallback(
+    (from: number, to: number) => {
+      const arr = [...steps];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      onChange(arr);
+    },
+    [steps, onChange],
+  );
+  const { overIdx: dragOver, rowProps, handleProps } = useSortable(moveStep);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="eyebrow" style={{ color: 'var(--ink-faint)' }}>
+          {label}
+        </div>
+        <button className="btn ghost" style={{ fontSize: 11, padding: '3px 8px' }} onClick={addStep}>
+          <Icon name="plus" size={11} /> dodaj
+        </button>
+      </div>
+      {steps.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>
+          Brak kroków — kliknij „dodaj"
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            {...rowProps(i)}
+            style={{
+              display: 'flex',
+              gap: 6,
+              alignItems: 'flex-start',
+              borderTop: dragOver === i ? '2px solid var(--accent)' : '2px solid transparent',
+              transition: 'border-color 0.1s',
+            }}
+          >
+            <span
+              {...handleProps(i)}
+              style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 8, touchAction: 'none' }}
+            >
+              <Icon name="dnd" size={14} />
+            </span>
+            <span className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)', minWidth: 16, paddingTop: 8 }}>
+              {i + 1}.
+            </span>
+            <textarea
+              className="edit-input"
+              style={{ flex: 1, minHeight: 52, resize: 'vertical' }}
+              placeholder="Opisz krok…"
+              value={s.text}
+              onChange={(e) => updText(i, e.target.value)}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, paddingTop: 6, flexShrink: 0 }}>
+              <span style={{ color: 'var(--ink-faint)', display: 'flex' }}>
+                <Icon name="clock" size={12} />
+              </span>
+              <input
+                className="edit-num"
+                type="number"
+                min="1"
+                placeholder="—"
+                title="Czas trwania (minuty)"
+                style={{ width: 52 }}
+                value={s.duration_minutes ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1);
+                  updDuration(i, v);
+                }}
+              />
+              <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>min</span>
+            </div>
+            <button className="btn ghost icon" style={{ padding: 2, marginTop: 6 }} onClick={() => remStep(i)}>
+              <Icon name="x" size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const INGREDIENT_UNITS = [
   'g',
   'kg',
@@ -410,11 +507,11 @@ const emptyForm: RecipeForm = {
   ingredients: [],
   steps: [],
   meal_types: [],
+  is_meal_prep: false,
+  meal_prep_days: null,
+  meal_prep_steps: [],
 };
 
-function emptyStep(): Step {
-  return { text: '', duration_minutes: null };
-}
 
 interface NewRecipeModalProps {
   onClose: () => void;
@@ -468,23 +565,15 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
 
   const { overIdx: dragIngOver, rowProps: ingRowProps, handleProps: ingHandleProps } = useSortable(moveIng);
 
-  const addStep = () => setForm((f) => ({ ...f, steps: [...f.steps, emptyStep()] }));
-  const updStepText = (i: number, text: string) =>
-    setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? { ...s, text } : s)) }));
-  const updStepDuration = (i: number, minutes: number | null) =>
-    setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? { ...s, duration_minutes: minutes } : s)) }));
-  const remStep = (i: number) =>
-    setForm((f) => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
-  const moveStep = useCallback((from: number, to: number) => {
-    setForm((f) => {
-      const arr = [...f.steps];
-      const [item] = arr.splice(from, 1);
-      arr.splice(to, 0, item);
-      return { ...f, steps: arr };
-    });
-  }, []);
-
-  const { overIdx: dragStepOver, rowProps: stepRowProps, handleProps: stepHandleProps } = useSortable(moveStep);
+  const [stepsTab, setStepsTab] = useState<'cooking' | 'meal_prep'>('cooking');
+  const getFormSteps = (): Step[] => {
+    if (!form.is_meal_prep || stepsTab === 'cooking') return form.steps;
+    return form.meal_prep_steps ?? [];
+  };
+  const setFormSteps = (steps: Step[]) => {
+    if (!form.is_meal_prep || stepsTab === 'cooking') setForm((f) => ({ ...f, steps }));
+    else setForm((f) => ({ ...f, meal_prep_steps: steps }));
+  };
 
   const submit = async () => {
     if (!form.title.trim()) {
@@ -770,82 +859,58 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <div className="eyebrow" style={{ color: 'var(--ink-faint)' }}>
-                Kroki przygotowania
-              </div>
-              <button
-                className="btn ghost"
-                style={{ fontSize: 11, padding: '3px 8px' }}
-                onClick={addStep}
-              >
-                <Icon name="plus" size={11} /> dodaj
-              </button>
-            </div>
-            {form.steps.length === 0 && (
-              <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>
-                Brak kroków — kliknij „dodaj"
+            {form.is_meal_prep && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['cooking', 'meal_prep'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={`btn${stepsTab === tab ? ' primary' : ' ghost'}`}
+                    style={{ fontSize: 11, padding: '3px 10px' }}
+                    onClick={() => setStepsTab(tab)}
+                  >
+                    {tab === 'cooking' ? 'Gotowanie' : 'Meal prep'}
+                  </button>
+                ))}
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {form.steps.map((s, i) => (
-                <div
-                  key={i}
-                  {...stepRowProps(i)}
-                  style={{
-                    display: 'flex', gap: 6, alignItems: 'flex-start',
-                    borderTop: dragStepOver === i ? '2px solid var(--accent)' : '2px solid transparent',
-                    transition: 'border-color 0.1s',
-                  }}
-                >
-                  <span
-                    {...stepHandleProps(i)}
-                    style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 8, touchAction: 'none' }}
-                  >
-                    <Icon name="dnd" size={14} />
-                  </span>
-                  <span
-                    className="mono"
-                    style={{ fontSize: 12, color: 'var(--ink-faint)', minWidth: 16, paddingTop: 8 }}
-                  >
-                    {i + 1}.
-                  </span>
-                  <textarea
-                    className="edit-input"
-                    style={{ flex: 1, minHeight: 52, resize: 'vertical' }}
-                    placeholder="Opisz krok…"
-                    value={s.text}
-                    onChange={(e) => updStepText(i, e.target.value)}
+            <StepsEditor
+              steps={getFormSteps()}
+              onChange={setFormSteps}
+              label={
+                !form.is_meal_prep
+                  ? 'Kroki przygotowania'
+                  : stepsTab === 'cooking'
+                  ? 'Gotowanie'
+                  : 'Meal prep'
+              }
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.is_meal_prep ?? false}
+                onChange={(e) => set('is_meal_prep', e.target.checked)}
+              />
+              <span style={{ fontSize: 13 }}>Ten przepis nadaje się do meal prep</span>
+            </label>
+            {form.is_meal_prep && (
+              <div style={{ paddingLeft: 8, borderLeft: '2px solid var(--line-soft)' }}>
+                <LabelField label="Liczba dni (batch na ile dni)">
+                  <input
+                    className="edit-num"
+                    type="number"
+                    min="1"
+                    placeholder="np. 4"
+                    style={{ width: 80 }}
+                    value={form.meal_prep_days ?? ''}
+                    onChange={(e) => set('meal_prep_days', parseInt(e.target.value) || null)}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, paddingTop: 6, flexShrink: 0 }}>
-                    <span style={{ color: 'var(--ink-faint)', display: 'flex' }}><Icon name="clock" size={12} /></span>
-                    <input
-                      className="edit-num"
-                      type="number"
-                      min="1"
-                      placeholder="—"
-                      title="Czas trwania (minuty)"
-                      style={{ width: 52 }}
-                      value={s.duration_minutes ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1);
-                        updStepDuration(i, v);
-                      }}
-                    />
-                    <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>min</span>
-                  </div>
-                  <button
-                    className="btn ghost icon"
-                    style={{ padding: 2, marginTop: 6 }}
-                    onClick={() => remStep(i)}
-                  >
-                    <Icon name="x" size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
+                </LabelField>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -1004,6 +1069,20 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, curre
               {t}
             </span>
           ))}
+          {r.is_meal_prep && (
+            <span
+              className="chip"
+              style={{
+                fontSize: 10,
+                padding: '1px 7px',
+                background: 'var(--accent)',
+                color: 'oklch(0.98 0.015 80)',
+                borderColor: 'var(--accent-deep)',
+              }}
+            >
+              Meal prep
+            </span>
+          )}
         </div>
         <h3 className="serif">{r.title}</h3>
         <div
@@ -1244,7 +1323,8 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
   const [ownershipBusy, setOwnershipBusy] = useState(false);
   const baseR = recipeBy(recipeId);
   const [editing, setEditing] = useState(false);
-  const [cookingMode, setCookingMode] = useState(false);
+  const [cookingMode, setCookingMode] = useState<false | 'normal' | 'meal_prep'>(false);
+  const [stepsTab, setStepsTab] = useState<'cooking' | 'meal_prep'>('cooking');
   const [draft, setDraft] = useState<Recipe | undefined>(baseR);
   const [saving, setSaving] = useState(false);
   const [estimating, setEstimating] = useState(false);
@@ -1324,18 +1404,6 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
 
   const { overIdx: dragDetailIngOver, rowProps: detailIngRowProps, handleProps: detailIngHandleProps } = useSortable(moveDetailIng);
 
-  const moveDetailStep = useCallback((from: number, to: number) => {
-    setDraft((d) => {
-      if (!d) return d;
-      const arr = [...d.steps];
-      const [item] = arr.splice(from, 1);
-      arr.splice(to, 0, item);
-      return { ...d, steps: arr };
-    });
-  }, []);
-
-  const { overIdx: dragDetailStepOver, rowProps: detailStepRowProps, handleProps: detailStepHandleProps } = useSortable(moveDetailStep);
-
   if (!baseR || !draft) return null;
   const r = editing ? draft : baseR;
 
@@ -1356,17 +1424,20 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
     setDraft((d) =>
       d ? { ...d, ingredients: [...d.ingredients, { name: '', qty: 0, unit: 'g' }] } : d,
     );
-  const updateStepText = (i: number, text: string) =>
-    setDraft((d) =>
-      d ? { ...d, steps: d.steps.map((s, idx) => (idx === i ? { ...s, text } : s)) } : d,
-    );
-  const updateStepDuration = (i: number, minutes: number | null) =>
-    setDraft((d) =>
-      d ? { ...d, steps: d.steps.map((s, idx) => (idx === i ? { ...s, duration_minutes: minutes } : s)) } : d,
-    );
-  const removeStep = (i: number) =>
-    setDraft((d) => (d ? { ...d, steps: d.steps.filter((_, idx) => idx !== i) } : d));
-  const addStep = () => setDraft((d) => (d ? { ...d, steps: [...d.steps, emptyStep()] } : d));
+  const getDraftSteps = (): Step[] => {
+    if (!draft.is_meal_prep || stepsTab === 'cooking') return draft.steps;
+    return draft.meal_prep_steps ?? [];
+  };
+  const setDraftSteps = useCallback(
+    (steps: Step[]) => {
+      setDraft((d) => {
+        if (!d) return d;
+        if (!d.is_meal_prep || stepsTab === 'cooking') return { ...d, steps };
+        return { ...d, meal_prep_steps: steps };
+      });
+    },
+    [stepsTab],
+  );
 
   const save = async () => {
     setSaving(true);
@@ -1536,11 +1607,27 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                   </span>
                 </button>
               )}
-              {!editing && r.steps.length > 0 && (
-                <button className="btn primary" onClick={() => setCookingMode(true)} title="Tryb gotowania">
+              {!editing && !r.is_meal_prep && r.steps.length > 0 && (
+                <button className="btn primary" onClick={() => setCookingMode('normal')} title="Tryb gotowania">
                   <Icon name="pot" size={13} />
                   <span className="rd-btn-label"> Gotuj</span>
                 </button>
+              )}
+              {!editing && r.is_meal_prep && (
+                <>
+                  {r.steps.length > 0 && (
+                    <button className="btn" onClick={() => setCookingMode('normal')} title="Zwykłe gotowanie">
+                      <Icon name="pot" size={13} />
+                      <span className="rd-btn-label"> Gotowanie</span>
+                    </button>
+                  )}
+                  {(r.meal_prep_steps?.length ?? 0) > 0 && (
+                    <button className="btn primary" onClick={() => setCookingMode('meal_prep')} title="Tryb meal prep">
+                      <Icon name="pot" size={13} />
+                      <span className="rd-btn-label"> Meal prep</span>
+                    </button>
+                  )}
+                </>
               )}
               {!editing && (
                 <button className="btn" onClick={() => setEditing(true)} title="Edytuj przepis">
@@ -1841,81 +1928,61 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               </ul>
             </div>
             <div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  marginBottom: 10,
-                }}
-              >
-                <h3 className="serif" style={{ fontStyle: 'italic' }}>
-                  Kroki
-                </h3>
-                {editing && (
-                  <button
-                    className="btn ghost"
-                    style={{ fontSize: 11, padding: '3px 8px' }}
-                    onClick={addStep}
-                  >
-                    <Icon name="plus" size={11} /> dodaj
-                  </button>
-                )}
-              </div>
-              <ol className="rd-steps">
-                {r.steps.map((s, i) => (
-                  <li
-                    key={i}
-                    {...(editing ? detailStepRowProps(i) : {})}
-                    style={editing ? {
-                      borderTop: dragDetailStepOver === i ? '2px solid var(--accent)' : '2px solid transparent',
-                      transition: 'border-color 0.1s',
-                    } : undefined}
-                  >
-                    {editing && (
-                      <span
-                        {...detailStepHandleProps(i)}
-                        style={{ cursor: 'grab', color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', flexShrink: 0, touchAction: 'none' }}
-                      >
-                        <Icon name="dnd" size={14} />
-                      </span>
-                    )}
-                    <span className="rd-step-n serif">{i + 1}</span>
-                    {editing ? (
-                      <>
-                        <textarea
-                          className="edit-input"
-                          style={{ flex: 1, minHeight: 50, resize: 'vertical' }}
-                          value={draft.steps[i].text}
-                          onChange={(e) => updateStepText(i, e.target.value)}
-                        />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, alignSelf: 'flex-start', paddingTop: 6, flexShrink: 0 }}>
-                          <span style={{ color: 'var(--ink-faint)', display: 'flex' }}><Icon name="clock" size={12} /></span>
-                          <input
-                            className="edit-num"
-                            type="number"
-                            min="1"
-                            placeholder="—"
-                            title="Czas trwania (minuty)"
-                            style={{ width: 52 }}
-                            value={draft.steps[i].duration_minutes ?? ''}
-                            onChange={(e) => {
-                              const v = e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1);
-                              updateStepDuration(i, v);
-                            }}
-                          />
-                          <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>min</span>
-                        </div>
+              {editing ? (
+                <>
+                  {draft.is_meal_prep && (
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                      {(['cooking', 'meal_prep'] as const).map((tab) => (
                         <button
-                          className="btn ghost icon"
-                          style={{ padding: 2, alignSelf: 'flex-start' }}
-                          onClick={() => removeStep(i)}
+                          key={tab}
+                          type="button"
+                          className={`btn${stepsTab === tab ? ' primary' : ' ghost'}`}
+                          style={{ fontSize: 11, padding: '3px 10px' }}
+                          onClick={() => setStepsTab(tab)}
                         >
-                          <Icon name="x" size={12} />
+                          {tab === 'cooking' ? 'Gotowanie' : 'Meal prep'}
                         </button>
-                      </>
-                    ) : (
-                      <>
+                      ))}
+                    </div>
+                  )}
+                  <StepsEditor
+                    steps={getDraftSteps()}
+                    onChange={setDraftSteps}
+                    label={
+                      !draft.is_meal_prep
+                        ? 'Kroki'
+                        : stepsTab === 'cooking'
+                        ? 'Gotowanie'
+                        : 'Meal prep'
+                    }
+                  />
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <h3 className="serif" style={{ fontStyle: 'italic', margin: 0 }}>
+                      Kroki
+                    </h3>
+                    {r.is_meal_prep && (
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {(['cooking', 'meal_prep'] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            className={`btn${stepsTab === tab ? ' primary' : ' ghost'}`}
+                            style={{ fontSize: 11, padding: '3px 10px' }}
+                            onClick={() => setStepsTab(tab)}
+                          >
+                            {tab === 'cooking' ? 'Gotowanie' : 'Meal prep'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <ol className="rd-steps">
+                    {(r.is_meal_prep && stepsTab === 'meal_prep' ? (r.meal_prep_steps ?? []) : r.steps).map((s, i) => (
+                      <li key={i}>
+                        <span className="rd-step-n serif">{i + 1}</span>
                         <span style={{ flex: 1 }}>{s.text}</span>
                         {s.duration_minutes != null && (
                           <span
@@ -1926,11 +1993,11 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                             {s.duration_minutes} min
                           </span>
                         )}
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ol>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
             </div>
           </div>
 
@@ -2022,6 +2089,47 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
               />
             )}
           </div>
+
+          {editing && (
+            <div
+              style={{
+                marginTop: 20,
+                padding: '16px 18px',
+                background: 'var(--paper-2)',
+                border: '1px dashed var(--line)',
+                borderRadius: 'var(--r)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 14,
+              }}
+            >
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={draft.is_meal_prep ?? false}
+                  onChange={(e) => setDraft((d) => (d ? { ...d, is_meal_prep: e.target.checked } : d))}
+                />
+                <span className="eyebrow">Ten przepis nadaje się do meal prep</span>
+              </label>
+              {draft.is_meal_prep && (
+                <div style={{ paddingLeft: 8, borderLeft: '2px solid var(--line-soft)' }}>
+                  <LabelField label="Liczba dni (batch na ile dni)">
+                    <input
+                      className="edit-num"
+                      type="number"
+                      min="1"
+                      placeholder="np. 4"
+                      style={{ width: 80 }}
+                      value={draft.meal_prep_days ?? ''}
+                      onChange={(e) =>
+                        setDraft((d) => (d ? { ...d, meal_prep_days: parseInt(e.target.value) || null } : d))
+                      }
+                    />
+                  </LabelField>
+                </div>
+              )}
+            </div>
+          )}
 
           <div
             style={{
@@ -2143,7 +2251,23 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
       </div>
     </div>
     {cookingMode && baseR && (
-      <CookingMode recipe={baseR} onClose={() => setCookingMode(false)} />
+      <CookingMode
+        recipe={
+          cookingMode === 'meal_prep'
+            ? {
+                ...baseR,
+                title: `${baseR.title} — ${baseR.meal_prep_days ?? '?'} dni`,
+                steps: baseR.meal_prep_steps ?? [],
+                servings: baseR.servings * (baseR.meal_prep_days ?? 1),
+                ingredients: baseR.ingredients.map((ing) => ({
+                  ...ing,
+                  qty: +(ing.qty * (baseR.meal_prep_days ?? 1)).toFixed(2),
+                })),
+              }
+            : baseR
+        }
+        onClose={() => setCookingMode(false)}
+      />
     )}
     </>
   );

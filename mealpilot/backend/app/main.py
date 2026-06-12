@@ -87,6 +87,12 @@ def _migrate(engine_) -> None:
                 conn.execute(
                     text("ALTER TABLE recipes ADD COLUMN meal_types JSON NOT NULL DEFAULT '[]'")
                 )
+            if "is_meal_prep" not in cols:
+                conn.execute(text("ALTER TABLE recipes ADD COLUMN is_meal_prep BOOLEAN NOT NULL DEFAULT 0"))
+            if "meal_prep_days" not in cols:
+                conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_prep_days INTEGER"))
+            if "meal_prep_steps" not in cols:
+                conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_prep_steps JSON NOT NULL DEFAULT '[]'"))
 
         if "meal_plan_entries" in tables:
             cols = {c["name"] for c in inspector.get_columns("meal_plan_entries")}

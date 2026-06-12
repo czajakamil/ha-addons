@@ -1,3 +1,10 @@
+## 0.2.13
+- Wsparcie dla meal prep — oznaczanie przepisów jako nadających się do batch-cooking
+- Nowe pola przepisu: liczba dni (batch na ile dni) i osobne kroki meal prep
+- Zakładki „Gotowanie" / „Meal prep" w edytorze kroków oraz w widoku szczegółów przepisu
+- Tryb gotowania dla meal prep — składniki i porcje skalowane automatycznie przez liczbę dni
+- Odznaka „Meal prep" widoczna na karcie przepisu na liście
+
 ## 0.2.12
 - Naprawa błędu: dodanie przepisu do planu tygodnia nie było zapisywane — zmiany znikały po odświeżeniu strony
 

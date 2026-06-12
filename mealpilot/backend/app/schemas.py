@@ -182,6 +182,12 @@ class RecipeStep(BaseModel):
         return cls.model_validate(v)
 
 
+def _coerce_steps(v: Any) -> List[Any]:
+    if not isinstance(v, list):
+        return v
+    return [{"text": s} if isinstance(s, str) else s for s in v]
+
+
 class RecipeBase(BaseModel):
     title: str
     tags: List[str] = []
@@ -196,13 +202,14 @@ class RecipeBase(BaseModel):
     ingredients: List[Ingredient] = []
     steps: List[RecipeStep] = []
     meal_types: List[str] = []
+    is_meal_prep: bool = False
+    meal_prep_days: Optional[int] = None
+    meal_prep_steps: List[RecipeStep] = []
 
-    @field_validator("steps", mode="before")
+    @field_validator("steps", "meal_prep_steps", mode="before")
     @classmethod
     def coerce_legacy_steps(cls, v: Any) -> List[Any]:
-        if not isinstance(v, list):
-            return v
-        return [{"text": s} if isinstance(s, str) else s for s in v]
+        return _coerce_steps(v)
 
 
 class RecipeCreate(RecipeBase):
@@ -223,13 +230,16 @@ class RecipeUpdate(BaseModel):
     ingredients: Optional[List[Ingredient]] = None
     steps: Optional[List[RecipeStep]] = None
     meal_types: Optional[List[str]] = None
+    is_meal_prep: Optional[bool] = None
+    meal_prep_days: Optional[int] = None
+    meal_prep_steps: Optional[List[RecipeStep]] = None
 
-    @field_validator("steps", mode="before")
+    @field_validator("steps", "meal_prep_steps", mode="before")
     @classmethod
     def coerce_legacy_steps(cls, v: Any) -> Optional[List[Any]]:
-        if v is None or not isinstance(v, list):
+        if v is None:
             return v
-        return [{"text": s} if isinstance(s, str) else s for s in v]
+        return _coerce_steps(v)
 
 
 class Recipe(RecipeBase):
