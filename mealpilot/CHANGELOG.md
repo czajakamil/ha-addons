@@ -1,3 +1,6 @@
+## 0.2.15
+- Bug fix - Docerfile
+
 ## 0.2.14
 - Serwer MCP dostępny przez HTTP/SSE bezpośrednio z add-onu — endpoint `GET /mcp/sse`
 - Integracja z Claude Desktop bez instalowania czegokolwiek lokalnie — wystarczy adres HA i klucz API

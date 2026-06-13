@@ -18,6 +18,7 @@ COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY backend/app /app/app
+COPY backend/mcp_server.py /app/mcp_server.py
 COPY backend/scripts /app/scripts
 COPY --from=frontend-build /fe/dist /app/static
 
