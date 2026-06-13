@@ -1,3 +1,7 @@
+## 0.2.18
+- Aktualizacja konfiguracji MCP w ustawieniach kluczy API — przejście z trybu natywnego URL/headers na `mcp-remote` przez `npx` dla lepszej kompatybilności z Claude Desktop
+- Klucz API przekazywany przez zmienną środowiskową `MEALPILOT_TOKEN` zamiast nagłówka HTTP
+
 ## 0.2.17
 - Kompletna pokrycia testami backend — testy jednostkowe (security, ownership, rate limiting, AI usage) i integracyjne (auth, recipes, admin, agent, MCP, plan/shopping, templates, CF Access, migracje)
 - Testy e2e frontendu z Playwright — smoke testy UI (logowanie, lista przepisów, plan tygodnia, lista zakupów, ustawienia)

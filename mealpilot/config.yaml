@@ -1,7 +1,7 @@
 name: "MealPilot"
 slug: "mealpilot"
 description: "Planowanie posiłków, lista zakupów i batch-cooking (FastAPI + React)."
-version: "0.2.17"
+version: "0.2.18"
 url: "https://github.com/czajakamil/ha-addons/tree/main/mealpilot"
 init: false
 

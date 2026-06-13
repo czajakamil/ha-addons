@@ -182,10 +182,20 @@ export function ApiKeysScreen() {
           }}
         >{`{
   "mcpServers": {
-    "mealpilot": {
-      "url": "http://<adres-HA>:8000/mcp/sse",
-      "headers": {
-        "X-MealPilot-Token": "mp_twój_klucz_tutaj"
+    "MealPilot": {
+      "command": "/opt/homebrew/bin/npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "http://<adres-HA>:8000/mcp/sse",
+        "--allow-http",
+        "--transport",
+        "sse-only",
+        "--header",
+        "X-MealPilot-Token:\${MEALPILOT_TOKEN}"
+      ],
+      "env": {
+        "MEALPILOT_TOKEN": "mp_twój_klucz_tutaj"
       }
     }
   }
@@ -200,12 +210,17 @@ export function ApiKeysScreen() {
           }}
         >
           <li>
-            <strong>url</strong> — zastąp <code>&lt;adres-HA&gt;</code> adresem IP lub nazwą hosta
-            swojego Home Assistant, np. <code>192.168.1.10</code>.
+            <strong>&lt;adres-HA&gt;</strong> — zastąp adresem IP lub nazwą hosta swojego Home
+            Assistant, np. <code>192.168.1.10</code>.
           </li>
           <li>
-            <strong>X-MealPilot-Token</strong> — wklej wartość klucza skopiowaną zaraz po
+            <strong>MEALPILOT_TOKEN</strong> — wklej wartość klucza skopiowaną zaraz po
             wygenerowaniu (pokazywana tylko raz).
+          </li>
+          <li>
+            Wymagana jest zainstalowana paczka <code>npx</code> (Node.js). Jeśli{' '}
+            <code>npx</code> jest w innej lokalizacji, zmień ścieżkę w polu{' '}
+            <code>command</code>.
           </li>
         </ul>
       </section>
