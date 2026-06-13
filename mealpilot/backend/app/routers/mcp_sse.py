@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from fastapi.responses import Response
 from mcp.server.sse import SseServerTransport
+from starlette.types import Receive, Scope, Send
 from sqlalchemy.orm import Session
 
 import mcp_server as _mcp
@@ -23,6 +24,12 @@ from .. import models
 from ..db import SessionLocal
 
 _LAST_USED_THROTTLE = timedelta(seconds=60)
+
+class _AlreadySentResponse(Response):
+    """No-op response used when the SSE transport already sent the full HTTP response."""
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        pass
+
 
 router = APIRouter()
 sse_transport = SseServerTransport("/mcp/messages")
@@ -81,4 +88,4 @@ async def mcp_sse(
             )
     finally:
         _mcp.request_api_key.reset(token)
-    return Response()
+    return _AlreadySentResponse()
