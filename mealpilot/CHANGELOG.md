@@ -1,5 +1,9 @@
+## 0.2.16
+- Naprawa błędu 500 przy walidacji klucza API — SQLite zwraca naive datetime, teraz normalizowany do UTC przed porównaniem
+- Aktualizacja instrukcji podłączania MCP w ustawieniach kluczy API — zmiana z trybu stdio na HTTP/SSE (`/mcp/sse`)
+
 ## 0.2.15
-- Bug fix - Docerfile
+- Bug fix - Dockerfile
 
 ## 0.2.14
 - Serwer MCP dostępny przez HTTP/SSE bezpośrednio z add-onu — endpoint `GET /mcp/sse`

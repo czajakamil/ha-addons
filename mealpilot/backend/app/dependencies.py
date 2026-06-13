@@ -38,7 +38,11 @@ def get_current_user(
         if not user or not user.is_active:
             raise _unauthorized()
         now = datetime.now(timezone.utc)
-        if api_key.last_used_at is None or (now - api_key.last_used_at) > _LAST_USED_THROTTLE:
+        last_used = api_key.last_used_at
+        if last_used is not None and last_used.tzinfo is None:
+            # SQLite zwraca naive datetime — traktuj jako UTC, żeby móc odjąć od aware `now`.
+            last_used = last_used.replace(tzinfo=timezone.utc)
+        if last_used is None or (now - last_used) > _LAST_USED_THROTTLE:
             api_key.last_used_at = now
             db.commit()
         return user

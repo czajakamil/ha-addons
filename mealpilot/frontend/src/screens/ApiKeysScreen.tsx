@@ -165,9 +165,9 @@ export function ApiKeysScreen() {
       <section className="card" style={{ padding: 20 }}>
         <div className="eyebrow" style={{ marginBottom: 12 }}>Jak podłączyć agenta MCP</div>
         <p style={{ marginBottom: 12, lineHeight: 1.6 }}>
-          Serwer MCP działa jako proces <strong>stdio</strong>. Wygeneruj klucz powyżej, a
-          następnie dodaj wpis do konfiguracji MCP swojego klienta (np. Claude Desktop lub VS
-          Code):
+          Serwer MCP dostępny jest przez HTTP/SSE pod adresem <code>/mcp/sse</code>. Wygeneruj
+          klucz powyżej, a następnie dodaj wpis do konfiguracji MCP swojego klienta (np. Claude
+          Desktop lub VS Code):
         </p>
         <pre
           style={{
@@ -183,11 +183,9 @@ export function ApiKeysScreen() {
         >{`{
   "mcpServers": {
     "mealpilot": {
-      "command": "python",
-      "args": ["/ścieżka/do/backend/mcp_server.py"],
-      "env": {
-        "MEALPILOT_API_KEY": "mp_twój_klucz_tutaj",
-        "MEALPILOT_BASE_URL": "http://localhost:8000"
+      "url": "http://<adres-HA>:8000/mcp/sse",
+      "headers": {
+        "X-MealPilot-Token": "mp_twój_klucz_tutaj"
       }
     }
   }
@@ -202,16 +200,12 @@ export function ApiKeysScreen() {
           }}
         >
           <li>
-            <strong>MEALPILOT_API_KEY</strong> — wklej wartość klucza skopiowaną zaraz po
+            <strong>url</strong> — zastąp <code>&lt;adres-HA&gt;</code> adresem IP lub nazwą hosta
+            swojego Home Assistant, np. <code>192.168.1.10</code>.
+          </li>
+          <li>
+            <strong>X-MealPilot-Token</strong> — wklej wartość klucza skopiowaną zaraz po
             wygenerowaniu (pokazywana tylko raz).
-          </li>
-          <li>
-            <strong>MEALPILOT_BASE_URL</strong> — adres backendu MealPilot; domyślnie{' '}
-            <code>http://localhost:8000</code>.
-          </li>
-          <li>
-            Klucz jest przekazywany w nagłówku <code>X-MealPilot-Token</code> przy każdym
-            żądaniu.
           </li>
         </ul>
       </section>
