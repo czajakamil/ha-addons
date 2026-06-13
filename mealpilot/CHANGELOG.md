@@ -1,3 +1,8 @@
+## 0.2.14
+- Serwer MCP dostępny przez HTTP/SSE bezpośrednio z add-onu — endpoint `GET /mcp/sse`
+- Integracja z Claude Desktop bez instalowania czegokolwiek lokalnie — wystarczy adres HA i klucz API
+- Autoryzacja MCP przez nagłówek `X-MealPilot-Token`
+
 ## 0.2.13
 - Wsparcie dla meal prep — oznaczanie przepisów jako nadających się do batch-cooking
 - Nowe pola przepisu: liczba dni (batch na ile dni) i osobne kroki meal prep

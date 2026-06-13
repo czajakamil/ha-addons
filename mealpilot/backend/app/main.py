@@ -12,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .db import Base, engine, DB_PATH, SessionLocal
 from .images import IMAGES_DIR
 from .middleware import CloudflareAccessMiddleware
-from .routers import admin_households, admin_users, agent, auth, plan, recipes, settings as settings_router, shopping, templates as templates_router
+from .routers import admin_households, admin_users, agent, auth, mcp_sse, plan, recipes, settings as settings_router, shopping, templates as templates_router
 from . import models
 from .security import hash_password, verify_password
 from .seed import seed_for_user
@@ -183,6 +183,7 @@ app.include_router(shopping.router)
 app.include_router(settings_router.router)
 app.include_router(agent.router)
 app.include_router(templates_router.router)
+app.include_router(mcp_sse.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")

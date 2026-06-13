@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextvars import ContextVar
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -27,13 +28,18 @@ API_KEY = os.environ.get("MEALPILOT_API_KEY", "")
 SESSION_COOKIE = os.environ.get("MEALPILOT_SESSION_COOKIE", "")
 COOKIE_NAME = os.environ.get("MEALPILOT_COOKIE_NAME", "mealpilot_session")
 
+# Per-request API key override (used by SSE transport inside the add-on).
+# When set, takes precedence over the global API_KEY env var.
+request_api_key: ContextVar[str] = ContextVar("request_api_key", default="")
+
 server: Server = Server("mealpilot")
 
 
 def _headers() -> Dict[str, str]:
     headers: Dict[str, str] = {"Accept": "application/json"}
-    if API_KEY:
-        headers["X-MealPilot-Token"] = API_KEY
+    key = request_api_key.get() or API_KEY
+    if key:
+        headers["X-MealPilot-Token"] = key
     elif SESSION_COOKIE:
         headers["Cookie"] = f"{COOKIE_NAME}={SESSION_COOKIE}"
     return headers
