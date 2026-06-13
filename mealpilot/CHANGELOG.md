@@ -1,3 +1,7 @@
+## 0.2.17
+- Kompletna pokrycia testami backend — testy jednostkowe (security, ownership, rate limiting, AI usage) i integracyjne (auth, recipes, admin, agent, MCP, plan/shopping, templates, CF Access, migracje)
+- Testy e2e frontendu z Playwright — smoke testy UI (logowanie, lista przepisów, plan tygodnia, lista zakupów, ustawienia)
+
 ## 0.2.16
 - Naprawa błędu 500 przy walidacji klucza API — SQLite zwraca naive datetime, teraz normalizowany do UTC przed porównaniem
 - Aktualizacja instrukcji podłączania MCP w ustawieniach kluczy API — zmiana z trybu stdio na HTTP/SSE (`/mcp/sse`)

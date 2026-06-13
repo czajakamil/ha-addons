@@ -515,6 +515,48 @@ TOOLS: List[Tool] = [
         },
     ),
     Tool(
+        name="add_shopping_item",
+        description=(
+            "Dodaje ręczną pozycję (is_custom=true) do listy zakupów tygodnia — do rzeczy "
+            "spoza planu (np. 'kup masło'). Jednostka jest normalizowana (kg→g, l→ml), "
+            "kategoria nadawana automatycznie po nazwie, gdy pominięta. UWAGA: jeśli istnieje "
+            "już pozycja o TEJ SAMEJ (name, unit) w tym tygodniu, ilości są SUMOWANE (a nie "
+            "tworzona druga pozycja). -> dodany/zaktualizowany ShoppingItem (kształt jak "
+            "get_shopping_list)."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."},
+                "name": {"type": "string", "description": "Nazwa produktu (1–200 znaków)."},
+                "qty": {"type": "number", "description": "Ilość w jednostce `unit` (domyślnie 1)."},
+                "unit": {"type": "string", "description": "Jednostka, np. 'g', 'ml', 'szt' (domyślnie 'szt')."},
+                "category": {
+                    "type": "string",
+                    "description": "Kategoria PL (np. 'Nabiał'). Pominięta = wykryta automatycznie z nazwy.",
+                },
+            },
+            "required": ["week_start", "name"],
+            "additionalProperties": False,
+        },
+    ),
+    Tool(
+        name="delete_shopping_item",
+        description=(
+            "[DESTRUKCYJNE] Usuwa jedną pozycję listy zakupów (ręczną lub wygenerowaną). "
+            "Nieodwracalne. item_id to pole `id` z get_shopping_list (liczba) — NIE recipe_id "
+            "ani nazwa. -> {\"ok\": true}. Błąd 404, gdy pozycja nie istnieje / brak dostępu."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "item_id": {"type": "integer", "description": "Pole `id` z get_shopping_list."},
+            },
+            "required": ["item_id"],
+            "additionalProperties": False,
+        },
+    ),
+    Tool(
         name="clear_shopping_list",
         description=(
             "[DESTRUKCYJNE][POTWIERDŹ] Usuwa WSZYSTKIE pozycje (wygenerowane i ręczne) "
@@ -727,6 +769,22 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
             f"/api/shopping/items/{args['item_id']}",
             json_body={"checked": bool(args["checked"])},
         )
+
+    if name == "add_shopping_item":
+        body: Dict[str, Any] = {"name": args["name"]}
+        if args.get("qty") is not None:
+            body["qty"] = args["qty"]
+        if args.get("unit") is not None:
+            body["unit"] = args["unit"]
+        if args.get("category") is not None:
+            body["category"] = args["category"]
+        return await _request(
+            "POST", f"/api/shopping/{args['week_start']}/items", json_body=body
+        )
+
+    if name == "delete_shopping_item":
+        await _request("DELETE", f"/api/shopping/items/{args['item_id']}")
+        return {"ok": True}
 
     if name == "clear_shopping_list":
         await _request("DELETE", f"/api/shopping/{args['week_start']}")

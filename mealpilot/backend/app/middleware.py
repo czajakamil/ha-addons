@@ -17,8 +17,8 @@ import os
 import threading
 from typing import Any, Dict, Optional
 
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 log = logging.getLogger(__name__)
 
@@ -48,11 +48,13 @@ class _JWKSCache:
 _jwks_cache = _JWKSCache()
 
 
-class CloudflareAccessMiddleware(BaseHTTPMiddleware):
+class CloudflareAccessMiddleware:
+    """Pure-ASGI middleware — nie używa BaseHTTPMiddleware, żeby nie psuć SSE/streaming."""
+
     HEADER = "cf-access-jwt-assertion"
 
-    def __init__(self, app):
-        super().__init__(app)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
         self.enabled = os.environ.get("MEALPILOT_REQUIRE_CF_ACCESS", "0") == "1"
         self.team_domain = os.environ.get("MEALPILOT_CF_ACCESS_TEAM_DOMAIN", "").strip()
         self.audience = os.environ.get("MEALPILOT_CF_ACCESS_AUD", "").strip()
@@ -62,7 +64,6 @@ class CloudflareAccessMiddleware(BaseHTTPMiddleware):
         self.bypass_prefixes = tuple(p.strip() for p in bypass.split(",") if p.strip())
 
         if self.enabled and (not self.team_domain or not self.audience):
-            # Fail-fast: lepiej crashować przy starcie niż cicho nie weryfikować.
             raise RuntimeError(
                 "MEALPILOT_REQUIRE_CF_ACCESS=1 wymaga "
                 "MEALPILOT_CF_ACCESS_TEAM_DOMAIN oraz MEALPILOT_CF_ACCESS_AUD."
@@ -92,27 +93,35 @@ class CloudflareAccessMiddleware(BaseHTTPMiddleware):
             log.warning("CF Access JWT verification failed: %s", e)
             return None
 
-    async def dispatch(self, request, call_next):
-        if not self.enabled:
-            return await call_next(request)
-        path = request.url.path
-        if self._is_bypassed(path):
-            return await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not self.enabled:
+            await self.app(scope, receive, send)
+            return
 
-        token = request.headers.get(self.HEADER, "").strip()
+        path = scope.get("path", "")
+        if self._is_bypassed(path):
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        token = headers.get(self.HEADER.encode(), b"").decode().strip()
         if not token:
-            return JSONResponse(
+            response = JSONResponse(
                 {"detail": "Missing Cloudflare Access assertion"},
                 status_code=401,
             )
+            await response(scope, receive, send)
+            return
 
         claims = self._verify(token)
         if claims is None:
-            return JSONResponse(
+            response = JSONResponse(
                 {"detail": "Invalid Cloudflare Access assertion"},
                 status_code=401,
             )
+            await response(scope, receive, send)
+            return
 
-        # Udostępnij claims dla downstream handlerów (np. audit log).
-        request.state.cf_access = claims
-        return await call_next(request)
+        scope["state"] = scope.get("state", {})
+        scope["state"]["cf_access"] = claims
+        await self.app(scope, receive, send)

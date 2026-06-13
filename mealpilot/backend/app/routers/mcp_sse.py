@@ -25,7 +25,7 @@ from ..db import SessionLocal
 _LAST_USED_THROTTLE = timedelta(seconds=60)
 
 router = APIRouter()
-sse_transport = SseServerTransport("/mcp/messages/")
+sse_transport = SseServerTransport("/mcp/messages")
 
 
 def _resolve_user(raw_key: str) -> models.User:

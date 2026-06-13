@@ -1,0 +1,3 @@
+# Zależności tylko do testów (produkcyjne są w requirements.txt).
+-r requirements.txt
+pytest==9.0.3

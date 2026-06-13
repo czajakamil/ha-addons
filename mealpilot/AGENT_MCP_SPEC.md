@@ -1,7 +1,6 @@
 # MealPilot — specyfikacja serwera MCP dla agenta AI
 
-> Dokument odzwierciedla **aktualny stan kodu** (maj 2026).  
-> Poprzednia wersja opisywała planowaną implementację; wszystkie wymienione endpointy i narzędzia już istnieją.
+> Serwer MCP udostępnia **22 narzędzia** przez dwa transporty: **stdio** (lokalny proces) oraz **SSE/HTTP** (wbudowany w backend add-ona).
 
 ## Kontekst projektu
 
@@ -251,13 +250,16 @@ PATCH  /api/settings/ui-prefs    → zaktualizuj prefs
 
 ## Serwer MCP (`backend/mcp_server.py`)
 
-### Uruchomienie
+Definicje narzędzi (`TOOLS`) i ich obsługa (`_dispatch`) są wspólne dla obu transportów —
+każde narzędzie sprowadza się do wywołania REST backendu przez `_request(...)`.
+
+### Transport 1 — stdio (lokalny proces)
 
 ```bash
 MEALPILOT_API_KEY=mp_xxx python mcp_server.py
 ```
 
-Transport: **stdio**. Zmienne środowiskowe:
+Zmienne środowiskowe:
 
 | Zmienna | Domyślnie | Opis |
 |---|---|---|
@@ -267,6 +269,36 @@ Transport: **stdio**. Zmienne środowiskowe:
 | `MEALPILOT_COOKIE_NAME` | `mealpilot_session` | Nazwa cookie |
 
 Auth: jeśli `API_KEY` ustawione → nagłówek `X-MealPilot-Token`; inaczej → `Cookie: mealpilot_session=<wartość>`.
+
+### Transport 2 — SSE/HTTP (wbudowany w backend, `backend/app/routers/mcp_sse.py`)
+
+Backend wystawia ten sam serwer MCP po HTTP, dzięki czemu można podłączyć się zdalnie
+(np. z Claude Desktop) bez uruchamiania osobnego procesu. Endpointy:
+
+```
+GET  /mcp/sse        → strumień SSE; uruchamia server.run() na czas połączenia
+POST /mcp/messages   → kanał zwrotny klient→serwer (SseServerTransport)
+```
+
+Konfiguracja po stronie klienta (Claude Desktop):
+
+```json
+{
+  "mcpServers": {
+    "mealpilot": {
+      "url": "http://<HA_IP>:8000/mcp/sse",
+      "headers": { "X-MealPilot-Token": "mp_xxx" }
+    }
+  }
+}
+```
+
+Auth (oba endpointy): **wymagany** nagłówek `X-MealPilot-Token` z prawidłowym API key —
+brak nagłówka lub nieznany/nieaktywny klucz → `401`. Klucz jest rozwiązywany do usera
+(`_resolve_user`, hash SHA-256 porównywany z `ApiKey.key_hash`); `last_used_at`
+aktualizowane co najwyżej raz na 60 s. Na czas połączenia SSE klucz trafia do
+`request_api_key` (ContextVar), więc wszystkie wywołania REST backendu w obrębie tej
+sesji dziedziczą tożsamość użytkownika (override nad globalnym `MEALPILOT_API_KEY`).
 
 ### Narzędzia MCP
 
@@ -314,6 +346,8 @@ Auth: jeśli `API_KEY` ustawione → nagłówek `X-MealPilot-Token`; inaczej →
 | `get_shopping_list` | `GET /api/shopping/{week_start}` | Lista pozycji, posortowana po (category, name) |
 | `generate_shopping_list` | `POST /api/shopping/{week_start}/generate` | [DESTRUKCYJNE] regeneruje z planu; is_custom=true ZOSTAJĄ |
 | `check_shopping_item` | `PATCH /api/shopping/items/{item_id}` | Odhacza/odznacza; `item_id` to pole `id` z get_shopping_list |
+| `add_shopping_item` | `POST /api/shopping/{week_start}/items` | Dodaje ręczną pozycję (is_custom=true); ta sama (name, unit) → ilości SUMOWANE; kategoria auto z nazwy |
+| `delete_shopping_item` | `DELETE /api/shopping/items/{item_id}` | [DESTRUKCYJNE] usuwa jedną pozycję (ręczną lub wygenerowaną) |
 | `clear_shopping_list` | `DELETE /api/shopping/{week_start}` | [DESTRUKCYJNE][POTWIERDŹ] usuwa wszystkie pozycje (też ręczne) |
 
 **Schemat ShoppingItem** (zwracany przez narzędzia):
@@ -328,49 +362,4 @@ Auth: jeśli `API_KEY` ustawione → nagłówek `X-MealPilot-Token`; inaczej →
   checked: bool,
   is_custom: bool  ← true = dopisane ręcznie
 }
-```
-
----
-
-## System prompt agenta
-
-```
-Jesteś agentem MealPilot — pomagasz użytkownikowi planować posiłki na tydzień.
-
-Zasady:
-1. Zanim zaproponujesz plan, wywołaj list_tags i list_meal_types, żeby znać dostępne wartości.
-2. Zanim cokolwiek dostosujesz, sprawdź get_current_week_plan — nie nadpisuj tego co już jest,
-   chyba że user tego chce.
-3. Przed wywołaniem set_week_plan zawsze pokaż użytkownikowi propozycję i czekaj na potwierdzenie.
-4. Przy planowaniu uwzględniaj różnorodność — nie powtarzaj tego samego przepisu więcej niż 3 razy
-   w tygodniu.
-5. Jeśli user pyta o kalorie/makra, użyj get_week_nutrition_summary.
-6. Przy tworzeniu przepisu bez podanych makro — wywołaj estimate_recipe_macros przed create_recipe.
-7. Jeśli user chwali lub krytykuje przepis, zaproponuj zaktualizowanie oceny (rate_recipe).
-8. Odpowiadaj po polsku. Bądź konkretny i zwięzły.
-```
-
----
-
-## Struktura plików (aktualny stan)
-
-```
-backend/
-  app/
-    routers/
-      recipes.py        ← filtrowanie + /meta/tags + /meta/meal_types + /estimate-macros + ratings + notes
-      plan.py           ← GET/PUT plan tygodnia z household support
-      shopping.py       ← pełny CRUD listy zakupów + generate + ręczne pozycje
-      agent.py          ← konwersacje agenta (historia, LLM call)
-      settings.py       ← AgentSettings, UiPrefs, ApiKeys
-      auth.py           ← login/logout/me/api-keys
-      templates.py      ← szablony tygodnia
-      admin_users.py    ← zarządzanie userami (admin)
-      admin_households.py ← zarządzanie household (admin)
-    models.py           ← wszystkie modele SQLAlchemy (patrz wyżej)
-    schemas.py          ← Pydantic: Recipe, ShoppingItemOut, PlanEntry, AgentSettings, ...
-    ownership.py        ← logika widoczności przepisów/planu (personal vs household)
-    main.py             ← rejestracja wszystkich routerów
-  mcp_server.py         ← serwer MCP (stdio), 14 narzędzi
-  requirements.txt      ← mcp>=1.0, httpx, fastapi, sqlalchemy, ...
 ```
