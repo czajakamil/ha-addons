@@ -345,6 +345,9 @@ def delete_recipe(
     db.query(models.MealPlanEntry).filter(
         models.MealPlanEntry.recipe_id == recipe_id
     ).delete(synchronize_session=False)
+    db.query(models.ShoppingItemRecipe).filter(
+        models.ShoppingItemRecipe.recipe_id == recipe_id
+    ).delete(synchronize_session=False)
     db.delete(r)
     db.commit()
     if affected_weeks:

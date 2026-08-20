@@ -78,6 +78,7 @@ export interface ShoppingItem {
   category: string;
   checked: boolean;
   is_custom: boolean;
+  recipe_ids: string[];
 }
 
 export interface Household {

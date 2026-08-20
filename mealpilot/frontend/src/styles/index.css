@@ -983,7 +983,9 @@ input, textarea, select { font-family: inherit; }
   color: var(--olive);
 }
 .shop-item[data-checked="true"] .shop-check { background: var(--olive); border-color: var(--olive); color: oklch(0.98 0 0); }
-.shop-name { flex: 1; min-width: 0; }
+.shop-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.shop-name-row { display: flex; align-items: center; }
+.shop-source { font-size: 10.5px; color: var(--ink-faint); }
 .shop-qty { color: var(--ink-3); font-size: 12px; flex-shrink: 0; }
 
 .shop-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }

@@ -6,12 +6,15 @@ import { CookingMode } from './CookingMode';
 import {
   MEAL_TYPES_ALL,
   RECIPES_CHANGED,
+  WEEK_START,
+  addShoppingItem,
   createRecipe,
   deleteRating,
   deleteRecipe,
   deleteRecipeImage,
   deleteRecipeNote,
   emitRecipesChanged,
+  emitShoppingChanged,
   estimateMacros,
   getRecipes,
   loadRecipes,
@@ -1335,6 +1338,8 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
   const [noteEditing, setNoteEditing] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
+  const [shoppingBusy, setShoppingBusy] = useState(false);
+  const [addedToShopping, setAddedToShopping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onPickImage = () => fileInputRef.current?.click();
@@ -1477,6 +1482,22 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
       setDeleting(false);
     }
   };
+  const addToShoppingList = async () => {
+    setShoppingBusy(true);
+    try {
+      for (const ing of baseR.ingredients) {
+        if (!ing.name.trim()) continue;
+        await addShoppingItem(WEEK_START, { name: ing.name, qty: ing.qty, unit: ing.unit, recipe_id: baseR.id });
+      }
+      emitShoppingChanged();
+      setAddedToShopping(true);
+      setTimeout(() => setAddedToShopping(false), 2000);
+    } catch (e) {
+      alert(`Nie udało się dodać do listy zakupów: ${(e as Error).message}`);
+    } finally {
+      setShoppingBusy(false);
+    }
+  };
 
   return (
     <>
@@ -1577,6 +1598,19 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
                 <Icon name="heart" size={14} filled={isFavorite} />
                 <span className="rd-btn-label">{isFavorite ? ' Ulubiony' : ' Ulubione'}</span>
               </button>
+              {!editing && (
+                <button
+                  className="btn"
+                  onClick={addToShoppingList}
+                  disabled={shoppingBusy}
+                  title="Dodaj składniki do listy zakupów"
+                >
+                  <Icon name="cart" size={14} />
+                  <span className="rd-btn-label">
+                    {' '}{shoppingBusy ? 'Dodaję…' : addedToShopping ? 'Dodano!' : 'Do listy zakupów'}
+                  </span>
+                </button>
+              )}
               {!editing && baseR.created_by === currentUserId && (
                 <button
                   className="btn"

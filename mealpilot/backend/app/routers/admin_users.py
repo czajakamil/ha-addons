@@ -200,6 +200,16 @@ def delete_user(
     db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).delete(
         synchronize_session=False
     )
+    shopping_item_ids = [
+        i
+        for (i,) in db.query(models.ShoppingItem.id)
+        .filter(models.ShoppingItem.created_by == user_id)
+        .all()
+    ]
+    if shopping_item_ids:
+        db.query(models.ShoppingItemRecipe).filter(
+            models.ShoppingItemRecipe.item_id.in_(shopping_item_ids)
+        ).delete(synchronize_session=False)
     db.query(models.ShoppingItem).filter(models.ShoppingItem.created_by == user_id).delete(
         synchronize_session=False
     )
