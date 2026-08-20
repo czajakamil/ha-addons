@@ -10,11 +10,7 @@ router = APIRouter(prefix="/api/admin/households", tags=["admin"])
 
 
 def _to_out(db: Session, hh: models.Household) -> schemas.HouseholdOut:
-    count = (
-        db.query(models.HouseholdMember)
-        .filter(models.HouseholdMember.household_id == hh.id)
-        .count()
-    )
+    count = db.query(models.HouseholdMember).filter(models.HouseholdMember.household_id == hh.id).count()
     return schemas.HouseholdOut(
         id=hh.id,
         name=hh.name,
@@ -76,9 +72,9 @@ def delete_household(
             .where(model.owner_household_id == household_id)
             .values(owner_household_id=None, owner_user_id=model.created_by)
         )
-    db.query(models.HouseholdMember).filter(
-        models.HouseholdMember.household_id == household_id
-    ).delete(synchronize_session=False)
+    db.query(models.HouseholdMember).filter(models.HouseholdMember.household_id == household_id).delete(
+        synchronize_session=False
+    )
     db.delete(hh)
     db.commit()
     return None

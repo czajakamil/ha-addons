@@ -44,39 +44,24 @@ def _migrate(engine_) -> None:
         if "users" in tables:
             cols = {c["name"] for c in inspector.get_columns("users")}
             if "session_version" not in cols:
-                conn.execute(
-                    text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0")
-                )
+                conn.execute(text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0"))
             if "can_use_ai" not in cols:
-                conn.execute(
-                    text("ALTER TABLE users ADD COLUMN can_use_ai BOOLEAN NOT NULL DEFAULT 1")
-                )
+                conn.execute(text("ALTER TABLE users ADD COLUMN can_use_ai BOOLEAN NOT NULL DEFAULT 1"))
             if "ai_monthly_token_limit" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN ai_monthly_token_limit INTEGER"))
             if "ai_monthly_cost_limit_cents" not in cols:
-                conn.execute(
-                    text("ALTER TABLE users ADD COLUMN ai_monthly_cost_limit_cents INTEGER")
-                )
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_monthly_cost_limit_cents INTEGER"))
             if "ai_used_tokens_this_month" not in cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE users ADD COLUMN ai_used_tokens_this_month "
-                        "INTEGER NOT NULL DEFAULT 0"
-                    )
-                )
+                conn.execute(text("ALTER TABLE users ADD COLUMN ai_used_tokens_this_month INTEGER NOT NULL DEFAULT 0"))
             if "ai_used_cost_cents_this_month" not in cols:
                 conn.execute(
-                    text(
-                        "ALTER TABLE users ADD COLUMN ai_used_cost_cents_this_month "
-                        "INTEGER NOT NULL DEFAULT 0"
-                    )
+                    text("ALTER TABLE users ADD COLUMN ai_used_cost_cents_this_month INTEGER NOT NULL DEFAULT 0")
                 )
             if "ai_usage_period_start" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN ai_usage_period_start DATETIME"))
                 conn.execute(
                     text(
-                        "UPDATE users SET ai_usage_period_start = CURRENT_TIMESTAMP "
-                        "WHERE ai_usage_period_start IS NULL"
+                        "UPDATE users SET ai_usage_period_start = CURRENT_TIMESTAMP WHERE ai_usage_period_start IS NULL"
                     )
                 )
 
@@ -104,21 +89,13 @@ def _migrate(engine_) -> None:
             if "user_id" not in cols:
                 conn.execute(text("ALTER TABLE recipes ADD COLUMN user_id INTEGER"))
             if "meal_types" not in cols:
-                conn.execute(
-                    text("ALTER TABLE recipes ADD COLUMN meal_types JSON NOT NULL DEFAULT '[]'")
-                )
+                conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_types JSON NOT NULL DEFAULT '[]'"))
             if "is_meal_prep" not in cols:
-                conn.execute(
-                    text("ALTER TABLE recipes ADD COLUMN is_meal_prep BOOLEAN NOT NULL DEFAULT 0")
-                )
+                conn.execute(text("ALTER TABLE recipes ADD COLUMN is_meal_prep BOOLEAN NOT NULL DEFAULT 0"))
             if "meal_prep_days" not in cols:
                 conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_prep_days INTEGER"))
             if "meal_prep_steps" not in cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE recipes ADD COLUMN meal_prep_steps JSON NOT NULL DEFAULT '[]'"
-                    )
-                )
+                conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_prep_steps JSON NOT NULL DEFAULT '[]'"))
 
         if "meal_plan_entries" in tables:
             cols = {c["name"] for c in inspector.get_columns("meal_plan_entries")}
@@ -130,20 +107,12 @@ def _migrate(engine_) -> None:
             if "user_id" not in cols:
                 conn.execute(text("ALTER TABLE shopping_items ADD COLUMN user_id INTEGER"))
             if "is_custom" not in cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE shopping_items ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0"
-                    )
-                )
+                conn.execute(text("ALTER TABLE shopping_items ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0"))
 
         if "agent_settings" in tables:
             cols = {c["name"] for c in inspector.get_columns("agent_settings")}
             if "ui_prefs" not in cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE agent_settings ADD COLUMN ui_prefs JSON NOT NULL DEFAULT '{}'"
-                    )
-                )
+                conn.execute(text("ALTER TABLE agent_settings ADD COLUMN ui_prefs JSON NOT NULL DEFAULT '{}'"))
 
 
 def _provision_admin() -> None:

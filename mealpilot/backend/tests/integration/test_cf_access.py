@@ -45,9 +45,7 @@ def test_invalid_token_rejected(monkeypatch):
 
 
 def test_valid_token_passes(monkeypatch):
-    monkeypatch.setattr(
-        CloudflareAccessMiddleware, "_verify", lambda self, token: {"sub": "user@example.com"}
-    )
+    monkeypatch.setattr(CloudflareAccessMiddleware, "_verify", lambda self, token: {"sub": "user@example.com"})
     app = _build_app(monkeypatch)
     with TestClient(app) as c:
         r = c.get("/api/x", headers={"cf-access-jwt-assertion": "dobry.token"})

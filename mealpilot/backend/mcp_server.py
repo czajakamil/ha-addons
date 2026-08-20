@@ -211,15 +211,11 @@ TOOLS: list[Tool] = [
                 "meal_types": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": (
-                        "Przynajmniej jeden typ musi pasować (OR). Dokładne dopasowanie."
-                    ),
+                    "description": ("Przynajmniej jeden typ musi pasować (OR). Dokładne dopasowanie."),
                 },
                 "max_kcal": {
                     "type": "number",
-                    "description": (
-                        "Górny limit kcal sumarycznie dla całego przepisu (nie na porcję)."
-                    ),
+                    "description": ("Górny limit kcal sumarycznie dla całego przepisu (nie na porcję)."),
                 },
                 "min_protein": {
                     "type": "number",
@@ -229,9 +225,7 @@ TOOLS: list[Tool] = [
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 5,
-                    "description": (
-                        "Tylko przepisy z oceną użytkownika >= wartość. Brak oceny = wykluczony."
-                    ),
+                    "description": ("Tylko przepisy z oceną użytkownika >= wartość. Brak oceny = wykluczony."),
                 },
                 "min_avg_rating": {
                     "type": "number",
@@ -384,9 +378,7 @@ TOOLS: list[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {
-                "recipe_id": {"type": "string", "description": "ID przepisu do usunięcia."}
-            },
+            "properties": {"recipe_id": {"type": "string", "description": "ID przepisu do usunięcia."}},
             "required": ["recipe_id"],
             "additionalProperties": False,
         },
@@ -418,14 +410,11 @@ TOOLS: list[Tool] = [
     Tool(
         name="get_week_plan",
         description=(
-            f"Zwraca plan posiłków na podany tydzień. -> {WEEKPLAN_SHAPE} "
-            f"entries może być pusta. {WEEK_START_HINT}"
+            f"Zwraca plan posiłków na podany tydzień. -> {WEEKPLAN_SHAPE} entries może być pusta. {WEEK_START_HINT}"
         ),
         inputSchema={
             "type": "object",
-            "properties": {
-                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
-            },
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -529,9 +518,7 @@ TOOLS: list[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {
-                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
-            },
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -545,9 +532,7 @@ TOOLS: list[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {
-                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
-            },
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -562,9 +547,7 @@ TOOLS: list[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {
-                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
-            },
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -607,9 +590,7 @@ TOOLS: list[Tool] = [
                 },
                 "category": {
                     "type": "string",
-                    "description": (
-                        "Kategoria PL (np. 'Nabiał'). Pominięta = wykryta automatycznie z nazwy."
-                    ),
+                    "description": ("Kategoria PL (np. 'Nabiał'). Pominięta = wykryta automatycznie z nazwy."),
                 },
             },
             "required": ["week_start", "name"],
@@ -640,9 +621,7 @@ TOOLS: list[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {
-                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
-            },
+            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -664,10 +643,7 @@ TOOLS: list[Tool] = [
                 "title": {"type": "string", "description": "Nazwa przepisu (kontekst dla modelu)."},
                 "servings": {
                     "type": "integer",
-                    "description": (
-                        "Liczba porcji, dla której podano ingredients "
-                        "(wynik i tak jest sumą całości)."
-                    ),
+                    "description": ("Liczba porcji, dla której podano ingredients (wynik i tak jest sumą całości)."),
                 },
                 "ingredients": {
                     "type": "array",
@@ -798,11 +774,7 @@ async def _dispatch(name: str, args: dict[str, Any]) -> Any:
         ws = args["week_start"]
         meal = _normalize_meal(str(args["meal"]))
         entries = await _get_plan_entries(ws)
-        entries = [
-            e
-            for e in entries
-            if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())
-        ]
+        entries = [e for e in entries if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())]
         entries.append(
             {
                 "day": int(args["day"]),
@@ -817,11 +789,7 @@ async def _dispatch(name: str, args: dict[str, Any]) -> Any:
         ws = args["week_start"]
         meal = _normalize_meal(str(args["meal"]))
         entries = await _get_plan_entries(ws)
-        entries = [
-            e
-            for e in entries
-            if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())
-        ]
+        entries = [e for e in entries if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())]
         return await _put_plan(ws, entries)
 
     if name == "get_week_nutrition_summary":
@@ -829,9 +797,7 @@ async def _dispatch(name: str, args: dict[str, Any]) -> Any:
         plan = await _request("GET", f"/api/plan/{ws}")
         recipes = await _request("GET", "/api/recipes") or []
         rmap = {r["id"]: r for r in recipes}
-        out: dict[int, dict[str, float]] = {
-            d: {"kcal": 0.0, "p": 0.0, "f": 0.0, "c": 0.0} for d in range(7)
-        }
+        out: dict[int, dict[str, float]] = {d: {"kcal": 0.0, "p": 0.0, "f": 0.0, "c": 0.0} for d in range(7)}
         for e in plan.get("entries") or []:
             r = rmap.get(e.get("recipe_id"))
             if not r or not r.get("servings"):

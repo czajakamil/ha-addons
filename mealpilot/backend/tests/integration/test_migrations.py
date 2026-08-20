@@ -69,12 +69,7 @@ def _legacy_db(tmp_path):
         )
         # Dane z ery jednego użytkownika.
         conn.execute(text("INSERT INTO users (username, password_hash) VALUES ('stary', 'hash')"))
-        conn.execute(
-            text(
-                "INSERT INTO recipes (id, user_id, title, servings) "
-                "VALUES ('r1', 1, 'Stary przepis', 2)"
-            )
-        )
+        conn.execute(text("INSERT INTO recipes (id, user_id, title, servings) VALUES ('r1', 1, 'Stary przepis', 2)"))
     return eng
 
 

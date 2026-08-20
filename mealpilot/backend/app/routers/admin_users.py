@@ -31,11 +31,7 @@ def _user_admin_out(db: Session, user: models.User) -> schemas.UserAdminOut:
 
 
 def _admin_count(db: Session) -> int:
-    return (
-        db.query(models.User)
-        .filter(models.User.role == "admin", models.User.is_active == 1)
-        .count()
-    )
+    return db.query(models.User).filter(models.User.role == "admin", models.User.is_active == 1).count()
 
 
 @router.get("", response_model=list[schemas.UserAdminOut])
@@ -204,32 +200,19 @@ def delete_user(
     if user.role == "admin" and user.is_active and _admin_count(db) <= 1:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot delete the last admin")
 
-    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).delete(
-        synchronize_session=False
-    )
+    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).delete(synchronize_session=False)
     shopping_item_ids = [
-        i
-        for (i,) in db.query(models.ShoppingItem.id)
-        .filter(models.ShoppingItem.created_by == user_id)
-        .all()
+        i for (i,) in db.query(models.ShoppingItem.id).filter(models.ShoppingItem.created_by == user_id).all()
     ]
     if shopping_item_ids:
-        db.query(models.ShoppingItemRecipe).filter(
-            models.ShoppingItemRecipe.item_id.in_(shopping_item_ids)
-        ).delete(synchronize_session=False)
-    db.query(models.ShoppingItem).filter(models.ShoppingItem.created_by == user_id).delete(
-        synchronize_session=False
-    )
-    db.query(models.WeekTemplate).filter(models.WeekTemplate.created_by == user_id).delete(
-        synchronize_session=False
-    )
+        db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.item_id.in_(shopping_item_ids)).delete(
+            synchronize_session=False
+        )
+    db.query(models.ShoppingItem).filter(models.ShoppingItem.created_by == user_id).delete(synchronize_session=False)
+    db.query(models.WeekTemplate).filter(models.WeekTemplate.created_by == user_id).delete(synchronize_session=False)
     # Remove household membership; orphaned household-owned recipes are reassigned to creator
-    db.query(models.HouseholdMember).filter(models.HouseholdMember.user_id == user_id).delete(
-        synchronize_session=False
-    )
-    db.query(models.Recipe).filter(models.Recipe.created_by == user_id).delete(
-        synchronize_session=False
-    )
+    db.query(models.HouseholdMember).filter(models.HouseholdMember.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.Recipe).filter(models.Recipe.created_by == user_id).delete(synchronize_session=False)
     db.delete(user)
     db.commit()
     return None

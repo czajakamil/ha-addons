@@ -241,16 +241,12 @@ async def estimate_macros(
     if not endpoint or not api_key:
         raise HTTPException(
             424,
-            "Brak konfiguracji MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY "
-            "w ustawieniach Home Assistant.",
+            "Brak konfiguracji MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.",
         )
     if not model:
         raise HTTPException(424, "Skonfiguruj model w Ustawieniach agenta.")
 
-    ing_lines = (
-        "\n".join(f"- {i.name}: {i.qty} {i.unit}" for i in payload.ingredients)
-        or "(brak składników)"
-    )
+    ing_lines = "\n".join(f"- {i.name}: {i.qty} {i.unit}" for i in payload.ingredients) or "(brak składników)"
 
     prompt = (
         f"Przepis: {payload.title}\n"
@@ -269,8 +265,7 @@ async def estimate_macros(
             prompt,
             json_mode=True,
             system_prompt=(
-                "You are a nutrition data API. "
-                "Always respond with raw JSON only, no markdown, no explanation."
+                "You are a nutrition data API. Always respond with raw JSON only, no markdown, no explanation."
             ),
         )
     except httpx.HTTPStatusError as e:
@@ -316,9 +311,7 @@ def create_recipe(
     if db.get(models.Recipe, payload.id):
         raise HTTPException(409, "Recipe with this id already exists")
     data = payload.model_dump()
-    data["ingredients"] = [
-        i if isinstance(i, dict) else i.model_dump() for i in data["ingredients"]
-    ]
+    data["ingredients"] = [i if isinstance(i, dict) else i.model_dump() for i in data["ingredients"]]
     r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), **data)
     db.add(r)
     db.commit()
@@ -336,9 +329,7 @@ def update_recipe(
     r = _editable_recipe(db, user, recipe_id)
     updates = payload.model_dump(exclude_unset=True)
     if "ingredients" in updates and updates["ingredients"] is not None:
-        updates["ingredients"] = [
-            i if isinstance(i, dict) else i.model_dump() for i in updates["ingredients"]
-        ]
+        updates["ingredients"] = [i if isinstance(i, dict) else i.model_dump() for i in updates["ingredients"]]
     for k, v in updates.items():
         setattr(r, k, v)
     db.commit()
@@ -360,12 +351,10 @@ def delete_recipe(
         .distinct()
         .all()
     }
-    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.recipe_id == recipe_id).delete(
+    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.recipe_id == recipe_id).delete(synchronize_session=False)
+    db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.recipe_id == recipe_id).delete(
         synchronize_session=False
     )
-    db.query(models.ShoppingItemRecipe).filter(
-        models.ShoppingItemRecipe.recipe_id == recipe_id
-    ).delete(synchronize_session=False)
     db.delete(r)
     db.commit()
     if affected_weeks:

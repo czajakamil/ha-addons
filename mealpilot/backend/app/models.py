@@ -207,9 +207,7 @@ class RecipeRating(Base):
     __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_rating_recipe_user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recipe_id = Column(
-        String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -221,9 +219,7 @@ class RecipeNote(Base):
     __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_note_recipe_user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recipe_id = Column(
-        String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     note = Column(String, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -233,9 +229,7 @@ class RecipeNote(Base):
 class ShoppingItem(Base):
     __tablename__ = "shopping_items"
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "week_start", "name", "unit", name="uq_shop_user_week_name_unit"
-        ),
+        UniqueConstraint("user_id", "week_start", "name", "unit", name="uq_shop_user_week_name_unit"),
         Index("ix_shop_user_week", "user_id", "week_start"),
         Index("ix_shop_owner_household_week", "owner_household_id", "week_start"),
         Index("ix_shop_owner_user_week", "owner_user_id", "week_start"),

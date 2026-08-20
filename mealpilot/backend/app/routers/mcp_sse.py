@@ -84,12 +84,8 @@ async def mcp_sse(
 
     token = _mcp.request_api_key.set(x_mealpilot_token.strip())
     try:
-        async with sse_transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await _mcp.server.run(
-                streams[0], streams[1], _mcp.server.create_initialization_options()
-            )
+        async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
+            await _mcp.server.run(streams[0], streams[1], _mcp.server.create_initialization_options())
     finally:
         _mcp.request_api_key.reset(token)
     return _AlreadySentResponse()

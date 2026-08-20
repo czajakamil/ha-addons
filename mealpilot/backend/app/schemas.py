@@ -8,10 +8,7 @@ _USERNAME_RE = re.compile(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9_]+$"
 _USERNAME_ERR = "Login może zawierać tylko litery, cyfry i podkreślnik."
 
 _PASSWORD_MIN = 12
-_PASSWORD_ERR = (
-    f"Hasło musi mieć co najmniej {_PASSWORD_MIN} znaków i zawierać "
-    "co najmniej jedną literę i jedną cyfrę."
-)
+_PASSWORD_ERR = f"Hasło musi mieć co najmniej {_PASSWORD_MIN} znaków i zawierać co najmniej jedną literę i jedną cyfrę."
 
 
 def _validate_password(v: str) -> str:

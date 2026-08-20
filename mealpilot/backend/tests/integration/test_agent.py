@@ -94,9 +94,7 @@ def test_run_blocked_when_quota_exhausted(admin_client, monkeypatch):
     admin_client.post("/api/agent/usage/report", json={"tokens": 10})
 
     cid = admin_client.post("/api/agent/conversations", json={}).json()["id"]
-    admin_client.post(
-        f"/api/agent/conversations/{cid}/messages", json={"role": "user", "content": "hej"}
-    )
+    admin_client.post(f"/api/agent/conversations/{cid}/messages", json={"role": "user", "content": "hej"})
     r = admin_client.post(f"/api/agent/conversations/{cid}/run")
     assert r.status_code == 429
 
@@ -133,9 +131,7 @@ def test_stream_errors_without_ai_config(admin_client, monkeypatch):
     monkeypatch.delenv("MEALPILOT_AI_API_URL", raising=False)
     monkeypatch.delenv("MEALPILOT_AI_API_KEY", raising=False)
     cid = admin_client.post("/api/agent/conversations", json={}).json()["id"]
-    admin_client.post(
-        f"/api/agent/conversations/{cid}/messages", json={"role": "user", "content": "x"}
-    )
+    admin_client.post(f"/api/agent/conversations/{cid}/messages", json={"role": "user", "content": "x"})
     r = admin_client.post(f"/api/agent/conversations/{cid}/stream")
     assert r.status_code == 200
     assert "error" in r.text and "MEALPILOT_AI_API_URL" in r.text

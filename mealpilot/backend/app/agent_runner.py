@@ -43,17 +43,13 @@ async def run_agent(
 
     if not endpoint:
         return {
-            "reply": (
-                "❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_URL w ustawieniach Home Assistant."
-            ),
+            "reply": ("❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_URL w ustawieniach Home Assistant."),
             "tool_events": [],
             "changed": [],
         }
     if not api_key:
         return {
-            "reply": (
-                "❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_KEY w ustawieniach Home Assistant."
-            ),
+            "reply": ("❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_KEY w ustawieniach Home Assistant."),
             "tool_events": [],
             "changed": [],
         }
@@ -134,13 +130,7 @@ async def generate_conversation_title(
 
     u = (user_text or "").strip()[:500]
     a = (assistant_text or "").strip()[:500]
-    prompt = (
-        "Wiadomość użytkownika:\n"
-        f"{u}\n\n"
-        "Odpowiedź asystenta:\n"
-        f"{a}\n\n"
-        "Zwróć krótki, opisowy tytuł tej rozmowy."
-    )
+    prompt = f"Wiadomość użytkownika:\n{u}\n\nOdpowiedź asystenta:\n{a}\n\nZwróć krótki, opisowy tytuł tej rozmowy."
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:

@@ -65,8 +65,7 @@ class CloudflareAccessMiddleware:
 
         if self.enabled and (not self.team_domain or not self.audience):
             raise RuntimeError(
-                "MEALPILOT_REQUIRE_CF_ACCESS=1 wymaga "
-                "MEALPILOT_CF_ACCESS_TEAM_DOMAIN oraz MEALPILOT_CF_ACCESS_AUD."
+                "MEALPILOT_REQUIRE_CF_ACCESS=1 wymaga MEALPILOT_CF_ACCESS_TEAM_DOMAIN oraz MEALPILOT_CF_ACCESS_AUD."
             )
 
     def _is_bypassed(self, path: str) -> bool:

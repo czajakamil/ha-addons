@@ -12,13 +12,9 @@ def test_non_admin_forbidden(make_user):
 
 
 def test_create_user_and_duplicate(admin_client):
-    r = admin_client.post(
-        "/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"}
-    )
+    r = admin_client.post("/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"})
     assert r.status_code == 201
-    r = admin_client.post(
-        "/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"}
-    )
+    r = admin_client.post("/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"})
     assert r.status_code == 409
 
 
@@ -107,9 +103,7 @@ def test_household_crud(admin_client):
 def test_household_member_assignment_and_listing(admin_client, make_user):
     _, uid = make_user("czlonek", login=False)
     hid = admin_client.post("/api/admin/households", json={"name": "H"}).json()["id"]
-    r = admin_client.put(
-        f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True}
-    )
+    r = admin_client.put(f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True})
     assert r.status_code == 200
     assert r.json()["household_id"] == hid
     assert r.json()["can_edit_in_household"] is True
@@ -123,9 +117,7 @@ def test_household_member_assignment_and_listing(admin_client, make_user):
 def test_deleting_household_reassigns_resources(admin_client, make_user, db_session):
     user, uid = make_user("dom_user")
     hid = admin_client.post("/api/admin/households", json={"name": "H"}).json()["id"]
-    admin_client.put(
-        f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True}
-    )
+    admin_client.put(f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True})
     user.post(
         "/api/recipes",
         json={

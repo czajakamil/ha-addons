@@ -115,9 +115,7 @@ def make_user(admin_client, new_client):
     Zwraca (client, user_id).
     """
 
-    def _make(
-        username: str, password: str = DEFAULT_PASSWORD, role: str = "user", login: bool = True
-    ):
+    def _make(username: str, password: str = DEFAULT_PASSWORD, role: str = "user", login: bool = True):
         r = admin_client.post(
             "/api/admin/users",
             json={"username": username, "password": password, "role": role},

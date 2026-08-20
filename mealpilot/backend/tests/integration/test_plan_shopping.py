@@ -97,16 +97,12 @@ def test_shopping_checkbox_persists_across_regenerate(admin_client):
 
 
 def test_custom_item_add_and_delete(admin_client):
-    r = admin_client.post(
-        f"/api/shopping/{WEEK}/items", json={"name": "papier", "qty": 2, "unit": "szt"}
-    )
+    r = admin_client.post(f"/api/shopping/{WEEK}/items", json={"name": "papier", "qty": 2, "unit": "szt"})
     assert r.status_code == 200
     item = r.json()
     assert item["is_custom"] is True
     # Dodanie tej samej nazwy+jednostki sumuje ilość.
-    r2 = admin_client.post(
-        f"/api/shopping/{WEEK}/items", json={"name": "papier", "qty": 3, "unit": "szt"}
-    )
+    r2 = admin_client.post(f"/api/shopping/{WEEK}/items", json={"name": "papier", "qty": 3, "unit": "szt"})
     assert r2.json()["qty"] == 5.0
     assert admin_client.delete(f"/api/shopping/items/{item['id']}").status_code == 204
 
@@ -119,9 +115,7 @@ def test_clear_shopping_list(admin_client):
 
 def test_generate_with_empty_plan_clears_auto_items(admin_client):
     # Brak planu → auto-pozycje usunięte, custom zostają.
-    admin_client.post(
-        f"/api/shopping/{WEEK}/items", json={"name": "custom", "qty": 1, "unit": "szt"}
-    )
+    admin_client.post(f"/api/shopping/{WEEK}/items", json={"name": "custom", "qty": 1, "unit": "szt"})
     items = admin_client.post(f"/api/shopping/{WEEK}/generate").json()
     assert all(i["is_custom"] for i in items)
 

@@ -253,10 +253,7 @@ def seed_for_user(db: Session, user_id: int) -> None:
             db.add(models.Recipe(created_by=user_id, owner_user_id=user_id, **data))
         db.commit()
 
-    has_plan = (
-        db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).count()
-        > 0
-    )
+    has_plan = db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).count() > 0
     if not has_plan:
         for day, meal, recipe_id in PLAN:
             db.add(

@@ -158,9 +158,9 @@ async def stream_anthropic(
                             blocks[idx]["text"] = blocks[idx].get("text", "") + t
                             yield {"type": "text_delta", "text": t}
                         elif delta["type"] == "input_json_delta":
-                            blocks[idx]["input_json"] = blocks[idx].get(
-                                "input_json", ""
-                            ) + delta.get("partial_json", "")
+                            blocks[idx]["input_json"] = blocks[idx].get("input_json", "") + delta.get(
+                                "partial_json", ""
+                            )
 
                     elif ev_type == "content_block_stop":
                         idx = payload["index"]
@@ -180,9 +180,7 @@ async def stream_anthropic(
                                 "name": name,
                                 "input": input_args,
                             }
-                            result_text, is_error = call_tool(
-                                db, user, name, input_args, changed_set
-                            )
+                            result_text, is_error = call_tool(db, user, name, input_args, changed_set)
                             block["_result_text"] = result_text
                             block["_is_error"] = is_error
                             tool_events.append(

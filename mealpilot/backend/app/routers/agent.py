@@ -85,9 +85,7 @@ def _get_tool_use(db: Session, tool_use_id: int, user_id: int) -> models.AgentTo
 def _serialize_message(msg: models.AgentMessage, db: Session) -> schemas.AgentMessageOut:
     tool_uses = (
         db.execute(
-            select(models.AgentToolUse)
-            .where(models.AgentToolUse.message_id == msg.id)
-            .order_by(models.AgentToolUse.id)
+            select(models.AgentToolUse).where(models.AgentToolUse.message_id == msg.id).order_by(models.AgentToolUse.id)
         )
         .scalars()
         .all()
@@ -279,9 +277,7 @@ async def run_conversation(
     if is_first_turn and reply and not reply.startswith("❗"):
         first_user_text = str(history[0].get("content") or "")
         try:
-            generated_title = await generate_conversation_title(
-                settings.model or "", first_user_text, reply
-            )
+            generated_title = await generate_conversation_title(settings.model or "", first_user_text, reply)
         except Exception:
             generated_title = None
         if generated_title:
@@ -538,19 +534,14 @@ def edit_message(
             .where(models.AgentMessage.conversation_id == conv.id)
             .where(
                 (models.AgentMessage.created_at > msg.created_at)
-                | (
-                    (models.AgentMessage.created_at == msg.created_at)
-                    & (models.AgentMessage.id > msg.id)
-                )
+                | ((models.AgentMessage.created_at == msg.created_at) & (models.AgentMessage.id > msg.id))
             )
         )
         .scalars()
         .all()
     )
     for m in later:
-        db.execute(
-            models.AgentToolUse.__table__.delete().where(models.AgentToolUse.message_id == m.id)
-        )
+        db.execute(models.AgentToolUse.__table__.delete().where(models.AgentToolUse.message_id == m.id))
         db.delete(m)
 
     msg.content = payload.content

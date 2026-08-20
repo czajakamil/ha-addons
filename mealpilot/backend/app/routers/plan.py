@@ -24,10 +24,7 @@ def get_week_plan(
         .order_by(models.MealPlanEntry.day, models.MealPlanEntry.meal)
         .all()
     )
-    entries = [
-        schemas.PlanEntry(day=r.day, meal=r.meal, recipe_id=r.recipe_id, servings=r.servings)
-        for r in rows
-    ]
+    entries = [schemas.PlanEntry(day=r.day, meal=r.meal, recipe_id=r.recipe_id, servings=r.servings) for r in rows]
     return schemas.WeekPlan(week_start=week_start, entries=entries)
 
 

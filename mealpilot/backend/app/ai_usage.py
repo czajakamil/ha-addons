@@ -38,10 +38,7 @@ def check_quota(db: Session, user: models.User) -> None:
     _ensure_period(user)
     if not user.can_use_ai:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Brak uprawnień do korzystania z AI")
-    if (
-        user.ai_monthly_token_limit is not None
-        and (user.ai_used_tokens_this_month or 0) >= user.ai_monthly_token_limit
-    ):
+    if user.ai_monthly_token_limit is not None and (user.ai_used_tokens_this_month or 0) >= user.ai_monthly_token_limit:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "Miesięczny limit tokenów AI wyczerpany",

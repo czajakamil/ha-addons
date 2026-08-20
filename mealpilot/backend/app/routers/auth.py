@@ -169,10 +169,7 @@ def list_api_keys(
     db: Session = Depends(get_db),
 ):
     return (
-        db.query(models.ApiKey)
-        .filter(models.ApiKey.user_id == user.id)
-        .order_by(models.ApiKey.created_at.desc())
-        .all()
+        db.query(models.ApiKey).filter(models.ApiKey.user_id == user.id).order_by(models.ApiKey.created_at.desc()).all()
     )
 
 
@@ -212,11 +209,7 @@ def delete_api_key(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    row = (
-        db.query(models.ApiKey)
-        .filter(models.ApiKey.id == key_id, models.ApiKey.user_id == user.id)
-        .one_or_none()
-    )
+    row = db.query(models.ApiKey).filter(models.ApiKey.id == key_id, models.ApiKey.user_id == user.id).one_or_none()
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "API key not found")
     db.delete(row)

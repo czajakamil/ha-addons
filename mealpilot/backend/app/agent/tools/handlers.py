@@ -184,9 +184,9 @@ def tool_delete_recipe(db: Session, user: models.User, args: dict[str, Any]) -> 
         models.MealPlanEntry.recipe_id == recipe_id,
         visible_filter(models.MealPlanEntry, user, hh),
     ).delete(synchronize_session=False)
-    db.query(models.ShoppingItemRecipe).filter(
-        models.ShoppingItemRecipe.recipe_id == recipe_id
-    ).delete(synchronize_session=False)
+    db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.recipe_id == recipe_id).delete(
+        synchronize_session=False
+    )
     db.delete(r)
     db.commit()
     for week_start in affected_weeks:
@@ -208,9 +208,7 @@ def _get_plan_entries(db: Session, user: models.User, week_start: str) -> list[d
     return [plan_entry_to_dict(e) for e in rows]
 
 
-def _enrich_plan(
-    db: Session, user: models.User, week_start: str, entries: list[dict[str, Any]]
-) -> dict[str, Any]:
+def _enrich_plan(db: Session, user: models.User, week_start: str, entries: list[dict[str, Any]]) -> dict[str, Any]:
     hh = get_household_id(db, user.id)
     recipe_ids = {e["recipe_id"] for e in entries}
     recipes = {}
@@ -237,9 +235,7 @@ def tool_get_current_week_plan(db: Session, user: models.User, _args: dict[str, 
     return _enrich_plan(db, user, week_start, entries)
 
 
-def _replace_plan(
-    db: Session, user: models.User, week_start: str, entries: list[dict[str, Any]]
-) -> None:
+def _replace_plan(db: Session, user: models.User, week_start: str, entries: list[dict[str, Any]]) -> None:
     hh = get_household_id(db, user.id)
     recipe_ids = {str(e["recipe_id"]) for e in entries if e.get("recipe_id")}
     if recipe_ids:
@@ -339,8 +335,7 @@ def tool_get_week_nutrition_summary(db: Session, user: models.User, args: dict[s
         return round(v * 100) / 100
 
     return {
-        str(d): {"kcal": rnd(v["kcal"]), "p": rnd(v["p"]), "f": rnd(v["f"]), "c": rnd(v["c"])}
-        for d, v in out.items()
+        str(d): {"kcal": rnd(v["kcal"]), "p": rnd(v["p"]), "f": rnd(v["f"]), "c": rnd(v["c"])} for d, v in out.items()
     }
 
 
