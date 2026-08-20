@@ -301,6 +301,7 @@ class ShoppingItemOut(BaseModel):
     category: str
     checked: bool
     is_custom: bool
+    recipe_ids: list[str] = []
 
 
 class ShoppingItemPatch(BaseModel):
@@ -312,6 +313,7 @@ class ShoppingItemCreate(BaseModel):
     qty: float = 1.0
     unit: str = "szt"
     category: str | None = None
+    recipe_id: str | None = None
 
 
 class ApiKeyCreateRequest(BaseModel):

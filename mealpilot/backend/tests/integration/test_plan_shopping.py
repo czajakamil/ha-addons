@@ -97,3 +97,50 @@ def test_generate_with_empty_plan_clears_auto_items(admin_client):
     admin_client.post(f"/api/shopping/{WEEK}/items", json={"name": "custom", "qty": 1, "unit": "szt"})
     items = admin_client.post(f"/api/shopping/{WEEK}/generate").json()
     assert all(i["is_custom"] for i in items)
+
+
+def test_generated_item_tracks_source_recipes(admin_client):
+    # Dwa przepisy w planie dzielą składnik → jedna pozycja z oboma recipe_ids.
+    _recipe(admin_client, "src1", [{"name": "czosnek", "qty": 1, "unit": "szt"}], servings=1)
+    _recipe(admin_client, "src2", [{"name": "czosnek", "qty": 2, "unit": "szt"}], servings=1)
+    admin_client.put(f"/api/plan/{WEEK}", json=[
+        {"day": 0, "meal": "Obiad", "recipe_id": "src1", "servings": 1},
+        {"day": 1, "meal": "Obiad", "recipe_id": "src2", "servings": 1},
+    ])
+    items = admin_client.post(f"/api/shopping/{WEEK}/generate").json()
+    garlic = [i for i in items if i["name"].lower() == "czosnek"][0]
+    assert set(garlic["recipe_ids"]) == {"src1", "src2"}
+
+    # Regeneracja nie duplikuje wpisów źródłowych.
+    items2 = admin_client.post(f"/api/shopping/{WEEK}/generate").json()
+    garlic2 = [i for i in items2 if i["name"].lower() == "czosnek"][0]
+    assert sorted(garlic2["recipe_ids"]) == ["src1", "src2"]
+
+
+def test_manual_add_from_recipe_tracks_and_merges_source(admin_client):
+    _recipe(admin_client, "src3", [{"name": "cebula", "qty": 1, "unit": "szt"}], servings=1)
+    _recipe(admin_client, "src4", [{"name": "cebula", "qty": 1, "unit": "szt"}], servings=1)
+    r1 = admin_client.post(f"/api/shopping/{WEEK}/items", json={
+        "name": "cebula", "qty": 1, "unit": "szt", "recipe_id": "src3",
+    })
+    assert r1.json()["recipe_ids"] == ["src3"]
+
+    r2 = admin_client.post(f"/api/shopping/{WEEK}/items", json={
+        "name": "cebula", "qty": 1, "unit": "szt", "recipe_id": "src4",
+    })
+    item = r2.json()
+    assert item["qty"] == 2.0
+    assert sorted(item["recipe_ids"]) == ["src3", "src4"]
+
+
+def test_deleting_recipe_removes_it_from_shopping_item_sources(admin_client):
+    _recipe(admin_client, "src5", [{"name": "masło", "qty": 1, "unit": "szt"}], servings=1)
+    added = admin_client.post(f"/api/shopping/{WEEK}/items", json={
+        "name": "masło", "qty": 1, "unit": "szt", "recipe_id": "src5",
+    }).json()
+    assert added["recipe_ids"] == ["src5"]
+
+    assert admin_client.delete("/api/recipes/src5").status_code == 204
+    items = admin_client.get(f"/api/shopping/{WEEK}").json()
+    butter = [i for i in items if i["id"] == added["id"]][0]
+    assert butter["recipe_ids"] == []

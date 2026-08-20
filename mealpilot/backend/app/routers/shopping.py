@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..agent.helpers import attach_recipe_source, delete_recipe_sources_for_items
 from ..db import get_db
 from ..dependencies import get_current_user
 from ..ownership import get_household_id, visible_filter
@@ -78,12 +79,26 @@ def generate_shopping_list(
         )
         .all()
     )
-    if not plan_rows:
+    def _delete_generated_items() -> None:
+        old_ids = [
+            i
+            for (i,) in db.query(models.ShoppingItem.id)
+            .filter(
+                models.ShoppingItem.owner_user_id == user.id,
+                models.ShoppingItem.week_start == week_start,
+                models.ShoppingItem.is_custom == 0,
+            )
+            .all()
+        ]
+        delete_recipe_sources_for_items(db, old_ids)
         db.query(models.ShoppingItem).filter(
             models.ShoppingItem.owner_user_id == user.id,
             models.ShoppingItem.week_start == week_start,
             models.ShoppingItem.is_custom == 0,
-        ).delete(synchronize_session=False)
+        ).delete(synchronize_session="fetch")
+
+    if not plan_rows:
+        _delete_generated_items()
         db.commit()
         return get_shopping_list(week_start, db, user)
 
@@ -97,6 +112,7 @@ def generate_shopping_list(
 
     aggregate: Dict[Tuple[str, str], float] = {}
     display_name: Dict[Tuple[str, str], str] = {}
+    sources: Dict[Tuple[str, str], set] = {}
 
     for entry in plan_rows:
         rec = recipes.get(entry.recipe_id)
@@ -113,6 +129,7 @@ def generate_shopping_list(
             key = (name.lower(), unit)
             aggregate[key] = aggregate.get(key, 0.0) + qty
             display_name.setdefault(key, name)
+            sources.setdefault(key, set()).add(rec.id)
 
     existing = (
         db.query(models.ShoppingItem)
@@ -126,27 +143,25 @@ def generate_shopping_list(
         (it.name.lower(), it.unit): it.checked for it in existing if not it.is_custom
     }
 
-    db.query(models.ShoppingItem).filter(
-        models.ShoppingItem.owner_user_id == user.id,
-        models.ShoppingItem.week_start == week_start,
-        models.ShoppingItem.is_custom == 0,
-    ).delete(synchronize_session=False)
+    _delete_generated_items()
 
-    for (name_key, unit), qty in aggregate.items():
-        name = display_name[(name_key, unit)]
-        db.add(
-            models.ShoppingItem(
-                created_by=user.id,
-                owner_user_id=user.id,
-                week_start=week_start,
-                name=name,
-                qty=round(qty, 3),
-                unit=unit,
-                category=_category_of(name),
-                checked=prev_checked.get((name_key, unit), 0),
-                is_custom=0,
-            )
+    for key, qty in aggregate.items():
+        name = display_name[key]
+        item = models.ShoppingItem(
+            created_by=user.id,
+            owner_user_id=user.id,
+            week_start=week_start,
+            name=name,
+            qty=round(qty, 3),
+            unit=key[1],
+            category=_category_of(name),
+            checked=prev_checked.get(key, 0),
+            is_custom=0,
         )
+        db.add(item)
+        db.flush()
+        for recipe_id in sources.get(key, ()):
+            attach_recipe_source(db, item, recipe_id)
     db.commit()
 
     return get_shopping_list(week_start, db, user)
@@ -212,6 +227,7 @@ def add_shopping_item(
     if existing:
         existing.qty = round((existing.qty or 0.0) + qty, 3)
         existing.category = category
+        attach_recipe_source(db, existing, payload.recipe_id)
         db.commit()
         db.refresh(existing)
         return existing
@@ -228,6 +244,8 @@ def add_shopping_item(
         is_custom=1,
     )
     db.add(item)
+    db.flush()
+    attach_recipe_source(db, item, payload.recipe_id)
     db.commit()
     db.refresh(item)
     return item
@@ -243,16 +261,18 @@ def delete_shopping_item_by_id(
     user: models.User = Depends(get_current_user),
 ):
     hh = get_household_id(db, user.id)
-    deleted = (
+    item = (
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
             visible_filter(models.ShoppingItem, user, hh),
         )
-        .delete(synchronize_session=False)
+        .one_or_none()
     )
-    if not deleted:
+    if not item:
         raise HTTPException(404, "Shopping item not found")
+    delete_recipe_sources_for_items(db, [item_id])
+    db.delete(item)
     db.commit()
     return None
 
@@ -276,6 +296,16 @@ def clear_shopping_list(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
+    ids = [
+        i
+        for (i,) in db.query(models.ShoppingItem.id)
+        .filter(
+            models.ShoppingItem.owner_user_id == user.id,
+            models.ShoppingItem.week_start == week_start,
+        )
+        .all()
+    ]
+    delete_recipe_sources_for_items(db, ids)
     db.query(models.ShoppingItem).filter(
         models.ShoppingItem.owner_user_id == user.id,
         models.ShoppingItem.week_start == week_start,

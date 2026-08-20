@@ -1487,7 +1487,7 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
     try {
       for (const ing of baseR.ingredients) {
         if (!ing.name.trim()) continue;
-        await addShoppingItem(WEEK_START, { name: ing.name, qty: ing.qty, unit: ing.unit });
+        await addShoppingItem(WEEK_START, { name: ing.name, qty: ing.qty, unit: ing.unit, recipe_id: baseR.id });
       }
       emitShoppingChanged();
       setAddedToShopping(true);

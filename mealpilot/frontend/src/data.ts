@@ -321,7 +321,7 @@ export async function setShoppingChecked(
 
 export async function addShoppingItem(
   ws: string,
-  payload: { name: string; qty: number; unit: string; category?: string },
+  payload: { name: string; qty: number; unit: string; category?: string; recipe_id?: string },
 ): Promise<ShoppingItem> {
   const item = await jsonOrThrow<ShoppingItem>(
     await apiFetch(`/shopping/${ws}/items`, {

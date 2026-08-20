@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.orm import relationship
 
 from .db import Base
 
@@ -255,3 +256,25 @@ class ShoppingItem(Base):
     category = Column(String, nullable=False, default="Inne")
     checked = Column(Integer, nullable=False, default=0)
     is_custom = Column(Integer, nullable=False, default=0)
+
+    sources = relationship(
+        "ShoppingItemRecipe", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    @property
+    def recipe_ids(self) -> list[str]:
+        return [s.recipe_id for s in self.sources]
+
+
+class ShoppingItemRecipe(Base):
+    """Which recipe(s) contributed a given shopping-list item (secondary display info)."""
+
+    __tablename__ = "shopping_item_recipes"
+    __table_args__ = (
+        UniqueConstraint("item_id", "recipe_id", name="uq_shop_item_recipe"),
+        Index("ix_shop_item_recipes_item", "item_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    item_id = Column(Integer, ForeignKey("shopping_items.id"), nullable=False)
+    recipe_id = Column(String, ForeignKey("recipes.id"), nullable=False)

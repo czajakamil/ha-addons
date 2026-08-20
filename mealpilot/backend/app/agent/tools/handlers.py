@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from ... import models
 from ...ownership import visible_filter, get_household_id, default_owner_kwargs
 from ..helpers import (
+    attach_recipe_source,
     category_of,
     current_week_start,
+    delete_recipe_sources_for_items,
     normalize_meal,
     normalize_unit_qty,
     plan_entry_to_dict,
@@ -163,6 +165,9 @@ def tool_delete_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     db.query(models.MealPlanEntry).filter(
         models.MealPlanEntry.recipe_id == recipe_id,
         visible_filter(models.MealPlanEntry, user, hh),
+    ).delete(synchronize_session=False)
+    db.query(models.ShoppingItemRecipe).filter(
+        models.ShoppingItemRecipe.recipe_id == recipe_id
     ).delete(synchronize_session=False)
     db.delete(r)
     db.commit()
@@ -340,12 +345,26 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
         .all()
     )
 
-    if not plan_rows:
+    def _delete_generated_items() -> None:
+        old_ids = [
+            i
+            for (i,) in db.query(models.ShoppingItem.id)
+            .filter(
+                visible_filter(models.ShoppingItem, user, hh),
+                models.ShoppingItem.week_start == week_start,
+                models.ShoppingItem.is_custom == 0,
+            )
+            .all()
+        ]
+        delete_recipe_sources_for_items(db, old_ids)
         db.query(models.ShoppingItem).filter(
             visible_filter(models.ShoppingItem, user, hh),
             models.ShoppingItem.week_start == week_start,
             models.ShoppingItem.is_custom == 0,
-        ).delete(synchronize_session=False)
+        ).delete(synchronize_session="fetch")
+
+    if not plan_rows:
+        _delete_generated_items()
         db.commit()
         return
 
@@ -359,6 +378,7 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
 
     aggregate: Dict[Tuple[str, str], float] = {}
     display_name: Dict[Tuple[str, str], str] = {}
+    sources: Dict[Tuple[str, str], set] = {}
 
     for entry in plan_rows:
         rec = recipes.get(entry.recipe_id)
@@ -375,6 +395,7 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
             key = (name.lower(), unit)
             aggregate[key] = aggregate.get(key, 0.0) + qty
             display_name.setdefault(key, name)
+            sources.setdefault(key, set()).add(rec.id)
 
     existing = (
         db.query(models.ShoppingItem)
@@ -388,27 +409,25 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
         (it.name.lower(), it.unit): it.checked for it in existing if not it.is_custom
     }
 
-    db.query(models.ShoppingItem).filter(
-        visible_filter(models.ShoppingItem, user, hh),
-        models.ShoppingItem.week_start == week_start,
-        models.ShoppingItem.is_custom == 0,
-    ).delete(synchronize_session=False)
+    _delete_generated_items()
 
-    for (name_key, unit), qty in aggregate.items():
-        name = display_name[(name_key, unit)]
-        db.add(
-            models.ShoppingItem(
-                created_by=user.id,
-                **default_owner_kwargs(user),
-                week_start=week_start,
-                name=name,
-                qty=round(qty, 3),
-                unit=unit,
-                category=category_of(name),
-                checked=prev_checked.get((name_key, unit), 0),
-                is_custom=0,
-            )
+    for key, qty in aggregate.items():
+        name = display_name[key]
+        item = models.ShoppingItem(
+            created_by=user.id,
+            **default_owner_kwargs(user),
+            week_start=week_start,
+            name=name,
+            qty=round(qty, 3),
+            unit=key[1],
+            category=category_of(name),
+            checked=prev_checked.get(key, 0),
+            is_custom=0,
         )
+        db.add(item)
+        db.flush()
+        for recipe_id in sources.get(key, ()):
+            attach_recipe_source(db, item, recipe_id)
     db.commit()
 
 
@@ -489,16 +508,18 @@ def tool_remove_shopping_item(db: Session, user: models.User, args: Dict[str, An
     item_id = int(args.get("item_id", 0))
 
     hh = get_household_id(db, user.id)
-    deleted = (
+    item = (
         db.query(models.ShoppingItem)
         .filter(
             models.ShoppingItem.id == item_id,
             visible_filter(models.ShoppingItem, user, hh),
         )
-        .delete(synchronize_session=False)
+        .one_or_none()
     )
-    if not deleted:
+    if not item:
         raise ValueError(f"Shopping item not found: {item_id}")
+    delete_recipe_sources_for_items(db, [item_id])
+    db.delete(item)
     db.commit()
     return {"deleted": item_id}
 
@@ -506,6 +527,16 @@ def tool_remove_shopping_item(db: Session, user: models.User, args: Dict[str, An
 def tool_clear_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     hh = get_household_id(db, user.id)
+    ids = [
+        i
+        for (i,) in db.query(models.ShoppingItem.id)
+        .filter(
+            visible_filter(models.ShoppingItem, user, hh),
+            models.ShoppingItem.week_start == week_start,
+        )
+        .all()
+    ]
+    delete_recipe_sources_for_items(db, ids)
     db.query(models.ShoppingItem).filter(
         visible_filter(models.ShoppingItem, user, hh),
         models.ShoppingItem.week_start == week_start,

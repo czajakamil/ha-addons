@@ -10,6 +10,7 @@ import {
   loadShopping,
   PLAN_CHANGED,
   RECIPES_CHANGED,
+  recipeBy,
   regenerateShopping,
   setShoppingChecked,
   SHOPPING_CHANGED,
@@ -350,7 +351,12 @@ export function ShoppingScreen() {
             <ul className="shop-list">
               {[...grouped[cat]]
                 .sort((a, b) => (settled[a.id] ? 1 : 0) - (settled[b.id] ? 1 : 0))
-                .map((it) => (
+                .map((it) => {
+                  const sourceLabel = it.recipe_ids
+                    .map((rid) => recipeBy(rid)?.title)
+                    .filter((title): title is string => Boolean(title))
+                    .join(', ');
+                  return (
                   <li
                     key={it.id}
                     className="shop-item"
@@ -361,21 +367,24 @@ export function ShoppingScreen() {
                       {it.checked && <Icon name="check" size={11} />}
                     </span>
                     <span className="shop-name">
-                      {it.name}
-                      {it.is_custom && (
-                        <span
-                          className="chip"
-                          style={{
-                            marginLeft: 6,
-                            fontSize: 9,
-                            padding: '0 6px',
-                            background: 'var(--butter)',
-                            color: 'oklch(0.42 0.07 75)',
-                          }}
-                        >
-                          własne
-                        </span>
-                      )}
+                      <span className="shop-name-row">
+                        {it.name}
+                        {it.is_custom && (
+                          <span
+                            className="chip"
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 9,
+                              padding: '0 6px',
+                              background: 'var(--butter)',
+                              color: 'oklch(0.42 0.07 75)',
+                            }}
+                          >
+                            własne
+                          </span>
+                        )}
+                      </span>
+                      {sourceLabel && <span className="shop-source">z: {sourceLabel}</span>}
                     </span>
                     <span className="mono shop-qty">
                       {fmt(it.qty)} {it.unit}
@@ -393,7 +402,8 @@ export function ShoppingScreen() {
                       </button>
                     )}
                   </li>
-                ))}
+                  );
+                })}
             </ul>
           </div>
         ))}

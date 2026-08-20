@@ -4,7 +4,9 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, timedelta
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Iterable, Tuple
+
+from sqlalchemy.orm import Session
 
 from .. import models
 
@@ -132,7 +134,33 @@ def shopping_item_to_dict(it: models.ShoppingItem) -> Dict[str, Any]:
         "category": it.category,
         "checked": bool(it.checked),
         "is_custom": bool(it.is_custom),
+        "recipe_ids": it.recipe_ids,
     }
+
+
+def attach_recipe_source(db: Session, item: models.ShoppingItem, recipe_id: str | None) -> None:
+    """Record that `recipe_id` contributed to `item` (no-op if already recorded or absent)."""
+    if not recipe_id:
+        return
+    exists = (
+        db.query(models.ShoppingItemRecipe)
+        .filter(
+            models.ShoppingItemRecipe.item_id == item.id,
+            models.ShoppingItemRecipe.recipe_id == recipe_id,
+        )
+        .first()
+    )
+    if not exists:
+        db.add(models.ShoppingItemRecipe(item_id=item.id, recipe_id=recipe_id))
+
+
+def delete_recipe_sources_for_items(db: Session, item_ids: Iterable[int]) -> None:
+    ids = list(item_ids)
+    if not ids:
+        return
+    db.query(models.ShoppingItemRecipe).filter(
+        models.ShoppingItemRecipe.item_id.in_(ids)
+    ).delete(synchronize_session="fetch")
 
 
 def safe_json_parse(text: str) -> Any:
