@@ -1,9 +1,11 @@
 """Anthropic agent loop."""
+
 from __future__ import annotations
 
 import json
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 from sqlalchemy.orm import Session
@@ -23,10 +25,10 @@ async def run_anthropic(
     api_key: str,
     model: str,
     system_prompt: str,
-    history: List[Dict[str, Any]],
+    history: list[dict[str, Any]],
     db: Session,
     user: models.User,
-    tool_events: List[Dict[str, Any]],
+    tool_events: list[dict[str, Any]],
     changed_set: set,
 ) -> str:
     messages = list(history)
@@ -71,19 +73,23 @@ async def run_anthropic(
                 name = tu.get("name", "")
                 input_args = tu.get("input") or {}
                 result_text, is_error = call_tool(db, user, name, input_args, changed_set)
-                tool_events.append({
-                    "tool_use_id": tu_id,
-                    "name": name,
-                    "input": input_args,
-                    "output": None if is_error else safe_json_parse(result_text),
-                    "error": result_text if is_error else None,
-                })
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tu_id,
-                    "content": result_text,
-                    "is_error": is_error,
-                })
+                tool_events.append(
+                    {
+                        "tool_use_id": tu_id,
+                        "name": name,
+                        "input": input_args,
+                        "output": None if is_error else safe_json_parse(result_text),
+                        "error": result_text if is_error else None,
+                    }
+                )
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu_id,
+                        "content": result_text,
+                        "is_error": is_error,
+                    }
+                )
             messages.append({"role": "user", "content": tool_results})
 
     return final_text or "(agent przekroczył limit kroków)"
@@ -94,12 +100,12 @@ async def stream_anthropic(
     api_key: str,
     model: str,
     system_prompt: str,
-    history: List[Dict[str, Any]],
+    history: list[dict[str, Any]],
     db: Session,
     user: models.User,
-    tool_events: List[Dict[str, Any]],
+    tool_events: list[dict[str, Any]],
     changed_set: set,
-) -> AsyncGenerator[Dict[str, Any], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     messages = list(history)
     headers = {
         "Content-Type": "application/json",
@@ -118,8 +124,8 @@ async def stream_anthropic(
                 "stream": True,
             }
 
-            blocks: Dict[int, Dict[str, Any]] = {}
-            stop_reason: Optional[str] = None
+            blocks: dict[int, dict[str, Any]] = {}
+            stop_reason: str | None = None
 
             async with client.stream("POST", endpoint, headers=headers, json=body) as resp:
                 resp.raise_for_status()
@@ -136,11 +142,13 @@ async def stream_anthropic(
                         if cb["type"] == "text":
                             blocks[idx]["text"] = cb.get("text", "")
                         elif cb["type"] == "tool_use":
-                            blocks[idx].update({
-                                "id": cb.get("id", str(uuid.uuid4())),
-                                "name": cb.get("name", ""),
-                                "input_json": "",
-                            })
+                            blocks[idx].update(
+                                {
+                                    "id": cb.get("id", str(uuid.uuid4())),
+                                    "name": cb.get("name", ""),
+                                    "input_json": "",
+                                }
+                            )
 
                     elif ev_type == "content_block_delta":
                         idx = payload["index"]
@@ -150,9 +158,9 @@ async def stream_anthropic(
                             blocks[idx]["text"] = blocks[idx].get("text", "") + t
                             yield {"type": "text_delta", "text": t}
                         elif delta["type"] == "input_json_delta":
-                            blocks[idx]["input_json"] = (
-                                blocks[idx].get("input_json", "") + delta.get("partial_json", "")
-                            )
+                            blocks[idx]["input_json"] = blocks[idx].get(
+                                "input_json", ""
+                            ) + delta.get("partial_json", "")
 
                     elif ev_type == "content_block_stop":
                         idx = payload["index"]
@@ -166,17 +174,26 @@ async def stream_anthropic(
                             name = block["name"]
                             block["_parsed_input"] = input_args
 
-                            yield {"type": "tool_start", "tool_use_id": tu_id, "name": name, "input": input_args}
-                            result_text, is_error = call_tool(db, user, name, input_args, changed_set)
-                            block["_result_text"] = result_text
-                            block["_is_error"] = is_error
-                            tool_events.append({
+                            yield {
+                                "type": "tool_start",
                                 "tool_use_id": tu_id,
                                 "name": name,
                                 "input": input_args,
-                                "output": None if is_error else safe_json_parse(result_text),
-                                "error": result_text if is_error else None,
-                            })
+                            }
+                            result_text, is_error = call_tool(
+                                db, user, name, input_args, changed_set
+                            )
+                            block["_result_text"] = result_text
+                            block["_is_error"] = is_error
+                            tool_events.append(
+                                {
+                                    "tool_use_id": tu_id,
+                                    "name": name,
+                                    "input": input_args,
+                                    "output": None if is_error else safe_json_parse(result_text),
+                                    "error": result_text if is_error else None,
+                                }
+                            )
                             yield {
                                 "type": "tool_result",
                                 "tool_use_id": tu_id,
@@ -196,22 +213,26 @@ async def stream_anthropic(
                 if b["type"] == "text":
                     api_blocks.append({"type": "text", "text": b.get("text", "")})
                 elif b["type"] == "tool_use":
-                    api_blocks.append({
-                        "type": "tool_use",
-                        "id": b["id"],
-                        "name": b["name"],
-                        "input": b.get("_parsed_input", {}),
-                    })
+                    api_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": b["id"],
+                            "name": b["name"],
+                            "input": b.get("_parsed_input", {}),
+                        }
+                    )
             messages.append({"role": "assistant", "content": api_blocks})
 
             tool_results = []
             for idx in sorted(blocks.keys()):
                 b = blocks[idx]
                 if b["type"] == "tool_use":
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": b["id"],
-                        "content": b.get("_result_text", ""),
-                        "is_error": b.get("_is_error", False),
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": b["id"],
+                            "content": b.get("_result_text", ""),
+                            "is_error": b.get("_is_error", False),
+                        }
+                    )
             messages.append({"role": "user", "content": tool_results})

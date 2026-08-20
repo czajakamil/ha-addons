@@ -12,9 +12,13 @@ def test_non_admin_forbidden(make_user):
 
 
 def test_create_user_and_duplicate(admin_client):
-    r = admin_client.post("/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"})
+    r = admin_client.post(
+        "/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"}
+    )
     assert r.status_code == 201
-    r = admin_client.post("/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"})
+    r = admin_client.post(
+        "/api/admin/users", json={"username": "nowy", "password": "Haslo12345678"}
+    )
     assert r.status_code == 409
 
 
@@ -45,10 +49,16 @@ def test_cannot_delete_self(admin_client):
 
 def test_delete_user_removes_resources(admin_client, make_user, db_session):
     user, uid = make_user("dokasacji")
-    user.post("/api/recipes", json={
-        "id": "rdel", "title": "x", "servings": 1,
-        "ingredients": [{"name": "a", "qty": 1, "unit": "g"}], "steps": ["s"],
-    })
+    user.post(
+        "/api/recipes",
+        json={
+            "id": "rdel",
+            "title": "x",
+            "servings": 1,
+            "ingredients": [{"name": "a", "qty": 1, "unit": "g"}],
+            "steps": ["s"],
+        },
+    )
     assert admin_client.delete(f"/api/admin/users/{uid}").status_code == 204
     assert db_session.get(models.User, uid) is None
     assert db_session.query(models.Recipe).filter(models.Recipe.created_by == uid).count() == 0
@@ -97,7 +107,9 @@ def test_household_crud(admin_client):
 def test_household_member_assignment_and_listing(admin_client, make_user):
     _, uid = make_user("czlonek", login=False)
     hid = admin_client.post("/api/admin/households", json={"name": "H"}).json()["id"]
-    r = admin_client.put(f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True})
+    r = admin_client.put(
+        f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True}
+    )
     assert r.status_code == 200
     assert r.json()["household_id"] == hid
     assert r.json()["can_edit_in_household"] is True
@@ -111,11 +123,19 @@ def test_household_member_assignment_and_listing(admin_client, make_user):
 def test_deleting_household_reassigns_resources(admin_client, make_user, db_session):
     user, uid = make_user("dom_user")
     hid = admin_client.post("/api/admin/households", json={"name": "H"}).json()["id"]
-    admin_client.put(f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True})
-    user.post("/api/recipes", json={
-        "id": "rh", "title": "x", "servings": 1,
-        "ingredients": [{"name": "a", "qty": 1, "unit": "g"}], "steps": ["s"],
-    })
+    admin_client.put(
+        f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True}
+    )
+    user.post(
+        "/api/recipes",
+        json={
+            "id": "rh",
+            "title": "x",
+            "servings": 1,
+            "ingredients": [{"name": "a", "qty": 1, "unit": "g"}],
+            "steps": ["s"],
+        },
+    )
     user.put("/api/recipes/rh/ownership", json={"share_with_household": True})
 
     assert admin_client.delete(f"/api/admin/households/{hid}").status_code == 204

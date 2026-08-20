@@ -1,7 +1,7 @@
 import json
 import os
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -35,6 +35,7 @@ def get_ai_usage(
     db: Session = Depends(get_db),
 ):
     from ..ai_usage import _ensure_period
+
     _ensure_period(user)
     db.commit()
     return _usage_status(user)
@@ -112,7 +113,7 @@ def _serialize_message(msg: models.AgentMessage, db: Session) -> schemas.AgentMe
     )
 
 
-@router.get("/conversations", response_model=List[schemas.AgentConversationOut])
+@router.get("/conversations", response_model=list[schemas.AgentConversationOut])
 def list_conversations(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -245,7 +246,7 @@ async def run_conversation(
     record_usage(db, user, tokens=approx_tokens)
 
     # Persist the assistant message
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     assistant_msg = models.AgentMessage(
         conversation_id=conv.id,
         role="assistant",
@@ -342,14 +343,14 @@ async def stream_conversation(
     is_first_turn = len(history) == 1 and (history[0].get("role") == "user" if history else False)
     first_user_text = str(history[0].get("content") or "") if is_first_turn else ""
 
-    def _sse(data: Dict[str, Any]) -> str:
+    def _sse(data: dict[str, Any]) -> str:
         return f"data: {json.dumps(data)}\n\n"
 
     async def generate():
         stream_db = SessionLocal()
-        tool_events: List[Dict[str, Any]] = []
+        tool_events: list[dict[str, Any]] = []
         changed_set: set = set()
-        text_parts: List[str] = []
+        text_parts: list[str] = []
 
         try:
             endpoint_url = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
@@ -369,13 +370,27 @@ async def stream_conversation(
 
             if is_anthropic(endpoint_url):
                 provider = stream_anthropic(
-                    endpoint_url, api_key, model, system_prompt,
-                    history, stream_db, stream_user, tool_events, changed_set,
+                    endpoint_url,
+                    api_key,
+                    model,
+                    system_prompt,
+                    history,
+                    stream_db,
+                    stream_user,
+                    tool_events,
+                    changed_set,
                 )
             else:
                 provider = stream_openai(
-                    endpoint_url, api_key, model, system_prompt,
-                    history, stream_db, stream_user, tool_events, changed_set,
+                    endpoint_url,
+                    api_key,
+                    model,
+                    system_prompt,
+                    history,
+                    stream_db,
+                    stream_user,
+                    tool_events,
+                    changed_set,
                 )
 
             async for event in provider:
@@ -390,7 +405,7 @@ async def stream_conversation(
 
         # Persist assistant message
         reply = "".join(text_parts) or "(brak odpowiedzi)"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         char_count = sum(len(m.get("content") or "") for m in history) + len(reply)
         for ev in tool_events:
@@ -442,12 +457,14 @@ async def stream_conversation(
         stream_db.refresh(assistant_msg)
         stream_db.close()
 
-        yield _sse({
-            "type": "done",
-            "message_id": assistant_msg.id,
-            "changed": sorted(changed_set),
-            "title": generated_title,
-        })
+        yield _sse(
+            {
+                "type": "done",
+                "message_id": assistant_msg.id,
+                "changed": sorted(changed_set),
+                "title": generated_title,
+            }
+        )
 
     return StreamingResponse(
         generate(),
@@ -532,9 +549,7 @@ def edit_message(
     )
     for m in later:
         db.execute(
-            models.AgentToolUse.__table__.delete().where(
-                models.AgentToolUse.message_id == m.id
-            )
+            models.AgentToolUse.__table__.delete().where(models.AgentToolUse.message_id == m.id)
         )
         db.delete(m)
 

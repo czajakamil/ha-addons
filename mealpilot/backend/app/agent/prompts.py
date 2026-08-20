@@ -1,6 +1,7 @@
 """
 System prompts for the MealPilot agent.
 """
+
 from __future__ import annotations
 
 DEFAULT_SYSTEM_PROMPT = (

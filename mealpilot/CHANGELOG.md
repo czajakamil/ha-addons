@@ -1,3 +1,6 @@
+## 0.2.19
+- Porządki w kodzie backendu — konfiguracja i wdrożenie ruff (formatowanie, sortowanie importów, nowoczesne type hinty), naprawa wykrytych ostrzeżeń lintera; bez zmian funkcjonalnych
+
 ## 0.2.18
 - Aktualizacja konfiguracji MCP w ustawieniach kluczy API — przejście z trybu natywnego URL/headers na `mcp-remote` przez `npx` dla lepszej kompatybilności z Claude Desktop
 - Klucz API przekazywany przez zmienną środowiskową `MEALPILOT_TOKEN` zamiast nagłówka HTTP

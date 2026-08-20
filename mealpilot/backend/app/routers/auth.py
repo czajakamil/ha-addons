@@ -1,13 +1,11 @@
 import hmac
 import os
 import secrets
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
-from sqlalchemy import update
 
 from .. import models, schemas
 from ..db import get_db
@@ -76,7 +74,7 @@ def setup(payload: schemas.SetupRequest, request: Request, db: Session = Depends
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "User already exists")
+        raise HTTPException(status.HTTP_409_CONFLICT, "User already exists") from None
     db.refresh(user)
 
     # Przejmij dane z ery single-user (rzędy z user_id IS NULL) i zasiej demo
@@ -115,11 +113,7 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
             headers={"Retry-After": str(int(retry_after))},
         )
 
-    user = (
-        db.query(models.User)
-        .filter(models.User.username == username)
-        .one_or_none()
-    )
+    user = db.query(models.User).filter(models.User.username == username).one_or_none()
     # Zawsze wykonaj Argon2 (na realnym lub dummy hashu) żeby zrównać czas.
     if not user or not user.is_active:
         dummy_verify(payload.password)
@@ -169,7 +163,7 @@ def change_password(
     return None
 
 
-@router.get("/api-keys", response_model=List[schemas.ApiKeyOut])
+@router.get("/api-keys", response_model=list[schemas.ApiKeyOut])
 def list_api_keys(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),

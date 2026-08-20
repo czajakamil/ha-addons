@@ -5,6 +5,7 @@ Run from a cron job, e.g.:
 
 Use --dry-run to preview without deleting.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,17 +15,15 @@ from pathlib import Path
 # Allow running as a script: `python backend/scripts/cleanup_orphan_images.py`
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.db import SessionLocal  # noqa: E402
-from app.images import IMAGES_DIR  # noqa: E402
-from app.models import Recipe  # noqa: E402
+from app.db import SessionLocal
+from app.images import IMAGES_DIR
+from app.models import Recipe
 
 
 def find_orphans() -> list[Path]:
     db = SessionLocal()
     try:
-        referenced = {
-            name for (name,) in db.query(Recipe.image_filename).all() if name
-        }
+        referenced = {name for (name,) in db.query(Recipe.image_filename).all() if name}
     finally:
         db.close()
     if not IMAGES_DIR.is_dir():

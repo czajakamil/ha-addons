@@ -3,11 +3,12 @@ Backend agent runner — orchestrates the agent loop using Anthropic or
 OpenAI-compatible APIs. Tool implementations and provider loops live in
 the `agent/` package.
 """
+
 from __future__ import annotations
 
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 import httpx
 from sqlalchemy.orm import Session
@@ -16,15 +17,15 @@ from . import models
 from .agent.prompts import DEFAULT_SYSTEM_PROMPT, TITLE_SYSTEM_PROMPT
 from .agent.providers import is_anthropic, run_anthropic, run_openai
 
-__all__ = ["run_agent", "generate_conversation_title"]
+__all__ = ["generate_conversation_title", "run_agent"]
 
 
 async def run_agent(
     db: Session,
     user: models.User,
     settings: models.AgentSettings,
-    history: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    history: list[dict[str, Any]],
+) -> dict[str, Any]:
     """
     Run the full agent loop.
 
@@ -42,13 +43,17 @@ async def run_agent(
 
     if not endpoint:
         return {
-            "reply": "❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_URL w ustawieniach Home Assistant.",
+            "reply": (
+                "❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_URL w ustawieniach Home Assistant."
+            ),
             "tool_events": [],
             "changed": [],
         }
     if not api_key:
         return {
-            "reply": "❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.",
+            "reply": (
+                "❗ Błąd: Brak konfiguracji MEALPILOT_AI_API_KEY w ustawieniach Home Assistant."
+            ),
             "tool_events": [],
             "changed": [],
         }
@@ -56,19 +61,33 @@ async def run_agent(
     model = settings.model or ""
     system_prompt = settings.system_prompt or DEFAULT_SYSTEM_PROMPT
 
-    tool_events: List[Dict[str, Any]] = []
+    tool_events: list[dict[str, Any]] = []
     changed_set: set = set()
 
     try:
         if is_anthropic(endpoint):
             reply = await run_anthropic(
-                endpoint, api_key, model, system_prompt,
-                history, db, user, tool_events, changed_set,
+                endpoint,
+                api_key,
+                model,
+                system_prompt,
+                history,
+                db,
+                user,
+                tool_events,
+                changed_set,
             )
         else:
             reply = await run_openai(
-                endpoint, api_key, model, system_prompt,
-                history, db, user, tool_events, changed_set,
+                endpoint,
+                api_key,
+                model,
+                system_prompt,
+                history,
+                db,
+                user,
+                tool_events,
+                changed_set,
             )
     except httpx.HTTPStatusError as exc:
         reply = f"❗ Błąd: {exc.response.status_code} {exc.response.text[:300]}"
@@ -85,6 +104,7 @@ async def run_agent(
 # ---------------------------------------------------------------------------
 # Conversation title generation
 # ---------------------------------------------------------------------------
+
 
 def _clean_title(text: str) -> str:
     t = (text or "").strip()

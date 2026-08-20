@@ -5,15 +5,16 @@ Użycie:
 
 Jeśli hasło nie zostanie podane, zostanie wygenerowane losowe i wypisane.
 """
+
 import secrets
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.db import SessionLocal  # noqa: E402
-from app import models  # noqa: E402
-from app.security import hash_password  # noqa: E402
+from app import models
+from app.db import SessionLocal
+from app.security import hash_password
 
 
 def main() -> int:

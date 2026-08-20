@@ -10,12 +10,13 @@ domyślnie /healthz i /docs.
 
 Bez tych zmiennych middleware przepuszcza wszystko (local dev).
 """
+
 from __future__ import annotations
 
 import logging
 import os
 import threading
-from typing import Any, Dict, Optional
+from typing import Any
 
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -31,7 +32,7 @@ class _JWKSCache:
     """
 
     def __init__(self) -> None:
-        self._clients: Dict[str, Any] = {}
+        self._clients: dict[str, Any] = {}
         self._lock = threading.Lock()
 
     def get(self, team_domain: str):
@@ -39,6 +40,7 @@ class _JWKSCache:
             client = self._clients.get(team_domain)
             if client is None:
                 from jwt import PyJWKClient
+
                 url = f"https://{team_domain}/cdn-cgi/access/certs"
                 client = PyJWKClient(url, cache_keys=True, lifespan=600)
                 self._clients[team_domain] = client
@@ -58,9 +60,7 @@ class CloudflareAccessMiddleware:
         self.enabled = os.environ.get("MEALPILOT_REQUIRE_CF_ACCESS", "0") == "1"
         self.team_domain = os.environ.get("MEALPILOT_CF_ACCESS_TEAM_DOMAIN", "").strip()
         self.audience = os.environ.get("MEALPILOT_CF_ACCESS_AUD", "").strip()
-        bypass = os.environ.get(
-            "MEALPILOT_CF_ACCESS_BYPASS", "/healthz,/docs,/openapi.json,/redoc"
-        )
+        bypass = os.environ.get("MEALPILOT_CF_ACCESS_BYPASS", "/healthz,/docs,/openapi.json,/redoc")
         self.bypass_prefixes = tuple(p.strip() for p in bypass.split(",") if p.strip())
 
         if self.enabled and (not self.team_domain or not self.audience):
@@ -70,14 +70,12 @@ class CloudflareAccessMiddleware:
             )
 
     def _is_bypassed(self, path: str) -> bool:
-        for prefix in self.bypass_prefixes:
-            if path == prefix or path.startswith(prefix + "/"):
-                return True
-        return False
+        return any(path == prefix or path.startswith(prefix + "/") for prefix in self.bypass_prefixes)
 
-    def _verify(self, token: str) -> Optional[Dict[str, Any]]:
+    def _verify(self, token: str) -> dict[str, Any] | None:
         import jwt
         from jwt import PyJWKClientError
+
         try:
             client = _jwks_cache.get(self.team_domain)
             signing_key = client.get_signing_key_from_jwt(token)

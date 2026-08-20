@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
@@ -16,14 +16,14 @@ def _user(**kw):
     u.ai_monthly_cost_limit_cents = None
     u.ai_used_tokens_this_month = 0
     u.ai_used_cost_cents_this_month = 0
-    u.ai_usage_period_start = datetime.now(timezone.utc)
+    u.ai_usage_period_start = datetime.now(UTC)
     for k, v in kw.items():
         setattr(u, k, v)
     return u
 
 
 def test_ensure_period_rolls_over_on_new_month():
-    last_month = datetime.now(timezone.utc) - timedelta(days=40)
+    last_month = datetime.now(UTC) - timedelta(days=40)
     u = _user(
         ai_usage_period_start=last_month,
         ai_used_tokens_this_month=999,
@@ -33,8 +33,8 @@ def test_ensure_period_rolls_over_on_new_month():
     assert u.ai_used_tokens_this_month == 0
     assert u.ai_used_cost_cents_this_month == 0
     assert (u.ai_usage_period_start.year, u.ai_usage_period_start.month) == (
-        datetime.now(timezone.utc).year,
-        datetime.now(timezone.utc).month,
+        datetime.now(UTC).year,
+        datetime.now(UTC).month,
     )
 
 

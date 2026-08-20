@@ -18,15 +18,21 @@ def _member(uid, hid, can_edit=False):
 
 def _personal_recipe(owner_id, created_by=None):
     return models.Recipe(
-        id="r", title="t", created_by=created_by or owner_id,
-        owner_user_id=owner_id, owner_household_id=None,
+        id="r",
+        title="t",
+        created_by=created_by or owner_id,
+        owner_user_id=owner_id,
+        owner_household_id=None,
     )
 
 
 def _household_recipe(hid, created_by):
     return models.Recipe(
-        id="r", title="t", created_by=created_by,
-        owner_user_id=None, owner_household_id=hid,
+        id="r",
+        title="t",
+        created_by=created_by,
+        owner_user_id=None,
+        owner_household_id=hid,
     )
 
 
@@ -39,7 +45,7 @@ def test_personal_resource_visible_only_to_owner():
 
 def test_household_resource_visible_to_members():
     r = _household_recipe(hid=7, created_by=1)
-    assert can_view(r, _user(2), 7) is True   # członek tego household
+    assert can_view(r, _user(2), 7) is True  # członek tego household
     assert can_view(r, _user(2), 8) is False  # inny household
     assert can_view(r, _user(2), None) is False  # bez household
 

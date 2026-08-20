@@ -1,7 +1,8 @@
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _USERNAME_RE = re.compile(r"^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9_]+$")
 _USERNAME_ERR = "Login może zawierać tylko litery, cyfry i podkreślnik."
@@ -34,7 +35,7 @@ class LoginRequest(BaseModel):
 class SetupRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=_PASSWORD_MIN, max_length=256)
-    setup_token: Optional[str] = Field(default=None, max_length=256)
+    setup_token: str | None = Field(default=None, max_length=256)
 
     @field_validator("username")
     @classmethod
@@ -78,21 +79,21 @@ class CreateUserRequest(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
-    username: Optional[str] = Field(default=None, min_length=1, max_length=64)
-    password: Optional[str] = Field(default=None, min_length=_PASSWORD_MIN, max_length=256)
-    role: Optional[Role] = None
-    is_active: Optional[bool] = None
+    username: str | None = Field(default=None, min_length=1, max_length=64)
+    password: str | None = Field(default=None, min_length=_PASSWORD_MIN, max_length=256)
+    role: Role | None = None
+    is_active: bool | None = None
 
     @field_validator("username")
     @classmethod
-    def username_letters_only(cls, v: Optional[str]) -> Optional[str]:
+    def username_letters_only(cls, v: str | None) -> str | None:
         if v is not None and not _USERNAME_RE.match(v):
             raise ValueError(_USERNAME_ERR)
         return v
 
     @field_validator("password")
     @classmethod
-    def password_strength(cls, v: Optional[str]) -> Optional[str]:
+    def password_strength(cls, v: str | None) -> str | None:
         if v is None:
             return v
         return _validate_password(v)
@@ -109,18 +110,18 @@ class UserOut(BaseModel):
 
 class UserAdminOut(UserOut):
     can_use_ai: bool = True
-    ai_monthly_token_limit: Optional[int] = None
-    ai_monthly_cost_limit_cents: Optional[int] = None
+    ai_monthly_token_limit: int | None = None
+    ai_monthly_cost_limit_cents: int | None = None
     ai_used_tokens_this_month: int = 0
     ai_used_cost_cents_this_month: int = 0
-    household_id: Optional[int] = None
+    household_id: int | None = None
     can_edit_in_household: bool = False
 
 
 class UserAiLimitsPatch(BaseModel):
-    can_use_ai: Optional[bool] = None
-    ai_monthly_token_limit: Optional[int] = Field(default=None, ge=0)
-    ai_monthly_cost_limit_cents: Optional[int] = Field(default=None, ge=0)
+    can_use_ai: bool | None = None
+    ai_monthly_token_limit: int | None = Field(default=None, ge=0)
+    ai_monthly_cost_limit_cents: int | None = Field(default=None, ge=0)
     # Use sentinels via separate boolean to allow clearing — keep simple: 0/None means "no limit"
     clear_token_limit: bool = False
     clear_cost_limit: bool = False
@@ -152,12 +153,13 @@ class HouseholdMemberOut(BaseModel):
 
 
 class HouseholdAssignRequest(BaseModel):
-    household_id: Optional[int] = None  # None = remove from household
+    household_id: int | None = None  # None = remove from household
     can_edit: bool = False
 
 
 class OwnershipPatch(BaseModel):
     """Re-pin resource between personal and household scope. Only creator may call."""
+
     share_with_household: bool
 
 
@@ -173,7 +175,7 @@ class Ingredient(BaseModel):
 
 class RecipeStep(BaseModel):
     text: str
-    duration_minutes: Optional[int] = None
+    duration_minutes: int | None = None
 
     @classmethod
     def coerce(cls, v: Any) -> "RecipeStep":
@@ -182,7 +184,7 @@ class RecipeStep(BaseModel):
         return cls.model_validate(v)
 
 
-def _coerce_steps(v: Any) -> List[Any]:
+def _coerce_steps(v: Any) -> list[Any]:
     if not isinstance(v, list):
         return v
     return [{"text": s} if isinstance(s, str) else s for s in v]
@@ -190,7 +192,7 @@ def _coerce_steps(v: Any) -> List[Any]:
 
 class RecipeBase(BaseModel):
     title: str
-    tags: List[str] = []
+    tags: list[str] = []
     servings: int = 1
     prep_time: int = 0
     cook_time: int = 0
@@ -199,16 +201,16 @@ class RecipeBase(BaseModel):
     f: float = 0
     c: float = 0
     hue: int = 40
-    ingredients: List[Ingredient] = []
-    steps: List[RecipeStep] = []
-    meal_types: List[str] = []
+    ingredients: list[Ingredient] = []
+    steps: list[RecipeStep] = []
+    meal_types: list[str] = []
     is_meal_prep: bool = False
-    meal_prep_days: Optional[int] = None
-    meal_prep_steps: List[RecipeStep] = []
+    meal_prep_days: int | None = None
+    meal_prep_steps: list[RecipeStep] = []
 
     @field_validator("steps", "meal_prep_steps", mode="before")
     @classmethod
-    def coerce_legacy_steps(cls, v: Any) -> List[Any]:
+    def coerce_legacy_steps(cls, v: Any) -> list[Any]:
         return _coerce_steps(v)
 
 
@@ -217,26 +219,26 @@ class RecipeCreate(RecipeBase):
 
 
 class RecipeUpdate(BaseModel):
-    title: Optional[str] = None
-    tags: Optional[List[str]] = None
-    servings: Optional[int] = None
-    prep_time: Optional[int] = None
-    cook_time: Optional[int] = None
-    kcal: Optional[float] = None
-    p: Optional[float] = None
-    f: Optional[float] = None
-    c: Optional[float] = None
-    hue: Optional[int] = None
-    ingredients: Optional[List[Ingredient]] = None
-    steps: Optional[List[RecipeStep]] = None
-    meal_types: Optional[List[str]] = None
-    is_meal_prep: Optional[bool] = None
-    meal_prep_days: Optional[int] = None
-    meal_prep_steps: Optional[List[RecipeStep]] = None
+    title: str | None = None
+    tags: list[str] | None = None
+    servings: int | None = None
+    prep_time: int | None = None
+    cook_time: int | None = None
+    kcal: float | None = None
+    p: float | None = None
+    f: float | None = None
+    c: float | None = None
+    hue: int | None = None
+    ingredients: list[Ingredient] | None = None
+    steps: list[RecipeStep] | None = None
+    meal_types: list[str] | None = None
+    is_meal_prep: bool | None = None
+    meal_prep_days: int | None = None
+    meal_prep_steps: list[RecipeStep] | None = None
 
     @field_validator("steps", "meal_prep_steps", mode="before")
     @classmethod
-    def coerce_legacy_steps(cls, v: Any) -> Optional[List[Any]]:
+    def coerce_legacy_steps(cls, v: Any) -> list[Any] | None:
         if v is None:
             return v
         return _coerce_steps(v)
@@ -245,14 +247,14 @@ class RecipeUpdate(BaseModel):
 class Recipe(RecipeBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
-    image_filename: Optional[str] = None
+    image_filename: str | None = None
     created_by: int
-    owner_user_id: Optional[int] = None
-    owner_household_id: Optional[int] = None
-    avg_rating: Optional[float] = None
+    owner_user_id: int | None = None
+    owner_household_id: int | None = None
+    avg_rating: float | None = None
     rating_count: int = 0
-    my_rating: Optional[int] = None
-    my_note: Optional[str] = None
+    my_rating: int | None = None
+    my_note: str | None = None
 
 
 class RatingUpsert(BaseModel):
@@ -288,7 +290,7 @@ class PlanEntry(BaseModel):
 
 class WeekPlan(BaseModel):
     week_start: str
-    entries: List[PlanEntry]
+    entries: list[PlanEntry]
 
 
 class ShoppingItemOut(BaseModel):
@@ -326,7 +328,7 @@ class ApiKeyOut(BaseModel):
     name: str
     prefix: str
     created_at: datetime
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
 
 
 class ApiKeyCreatedOut(ApiKeyOut):
@@ -357,13 +359,13 @@ class MacroTargets(BaseModel):
 class UiPrefsOut(BaseModel):
     recipes_grouped: bool = False
     macro_targets: MacroTargets = MacroTargets()
-    favorite_recipe_ids: List[str] = []
+    favorite_recipe_ids: list[str] = []
 
 
 class UiPrefsPatch(BaseModel):
-    recipes_grouped: Optional[bool] = None
-    macro_targets: Optional[MacroTargets] = None
-    favorite_recipe_ids: Optional[List[str]] = None
+    recipes_grouped: bool | None = None
+    macro_targets: MacroTargets | None = None
+    favorite_recipe_ids: list[str] | None = None
 
 
 AgentRole = Literal["user", "assistant"]
@@ -374,26 +376,26 @@ class AgentToolUseOut(BaseModel):
     id: int
     tool_use_id: str
     tool_name: str
-    input: Dict[str, Any]
-    output: Optional[Any] = None
+    input: dict[str, Any]
+    output: Any | None = None
     is_error: bool
     started_at: datetime
-    finished_at: Optional[datetime] = None
+    finished_at: datetime | None = None
 
 
 class AgentToolUseCreate(BaseModel):
     tool_use_id: str = Field(min_length=1, max_length=200)
     tool_name: str = Field(min_length=1, max_length=200)
-    input: Dict[str, Any] = Field(default_factory=dict)
-    output: Optional[Any] = None
+    input: dict[str, Any] = Field(default_factory=dict)
+    output: Any | None = None
     is_error: bool = False
-    finished_at: Optional[datetime] = None
+    finished_at: datetime | None = None
 
 
 class AgentToolUsePatch(BaseModel):
-    output: Optional[Any] = None
-    is_error: Optional[bool] = None
-    finished_at: Optional[datetime] = None
+    output: Any | None = None
+    is_error: bool | None = None
+    finished_at: datetime | None = None
 
 
 class AgentMessageOut(BaseModel):
@@ -402,13 +404,13 @@ class AgentMessageOut(BaseModel):
     role: AgentRole
     content: str
     created_at: datetime
-    tool_uses: List[AgentToolUseOut] = []
+    tool_uses: list[AgentToolUseOut] = []
 
 
 class AgentMessageCreate(BaseModel):
     role: AgentRole
     content: str = ""
-    tool_uses: List[AgentToolUseCreate] = []
+    tool_uses: list[AgentToolUseCreate] = []
 
 
 class AgentMessageEdit(BaseModel):
@@ -418,23 +420,23 @@ class AgentMessageEdit(BaseModel):
 class AgentConversationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    title: Optional[str] = None
+    title: str | None = None
     model: str
     created_at: datetime
     updated_at: datetime
 
 
 class AgentConversationDetail(AgentConversationOut):
-    messages: List[AgentMessageOut] = []
+    messages: list[AgentMessageOut] = []
 
 
 class AgentConversationCreate(BaseModel):
-    title: Optional[str] = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
     model: str = Field(default="", max_length=200)
 
 
 class AgentConversationPatch(BaseModel):
-    title: Optional[str] = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
 
 
 class AiUsageReport(BaseModel):
@@ -444,8 +446,8 @@ class AiUsageReport(BaseModel):
 
 class AiUsageStatus(BaseModel):
     can_use_ai: bool
-    ai_monthly_token_limit: Optional[int] = None
-    ai_monthly_cost_limit_cents: Optional[int] = None
+    ai_monthly_token_limit: int | None = None
+    ai_monthly_cost_limit_cents: int | None = None
     ai_used_tokens_this_month: int = 0
     ai_used_cost_cents_this_month: int = 0
 
@@ -454,38 +456,38 @@ class WeekTemplateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
-    entries: List[PlanEntry]
+    entries: list[PlanEntry]
     created_at: datetime
     created_by: int
-    owner_user_id: Optional[int] = None
-    owner_household_id: Optional[int] = None
+    owner_user_id: int | None = None
+    owner_household_id: int | None = None
 
 
 class WeekTemplateCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    entries: List[PlanEntry]
+    entries: list[PlanEntry]
 
 
 class AgentToolEventOut(BaseModel):
     tool_use_id: str
     name: str
-    input: Dict[str, Any]
-    output: Optional[Any] = None
-    error: Optional[str] = None
+    input: dict[str, Any]
+    output: Any | None = None
+    error: str | None = None
 
 
 class AgentRunResponse(BaseModel):
     reply: str
-    tool_events: List[AgentToolEventOut] = []
-    changed: List[str] = []
+    tool_events: list[AgentToolEventOut] = []
+    changed: list[str] = []
     message_id: int
-    title: Optional[str] = None
+    title: str | None = None
 
 
 class MacroEstimateRequest(BaseModel):
     title: str
     servings: int = 1
-    ingredients: List[Ingredient]
+    ingredients: list[Ingredient]
 
 
 class MacroEstimateOut(BaseModel):

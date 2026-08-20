@@ -1,10 +1,14 @@
 """Tool schema definitions for the LLM (Anthropic + OpenAI flavors)."""
+
 from __future__ import annotations
 
 TOOL_DEFS = [
     {
         "name": "list_recipes",
-        "description": "Zwraca skróty wszystkich przepisów (bez składników i kroków). Po szczegóły użyj get_recipe.",
+        "description": (
+            "Zwraca skróty wszystkich przepisów (bez składników i kroków). "
+            "Po szczegóły użyj get_recipe."
+        ),
         "input_schema": {"type": "object", "properties": {}},
     },
     {
@@ -28,7 +32,10 @@ TOOL_DEFS = [
     },
     {
         "name": "filter_recipes",
-        "description": "Zwraca skróty przepisów spełniających kryteria (bez składników i kroków). Po szczegóły użyj get_recipe.",
+        "description": (
+            "Zwraca skróty przepisów spełniających kryteria (bez składników i kroków). "
+            "Po szczegóły użyj get_recipe."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {

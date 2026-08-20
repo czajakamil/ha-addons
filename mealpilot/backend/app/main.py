@@ -1,6 +1,6 @@
 import os
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,14 +9,15 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
 
-from .db import Base, engine, DB_PATH, SessionLocal
+from . import models
+from .db import DB_PATH, Base, SessionLocal, engine
 from .images import IMAGES_DIR
 from .middleware import CloudflareAccessMiddleware
-from .routers import admin_households, admin_users, agent, auth, mcp_sse, plan, recipes, settings as settings_router, shopping, templates as templates_router
-from . import models
+from .routers import admin_households, admin_users, agent, auth, mcp_sse, plan, recipes, shopping
+from .routers import settings as settings_router
+from .routers import templates as templates_router
 from .security import hash_password, verify_password
 from .seed import seed_for_user
-
 
 SECRET_FILE = Path(DB_PATH).parent / ".session_secret"
 
@@ -30,10 +31,8 @@ def _load_session_secret() -> str:
     SECRET_FILE.parent.mkdir(parents=True, exist_ok=True)
     secret = secrets.token_urlsafe(64)
     SECRET_FILE.write_text(secret)
-    try:
+    with suppress(OSError):
         os.chmod(SECRET_FILE, 0o600)
-    except OSError:
-        pass
     return secret
 
 
@@ -49,18 +48,37 @@ def _migrate(engine_) -> None:
                     text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0")
                 )
             if "can_use_ai" not in cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN can_use_ai BOOLEAN NOT NULL DEFAULT 1"))
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN can_use_ai BOOLEAN NOT NULL DEFAULT 1")
+                )
             if "ai_monthly_token_limit" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN ai_monthly_token_limit INTEGER"))
             if "ai_monthly_cost_limit_cents" not in cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN ai_monthly_cost_limit_cents INTEGER"))
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN ai_monthly_cost_limit_cents INTEGER")
+                )
             if "ai_used_tokens_this_month" not in cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN ai_used_tokens_this_month INTEGER NOT NULL DEFAULT 0"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN ai_used_tokens_this_month "
+                        "INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
             if "ai_used_cost_cents_this_month" not in cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN ai_used_cost_cents_this_month INTEGER NOT NULL DEFAULT 0"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN ai_used_cost_cents_this_month "
+                        "INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
             if "ai_usage_period_start" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN ai_usage_period_start DATETIME"))
-                conn.execute(text("UPDATE users SET ai_usage_period_start = CURRENT_TIMESTAMP WHERE ai_usage_period_start IS NULL"))
+                conn.execute(
+                    text(
+                        "UPDATE users SET ai_usage_period_start = CURRENT_TIMESTAMP "
+                        "WHERE ai_usage_period_start IS NULL"
+                    )
+                )
 
         # Add owner columns + backfill for resource tables
         for tname in ("recipes", "meal_plan_entries", "week_templates", "shopping_items"):
@@ -72,10 +90,12 @@ def _migrate(engine_) -> None:
             if "owner_household_id" not in cols:
                 conn.execute(text(f"ALTER TABLE {tname} ADD COLUMN owner_household_id INTEGER"))
             # Backfill: rows without any owner -> owned by creator (user_id)
-            conn.execute(text(
-                f"UPDATE {tname} SET owner_user_id = user_id "
-                f"WHERE owner_user_id IS NULL AND owner_household_id IS NULL"
-            ))
+            conn.execute(
+                text(
+                    f"UPDATE {tname} SET owner_user_id = user_id "
+                    f"WHERE owner_user_id IS NULL AND owner_household_id IS NULL"
+                )
+            )
 
         if "recipes" in tables:
             cols = {c["name"] for c in inspector.get_columns("recipes")}
@@ -88,11 +108,17 @@ def _migrate(engine_) -> None:
                     text("ALTER TABLE recipes ADD COLUMN meal_types JSON NOT NULL DEFAULT '[]'")
                 )
             if "is_meal_prep" not in cols:
-                conn.execute(text("ALTER TABLE recipes ADD COLUMN is_meal_prep BOOLEAN NOT NULL DEFAULT 0"))
+                conn.execute(
+                    text("ALTER TABLE recipes ADD COLUMN is_meal_prep BOOLEAN NOT NULL DEFAULT 0")
+                )
             if "meal_prep_days" not in cols:
                 conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_prep_days INTEGER"))
             if "meal_prep_steps" not in cols:
-                conn.execute(text("ALTER TABLE recipes ADD COLUMN meal_prep_steps JSON NOT NULL DEFAULT '[]'"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE recipes ADD COLUMN meal_prep_steps JSON NOT NULL DEFAULT '[]'"
+                    )
+                )
 
         if "meal_plan_entries" in tables:
             cols = {c["name"] for c in inspector.get_columns("meal_plan_entries")}
@@ -105,13 +131,19 @@ def _migrate(engine_) -> None:
                 conn.execute(text("ALTER TABLE shopping_items ADD COLUMN user_id INTEGER"))
             if "is_custom" not in cols:
                 conn.execute(
-                    text("ALTER TABLE shopping_items ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0")
+                    text(
+                        "ALTER TABLE shopping_items ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0"
+                    )
                 )
 
         if "agent_settings" in tables:
             cols = {c["name"] for c in inspector.get_columns("agent_settings")}
             if "ui_prefs" not in cols:
-                conn.execute(text("ALTER TABLE agent_settings ADD COLUMN ui_prefs JSON NOT NULL DEFAULT '{}'"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE agent_settings ADD COLUMN ui_prefs JSON NOT NULL DEFAULT '{}'"
+                    )
+                )
 
 
 def _provision_admin() -> None:

@@ -1,4 +1,5 @@
 """Testy agenta AI. LLM jest zamockowany — nie wykonujemy realnych wywołań sieci."""
+
 import pytest
 
 import app.routers.agent as agent_router
@@ -44,10 +45,14 @@ def test_run_persists_reply_and_tool_events(admin_client, monkeypatch):
     async def fake_run_agent(db, user, settings, history):
         return {
             "reply": "Dodałem przepis.",
-            "tool_events": [{
-                "tool_use_id": "tu1", "name": "create_recipe",
-                "input": {"title": "X"}, "output": {"ok": True},
-            }],
+            "tool_events": [
+                {
+                    "tool_use_id": "tu1",
+                    "name": "create_recipe",
+                    "input": {"title": "X"},
+                    "output": {"ok": True},
+                }
+            ],
             "changed": ["recipes"],
         }
 
@@ -58,8 +63,10 @@ def test_run_persists_reply_and_tool_events(admin_client, monkeypatch):
     monkeypatch.setattr(agent_router, "generate_conversation_title", fake_title)
 
     cid = admin_client.post("/api/agent/conversations", json={}).json()["id"]
-    admin_client.post(f"/api/agent/conversations/{cid}/messages",
-                      json={"role": "user", "content": "dodaj przepis"})
+    admin_client.post(
+        f"/api/agent/conversations/{cid}/messages",
+        json={"role": "user", "content": "dodaj przepis"},
+    )
 
     r = admin_client.post(f"/api/agent/conversations/{cid}/run")
     assert r.status_code == 200
@@ -87,8 +94,9 @@ def test_run_blocked_when_quota_exhausted(admin_client, monkeypatch):
     admin_client.post("/api/agent/usage/report", json={"tokens": 10})
 
     cid = admin_client.post("/api/agent/conversations", json={}).json()["id"]
-    admin_client.post(f"/api/agent/conversations/{cid}/messages",
-                      json={"role": "user", "content": "hej"})
+    admin_client.post(
+        f"/api/agent/conversations/{cid}/messages", json={"role": "user", "content": "hej"}
+    )
     r = admin_client.post(f"/api/agent/conversations/{cid}/run")
     assert r.status_code == 429
 
@@ -104,8 +112,10 @@ def test_stream_emits_text_then_done(admin_client, monkeypatch):
     monkeypatch.setenv("MEALPILOT_AI_API_KEY", "sk-test")
 
     cid = admin_client.post("/api/agent/conversations", json={}).json()["id"]
-    admin_client.post(f"/api/agent/conversations/{cid}/messages",
-                      json={"role": "user", "content": "powiedz cześć"})
+    admin_client.post(
+        f"/api/agent/conversations/{cid}/messages",
+        json={"role": "user", "content": "powiedz cześć"},
+    )
 
     r = admin_client.post(f"/api/agent/conversations/{cid}/stream")
     assert r.status_code == 200
@@ -123,8 +133,9 @@ def test_stream_errors_without_ai_config(admin_client, monkeypatch):
     monkeypatch.delenv("MEALPILOT_AI_API_URL", raising=False)
     monkeypatch.delenv("MEALPILOT_AI_API_KEY", raising=False)
     cid = admin_client.post("/api/agent/conversations", json={}).json()["id"]
-    admin_client.post(f"/api/agent/conversations/{cid}/messages",
-                      json={"role": "user", "content": "x"})
+    admin_client.post(
+        f"/api/agent/conversations/{cid}/messages", json={"role": "user", "content": "x"}
+    )
     r = admin_client.post(f"/api/agent/conversations/{cid}/stream")
     assert r.status_code == 200
     assert "error" in r.text and "MEALPILOT_AI_API_URL" in r.text

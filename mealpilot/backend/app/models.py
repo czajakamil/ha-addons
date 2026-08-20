@@ -1,6 +1,7 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Column,
@@ -9,7 +10,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
 )
@@ -19,7 +19,7 @@ from .db import Base
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class User(Base):
@@ -204,12 +204,12 @@ class WeekTemplate(Base):
 
 class RecipeRating(Base):
     __tablename__ = "recipe_ratings"
-    __table_args__ = (
-        UniqueConstraint("recipe_id", "user_id", name="uq_rating_recipe_user"),
-    )
+    __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_rating_recipe_user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipe_id = Column(
+        String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -218,12 +218,12 @@ class RecipeRating(Base):
 
 class RecipeNote(Base):
     __tablename__ = "recipe_notes"
-    __table_args__ = (
-        UniqueConstraint("recipe_id", "user_id", name="uq_note_recipe_user"),
-    )
+    __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_note_recipe_user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipe_id = Column(
+        String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     note = Column(String, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -257,9 +257,7 @@ class ShoppingItem(Base):
     checked = Column(Integer, nullable=False, default=0)
     is_custom = Column(Integer, nullable=False, default=0)
 
-    sources = relationship(
-        "ShoppingItemRecipe", cascade="all, delete-orphan", lazy="selectin"
-    )
+    sources = relationship("ShoppingItemRecipe", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def recipe_ids(self) -> list[str]:

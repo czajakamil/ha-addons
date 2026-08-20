@@ -1,12 +1,13 @@
 """Tool handler implementations — direct DB access."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from ... import models
-from ...ownership import visible_filter, get_household_id, default_owner_kwargs
+from ...ownership import default_owner_kwargs, get_household_id, visible_filter
 from ..helpers import (
     attach_recipe_source,
     category_of,
@@ -22,13 +23,13 @@ from ..helpers import (
 )
 
 
-def tool_list_recipes(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
+def tool_list_recipes(db: Session, user: models.User, _args: dict[str, Any]) -> Any:
     hh = get_household_id(db, user.id)
     rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     return [recipe_to_summary(r) for r in rows]
 
 
-def tool_get_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_get_recipe(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     recipe_id = str(args.get("recipe_id", ""))
     hh = get_household_id(db, user.id)
     r = (
@@ -41,29 +42,29 @@ def tool_get_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any
     return recipe_to_dict(r)
 
 
-def tool_list_tags(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
+def tool_list_tags(db: Session, user: models.User, _args: dict[str, Any]) -> Any:
     hh = get_household_id(db, user.id)
     rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set = set()
     for r in rows:
-        for t in (r.tags or []):
+        for t in r.tags or []:
             if isinstance(t, str) and t:
                 out.add(t)
     return {"tags": sorted(out)}
 
 
-def tool_list_meal_types(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
+def tool_list_meal_types(db: Session, user: models.User, _args: dict[str, Any]) -> Any:
     hh = get_household_id(db, user.id)
     rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set = set()
     for r in rows:
-        for m in (r.meal_types or []):
+        for m in r.meal_types or []:
             if isinstance(m, str) and m:
                 out.add(m)
     return {"meal_types": sorted(out)}
 
 
-def tool_filter_recipes(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_filter_recipes(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     hh = get_household_id(db, user.id)
     rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     tags_filter = list(args.get("tags") or [])
@@ -87,7 +88,7 @@ def tool_filter_recipes(db: Session, user: models.User, args: Dict[str, Any]) ->
     return result
 
 
-def tool_create_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_create_recipe(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     title = str(args.get("title", ""))
     recipe_id = slugify(str(args.get("id", ""))) or slugify(title)
     if not recipe_id:
@@ -123,7 +124,7 @@ def tool_create_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     return recipe_to_dict(r)
 
 
-def tool_update_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_update_recipe(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     recipe_id = str(args.get("recipe_id", ""))
     hh = get_household_id(db, user.id)
     r = (
@@ -133,8 +134,21 @@ def tool_update_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     )
     if not r:
         raise ValueError(f"Recipe not found: {recipe_id}")
-    updatable = ["title", "tags", "servings", "prep_time", "cook_time",
-                 "kcal", "p", "f", "c", "hue", "ingredients", "steps", "meal_types"]
+    updatable = [
+        "title",
+        "tags",
+        "servings",
+        "prep_time",
+        "cook_time",
+        "kcal",
+        "p",
+        "f",
+        "c",
+        "hue",
+        "ingredients",
+        "steps",
+        "meal_types",
+    ]
     for key in updatable:
         if key in args and args[key] is not None:
             value = args[key]
@@ -146,7 +160,7 @@ def tool_update_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     return recipe_to_dict(r)
 
 
-def tool_delete_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_delete_recipe(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     recipe_id = str(args.get("recipe_id", ""))
     hh = get_household_id(db, user.id)
     r = (
@@ -157,10 +171,14 @@ def tool_delete_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     if not r:
         raise ValueError(f"Recipe not found: {recipe_id}")
     affected_weeks = {
-        w for (w,) in db.query(models.MealPlanEntry.week_start).filter(
+        w
+        for (w,) in db.query(models.MealPlanEntry.week_start)
+        .filter(
             models.MealPlanEntry.recipe_id == recipe_id,
             visible_filter(models.MealPlanEntry, user, hh),
-        ).distinct().all()
+        )
+        .distinct()
+        .all()
     }
     db.query(models.MealPlanEntry).filter(
         models.MealPlanEntry.recipe_id == recipe_id,
@@ -176,7 +194,7 @@ def tool_delete_recipe(db: Session, user: models.User, args: Dict[str, Any]) -> 
     return {"deleted": recipe_id}
 
 
-def _get_plan_entries(db: Session, user: models.User, week_start: str) -> List[Dict[str, Any]]:
+def _get_plan_entries(db: Session, user: models.User, week_start: str) -> list[dict[str, Any]]:
     hh = get_household_id(db, user.id)
     rows = (
         db.query(models.MealPlanEntry)
@@ -190,44 +208,49 @@ def _get_plan_entries(db: Session, user: models.User, week_start: str) -> List[D
     return [plan_entry_to_dict(e) for e in rows]
 
 
-def _enrich_plan(db: Session, user: models.User, week_start: str, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _enrich_plan(
+    db: Session, user: models.User, week_start: str, entries: list[dict[str, Any]]
+) -> dict[str, Any]:
     hh = get_household_id(db, user.id)
     recipe_ids = {e["recipe_id"] for e in entries}
     recipes = {}
     if recipe_ids:
-        for r in db.query(models.Recipe).filter(
-            models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh)
-        ).all():
+        for r in (
+            db.query(models.Recipe)
+            .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
+            .all()
+        ):
             recipes[r.id] = r.title
-    enriched = [
-        {**e, "recipe_title": recipes.get(e["recipe_id"], "")}
-        for e in entries
-    ]
+    enriched = [{**e, "recipe_title": recipes.get(e["recipe_id"], "")} for e in entries]
     return {"week_start": week_start, "entries": enriched}
 
 
-def tool_get_week_plan(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_get_week_plan(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     entries = _get_plan_entries(db, user, week_start)
     return _enrich_plan(db, user, week_start, entries)
 
 
-def tool_get_current_week_plan(db: Session, user: models.User, _args: Dict[str, Any]) -> Any:
+def tool_get_current_week_plan(db: Session, user: models.User, _args: dict[str, Any]) -> Any:
     week_start = current_week_start()
     entries = _get_plan_entries(db, user, week_start)
     return _enrich_plan(db, user, week_start, entries)
 
 
-def _replace_plan(db: Session, user: models.User, week_start: str, entries: List[Dict[str, Any]]) -> None:
+def _replace_plan(
+    db: Session, user: models.User, week_start: str, entries: list[dict[str, Any]]
+) -> None:
     hh = get_household_id(db, user.id)
     recipe_ids = {str(e["recipe_id"]) for e in entries if e.get("recipe_id")}
     if recipe_ids:
         visible_ids = {
             r.id
-            for r in db.query(models.Recipe.id).filter(
+            for r in db.query(models.Recipe.id)
+            .filter(
                 models.Recipe.id.in_(recipe_ids),
                 visible_filter(models.Recipe, user, hh),
-            ).all()
+            )
+            .all()
         }
         missing = recipe_ids - visible_ids
         if missing:
@@ -251,7 +274,7 @@ def _replace_plan(db: Session, user: models.User, week_start: str, entries: List
     db.commit()
 
 
-def tool_set_week_plan(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_set_week_plan(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     raw_entries = list(args.get("entries") or [])
     entries = [{**e, "meal": normalize_meal(str(e.get("meal", "")))} for e in raw_entries]
@@ -260,7 +283,7 @@ def tool_set_week_plan(db: Session, user: models.User, args: Dict[str, Any]) -> 
     return _enrich_plan(db, user, week_start, result_entries)
 
 
-def tool_add_plan_entry(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_add_plan_entry(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     day = int(args.get("day", 0))
     meal = normalize_meal(str(args.get("meal", "")))
@@ -275,7 +298,7 @@ def tool_add_plan_entry(db: Session, user: models.User, args: Dict[str, Any]) ->
     return _enrich_plan(db, user, week_start, result_entries)
 
 
-def tool_remove_plan_entry(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_remove_plan_entry(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     day = int(args.get("day", 0))
     meal = normalize_meal(str(args.get("meal", "")))
@@ -287,19 +310,21 @@ def tool_remove_plan_entry(db: Session, user: models.User, args: Dict[str, Any])
     return _enrich_plan(db, user, week_start, result_entries)
 
 
-def tool_get_week_nutrition_summary(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_get_week_nutrition_summary(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     plan_entries = _get_plan_entries(db, user, week_start)
     recipe_ids = {e["recipe_id"] for e in plan_entries}
-    recipes: Dict[str, models.Recipe] = {}
+    recipes: dict[str, models.Recipe] = {}
     if recipe_ids:
         hh = get_household_id(db, user.id)
-        for r in db.query(models.Recipe).filter(
-            models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh)
-        ).all():
+        for r in (
+            db.query(models.Recipe)
+            .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
+            .all()
+        ):
             recipes[r.id] = r
 
-    out: Dict[int, Dict[str, float]] = {d: {"kcal": 0, "p": 0, "f": 0, "c": 0} for d in range(7)}
+    out: dict[int, dict[str, float]] = {d: {"kcal": 0, "p": 0, "f": 0, "c": 0} for d in range(7)}
     for e in plan_entries:
         r = recipes.get(e["recipe_id"])
         if not r or not r.servings:
@@ -319,7 +344,7 @@ def tool_get_week_nutrition_summary(db: Session, user: models.User, args: Dict[s
     }
 
 
-def tool_get_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_get_shopping_list(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     hh = get_household_id(db, user.id)
     rows = (
@@ -369,23 +394,23 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
         return
 
     recipe_ids = {p.recipe_id for p in plan_rows}
-    recipes: Dict[str, models.Recipe] = {
+    recipes: dict[str, models.Recipe] = {
         r.id: r
         for r in db.query(models.Recipe)
         .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
         .all()
     }
 
-    aggregate: Dict[Tuple[str, str], float] = {}
-    display_name: Dict[Tuple[str, str], str] = {}
-    sources: Dict[Tuple[str, str], set] = {}
+    aggregate: dict[tuple[str, str], float] = {}
+    display_name: dict[tuple[str, str], str] = {}
+    sources: dict[tuple[str, str], set] = {}
 
     for entry in plan_rows:
         rec = recipes.get(entry.recipe_id)
         if not rec or not rec.servings:
             continue
         scale = (entry.servings or 0) / float(rec.servings)
-        for ing in (rec.ingredients or []):
+        for ing in rec.ingredients or []:
             name = (ing.get("name") or "").strip()
             if not name:
                 continue
@@ -405,7 +430,7 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
         )
         .all()
     )
-    prev_checked: Dict[Tuple[str, str], int] = {
+    prev_checked: dict[tuple[str, str], int] = {
         (it.name.lower(), it.unit): it.checked for it in existing if not it.is_custom
     }
 
@@ -431,13 +456,13 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
     db.commit()
 
 
-def tool_generate_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_generate_shopping_list(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     regenerate_auto_shopping(db, user, week_start)
     return tool_get_shopping_list(db, user, args)
 
 
-def tool_check_shopping_item(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_check_shopping_item(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     item_id = int(args.get("item_id", 0))
     checked = bool(args.get("checked", False))
 
@@ -458,7 +483,7 @@ def tool_check_shopping_item(db: Session, user: models.User, args: Dict[str, Any
     return shopping_item_to_dict(item)
 
 
-def tool_add_shopping_item(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_add_shopping_item(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     name = str(args.get("name", "")).strip()
     if not name:
@@ -504,7 +529,7 @@ def tool_add_shopping_item(db: Session, user: models.User, args: Dict[str, Any])
     return shopping_item_to_dict(item)
 
 
-def tool_remove_shopping_item(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_remove_shopping_item(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     item_id = int(args.get("item_id", 0))
 
     hh = get_household_id(db, user.id)
@@ -524,7 +549,7 @@ def tool_remove_shopping_item(db: Session, user: models.User, args: Dict[str, An
     return {"deleted": item_id}
 
 
-def tool_clear_shopping_list(db: Session, user: models.User, args: Dict[str, Any]) -> Any:
+def tool_clear_shopping_list(db: Session, user: models.User, args: dict[str, Any]) -> Any:
     week_start = str(args.get("week_start", ""))
     hh = get_household_id(db, user.id)
     ids = [

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import ADMIN_PASSWORD, ADMIN_USERNAME
+from tests.conftest import ADMIN_USERNAME
 
 pytestmark = pytest.mark.integration
 
@@ -53,10 +53,13 @@ def test_login_rate_limited_after_10_attempts(admin_client, new_client):
 
 
 def test_change_password_invalidates_other_sessions_and_keys(make_user, new_client):
-    c1, uid = make_user("bob")
+    c1, _uid = make_user("bob")
     # Drugi klient zalogowany jako ten sam user (osobna sesja).
     c2 = new_client()
-    assert c2.post("/api/auth/login", json={"username": "bob", "password": "UserPass1234"}).status_code == 200
+    assert (
+        c2.post("/api/auth/login", json={"username": "bob", "password": "UserPass1234"}).status_code
+        == 200
+    )
     # Bob tworzy klucz API.
     assert c1.post("/api/auth/api-keys", json={"name": "k"}).status_code == 201
 

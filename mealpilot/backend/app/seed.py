@@ -1,5 +1,7 @@
 """Seed initial recipes and a starting week plan if the DB is empty."""
+
 from sqlalchemy.orm import Session
+
 from . import models
 
 RECIPES = [
@@ -7,8 +9,14 @@ RECIPES = [
         "id": "kurczak_z_ryzem",
         "title": "Kurczak z ryżem i warzywami",
         "tags": ["lunch", "high-protein", "meal-prep"],
-        "servings": 4, "prep_time": 15, "cook_time": 30,
-        "kcal": 612, "p": 48, "f": 14, "c": 72, "hue": 38,
+        "servings": 4,
+        "prep_time": 15,
+        "cook_time": 30,
+        "kcal": 612,
+        "p": 48,
+        "f": 14,
+        "c": 72,
+        "hue": 38,
         "ingredients": [
             {"name": "pierś kurczaka", "qty": 600, "unit": "g"},
             {"name": "ryż basmati", "qty": 300, "unit": "g"},
@@ -31,8 +39,14 @@ RECIPES = [
         "id": "owsianka_z_owocami",
         "title": "Owsianka z owocami i orzechami",
         "tags": ["śniadanie", "vege", "szybkie"],
-        "servings": 1, "prep_time": 5, "cook_time": 8,
-        "kcal": 420, "p": 16, "f": 12, "c": 62, "hue": 70,
+        "servings": 1,
+        "prep_time": 5,
+        "cook_time": 8,
+        "kcal": 420,
+        "p": 16,
+        "f": 12,
+        "c": 62,
+        "hue": 70,
         "ingredients": [
             {"name": "płatki owsiane", "qty": 60, "unit": "g"},
             {"name": "mleko", "qty": 250, "unit": "ml"},
@@ -51,8 +65,14 @@ RECIPES = [
         "id": "salatka_grecka",
         "title": "Sałatka grecka z fetą",
         "tags": ["kolacja", "vege", "letnie"],
-        "servings": 2, "prep_time": 15, "cook_time": 0,
-        "kcal": 380, "p": 14, "f": 28, "c": 18, "hue": 130,
+        "servings": 2,
+        "prep_time": 15,
+        "cook_time": 0,
+        "kcal": 380,
+        "p": 14,
+        "f": 28,
+        "c": 18,
+        "hue": 130,
         "ingredients": [
             {"name": "ogórek", "qty": 1, "unit": "szt"},
             {"name": "pomidor", "qty": 3, "unit": "szt"},
@@ -72,8 +92,14 @@ RECIPES = [
         "id": "losos_pieczony",
         "title": "Łosoś pieczony z brokułem",
         "tags": ["obiad", "high-protein", "omega-3"],
-        "servings": 2, "prep_time": 10, "cook_time": 25,
-        "kcal": 540, "p": 42, "f": 28, "c": 22, "hue": 12,
+        "servings": 2,
+        "prep_time": 10,
+        "cook_time": 25,
+        "kcal": 540,
+        "p": 42,
+        "f": 28,
+        "c": 22,
+        "hue": 12,
         "ingredients": [
             {"name": "filet z łososia", "qty": 400, "unit": "g"},
             {"name": "brokuł", "qty": 1, "unit": "szt"},
@@ -93,8 +119,14 @@ RECIPES = [
         "id": "kasza_z_warzywami",
         "title": "Kasza gryczana z pieczarkami",
         "tags": ["obiad", "vege", "tanio"],
-        "servings": 3, "prep_time": 10, "cook_time": 25,
-        "kcal": 410, "p": 14, "f": 10, "c": 64, "hue": 50,
+        "servings": 3,
+        "prep_time": 10,
+        "cook_time": 25,
+        "kcal": 410,
+        "p": 14,
+        "f": 10,
+        "c": 64,
+        "hue": 50,
         "ingredients": [
             {"name": "kasza gryczana", "qty": 250, "unit": "g"},
             {"name": "pieczarki", "qty": 300, "unit": "g"},
@@ -114,8 +146,14 @@ RECIPES = [
         "id": "zupa_pomidorowa",
         "title": "Zupa pomidorowa z ryżem",
         "tags": ["obiad", "vege", "comfort"],
-        "servings": 4, "prep_time": 10, "cook_time": 30,
-        "kcal": 280, "p": 8, "f": 8, "c": 42, "hue": 25,
+        "servings": 4,
+        "prep_time": 10,
+        "cook_time": 30,
+        "kcal": 280,
+        "p": 8,
+        "f": 8,
+        "c": 42,
+        "hue": 25,
         "ingredients": [
             {"name": "passata pomidorowa", "qty": 700, "unit": "g"},
             {"name": "bulion warzywny", "qty": 1, "unit": "l"},
@@ -135,8 +173,14 @@ RECIPES = [
         "id": "tofu_stir_fry",
         "title": "Tofu stir-fry z makaronem",
         "tags": ["kolacja", "vege", "azjatycka"],
-        "servings": 2, "prep_time": 15, "cook_time": 15,
-        "kcal": 520, "p": 24, "f": 16, "c": 68, "hue": 95,
+        "servings": 2,
+        "prep_time": 15,
+        "cook_time": 15,
+        "kcal": 520,
+        "p": 24,
+        "f": 16,
+        "c": 68,
+        "hue": 95,
         "ingredients": [
             {"name": "tofu", "qty": 250, "unit": "g"},
             {"name": "makaron ryżowy", "qty": 200, "unit": "g"},
@@ -157,8 +201,14 @@ RECIPES = [
         "id": "jajecznica",
         "title": "Jajecznica z awokado",
         "tags": ["śniadanie", "high-protein", "szybkie"],
-        "servings": 1, "prep_time": 5, "cook_time": 5,
-        "kcal": 380, "p": 22, "f": 28, "c": 8, "hue": 80,
+        "servings": 1,
+        "prep_time": 5,
+        "cook_time": 5,
+        "kcal": 380,
+        "p": 22,
+        "f": 28,
+        "c": 8,
+        "hue": 80,
         "ingredients": [
             {"name": "jajko", "qty": 3, "unit": "szt"},
             {"name": "awokado", "qty": 0.5, "unit": "szt"},
@@ -196,9 +246,7 @@ PLAN = [
 
 def seed_for_user(db: Session, user_id: int) -> None:
     """Seed demo recipes and a starter plan for a fresh user account."""
-    has_recipes = (
-        db.query(models.Recipe).filter(models.Recipe.created_by == user_id).count() > 0
-    )
+    has_recipes = db.query(models.Recipe).filter(models.Recipe.created_by == user_id).count() > 0
     if not has_recipes:
         for r in RECIPES:
             data = {**r, "id": f"u{user_id}_{r['id']}"}
@@ -206,16 +254,20 @@ def seed_for_user(db: Session, user_id: int) -> None:
         db.commit()
 
     has_plan = (
-        db.query(models.MealPlanEntry)
-        .filter(models.MealPlanEntry.created_by == user_id)
-        .count() > 0
+        db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).count()
+        > 0
     )
     if not has_plan:
         for day, meal, recipe_id in PLAN:
-            db.add(models.MealPlanEntry(
-                created_by=user_id,
-                owner_user_id=user_id,
-                week_start=WEEK_START,
-                day=day, meal=meal, recipe_id=f"u{user_id}_{recipe_id}", servings=1,
-            ))
+            db.add(
+                models.MealPlanEntry(
+                    created_by=user_id,
+                    owner_user_id=user_id,
+                    week_start=WEEK_START,
+                    day=day,
+                    meal=meal,
+                    recipe_id=f"u{user_id}_{recipe_id}",
+                    servings=1,
+                )
+            )
         db.commit()

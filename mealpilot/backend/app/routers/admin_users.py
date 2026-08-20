@@ -1,4 +1,4 @@
-from typing import List
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -15,8 +15,11 @@ router = APIRouter(prefix="/api/admin/users", tags=["admin"])
 def _user_admin_out(db: Session, user: models.User) -> schemas.UserAdminOut:
     m = db.get(models.HouseholdMember, user.id)
     return schemas.UserAdminOut(
-        id=user.id, username=user.username, role=user.role,
-        is_active=bool(user.is_active), created_at=user.created_at,
+        id=user.id,
+        username=user.username,
+        role=user.role,
+        is_active=bool(user.is_active),
+        created_at=user.created_at,
         can_use_ai=bool(user.can_use_ai),
         ai_monthly_token_limit=user.ai_monthly_token_limit,
         ai_monthly_cost_limit_cents=user.ai_monthly_cost_limit_cents,
@@ -35,7 +38,7 @@ def _admin_count(db: Session) -> int:
     )
 
 
-@router.get("", response_model=List[schemas.UserAdminOut])
+@router.get("", response_model=list[schemas.UserAdminOut])
 def list_users(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
@@ -78,10 +81,11 @@ def reset_ai_usage(
     user = db.get(models.User, user_id)
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     user.ai_used_tokens_this_month = 0
     user.ai_used_cost_cents_this_month = 0
-    user.ai_usage_period_start = datetime.now(timezone.utc)
+    user.ai_usage_period_start = datetime.now(UTC)
     db.commit()
     return None
 
@@ -109,11 +113,13 @@ def assign_to_household(
             existing.household_id = payload.household_id
             existing.can_edit = payload.can_edit
         else:
-            db.add(models.HouseholdMember(
-                user_id=user_id,
-                household_id=payload.household_id,
-                can_edit=payload.can_edit,
-            ))
+            db.add(
+                models.HouseholdMember(
+                    user_id=user_id,
+                    household_id=payload.household_id,
+                    can_edit=payload.can_edit,
+                )
+            )
         db.commit()
     db.refresh(user)
     return _user_admin_out(db, user)
@@ -136,7 +142,7 @@ def create_user(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists") from None
     db.refresh(user)
     return _user_admin_out(db, user)
 
@@ -152,9 +158,10 @@ def update_user(
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
 
-    would_lose_last_admin = user.role == "admin" and user.is_active and (
-        (payload.role is not None and payload.role != "admin")
-        or (payload.is_active is False)
+    would_lose_last_admin = (
+        user.role == "admin"
+        and user.is_active
+        and ((payload.role is not None and payload.role != "admin") or (payload.is_active is False))
     )
     if would_lose_last_admin and _admin_count(db) <= 1:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot demote/disable the last admin")
@@ -178,7 +185,7 @@ def update_user(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists") from None
     db.refresh(user)
     return _user_admin_out(db, user)
 

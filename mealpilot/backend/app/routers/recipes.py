@@ -1,7 +1,6 @@
 import json
 import os
 import re
-from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -9,10 +8,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..ai_usage import check_quota, record_usage
 from ..db import get_db
 from ..dependencies import get_current_user
 from ..images import ALLOWED_CONTENT_TYPES, IMAGES_DIR, MAX_IMAGE_BYTES
-from ..ai_usage import check_quota, record_usage
 from ..ownership import (
     can_edit,
     can_view,
@@ -96,20 +95,20 @@ def _editable_recipe(db: Session, user: models.User, recipe_id: str) -> models.R
     return r
 
 
-def _split_csv(value: Optional[str]) -> List[str]:
+def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
-@router.get("", response_model=List[schemas.Recipe])
+@router.get("", response_model=list[schemas.Recipe])
 def list_recipes(
-    tags: Optional[str] = Query(default=None),
-    meal_types: Optional[str] = Query(default=None),
-    max_kcal: Optional[float] = Query(default=None),
-    min_protein: Optional[float] = Query(default=None),
-    min_my_rating: Optional[int] = Query(default=None, ge=1, le=5),
-    min_avg_rating: Optional[float] = Query(default=None, ge=1.0, le=5.0),
+    tags: str | None = Query(default=None),
+    meal_types: str | None = Query(default=None),
+    max_kcal: float | None = Query(default=None),
+    min_protein: float | None = Query(default=None),
+    min_my_rating: int | None = Query(default=None, ge=1, le=5),
+    min_avg_rating: float | None = Query(default=None, ge=1.0, le=5.0),
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -128,7 +127,7 @@ def list_recipes(
             return False
         if max_kcal is not None and (r.kcal or 0) > max_kcal:
             return False
-        if min_protein is not None and (r.p or 0) < min_protein:
+        if min_protein is not None and (r.p or 0) < min_protein:  # noqa: SIM103
             return False
         return True
 
@@ -137,12 +136,10 @@ def list_recipes(
 
     result = []
     for d in enriched:
-        if min_my_rating is not None:
-            if d.get("my_rating") is None or d["my_rating"] < min_my_rating:
-                continue
-        if min_avg_rating is not None:
-            if d.get("avg_rating") is None or d["avg_rating"] < min_avg_rating:
-                continue
+        if min_my_rating is not None and (d.get("my_rating") is None or d["my_rating"] < min_my_rating):
+            continue
+        if min_avg_rating is not None and (d.get("avg_rating") is None or d["avg_rating"] < min_avg_rating):
+            continue
         result.append(d)
     return result
 
@@ -156,7 +153,7 @@ def list_tags_meta(
     rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set[str] = set()
     for r in rows:
-        for t in (r.tags or []):
+        for t in r.tags or []:
             if isinstance(t, str) and t:
                 out.add(t)
     return {"tags": sorted(out)}
@@ -171,7 +168,7 @@ def list_meal_types_meta(
     rows = db.query(models.Recipe).filter(visible_filter(models.Recipe, user, hh)).all()
     out: set[str] = set()
     for r in rows:
-        for m in (r.meal_types or []):
+        for m in r.meal_types or []:
             if isinstance(m, str) and m:
                 out.add(m)
     return {"meal_types": sorted(out)}
@@ -181,7 +178,14 @@ def _is_anthropic(endpoint: str) -> bool:
     return "anthropic.com" in endpoint or "/v1/messages" in endpoint
 
 
-async def _call_llm(endpoint: str, api_key: str, model: str, prompt: str, json_mode: bool = False, system_prompt: str | None = None) -> str:
+async def _call_llm(
+    endpoint: str,
+    api_key: str,
+    model: str,
+    prompt: str,
+    json_mode: bool = False,
+    system_prompt: str | None = None,
+) -> str:
     if _is_anthropic(endpoint):
         headers = {
             "Content-Type": "application/json",
@@ -235,14 +239,18 @@ async def estimate_macros(
     settings = db.get(models.AgentSettings, user.id)
     model = (settings.model if settings else "") or ""
     if not endpoint or not api_key:
-        raise HTTPException(424, "Brak konfiguracji MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY w ustawieniach Home Assistant.")
+        raise HTTPException(
+            424,
+            "Brak konfiguracji MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY "
+            "w ustawieniach Home Assistant.",
+        )
     if not model:
         raise HTTPException(424, "Skonfiguruj model w Ustawieniach agenta.")
 
-    ing_lines = "\n".join(
-        f"- {i.name}: {i.qty} {i.unit}"
-        for i in payload.ingredients
-    ) or "(brak składników)"
+    ing_lines = (
+        "\n".join(f"- {i.name}: {i.qty} {i.unit}" for i in payload.ingredients)
+        or "(brak składników)"
+    )
 
     prompt = (
         f"Przepis: {payload.title}\n"
@@ -255,20 +263,26 @@ async def estimate_macros(
 
     try:
         text = await _call_llm(
-            endpoint, api_key, model, prompt,
+            endpoint,
+            api_key,
+            model,
+            prompt,
             json_mode=True,
-            system_prompt="You are a nutrition data API. Always respond with raw JSON only, no markdown, no explanation.",
+            system_prompt=(
+                "You are a nutrition data API. "
+                "Always respond with raw JSON only, no markdown, no explanation."
+            ),
         )
     except httpx.HTTPStatusError as e:
-        raise HTTPException(502, f"Błąd LLM: {e.response.status_code} {e.response.text[:200]}")
+        raise HTTPException(502, f"Błąd LLM: {e.response.status_code} {e.response.text[:200]}") from e
     except Exception as e:
-        raise HTTPException(502, f"Błąd LLM: {e}")
+        raise HTTPException(502, f"Błąd LLM: {e}") from e
     # Rough estimate (server-side LLM call): ~ prompt + response chars / 4
     approx_tokens = max(1, (len(prompt) + len(text)) // 4)
     record_usage(db, user, tokens=approx_tokens)
     db.commit()
 
-    match = re.search(r'\{[^}]+\}', text, re.DOTALL)
+    match = re.search(r"\{[^}]+\}", text, re.DOTALL)
     if not match:
         raise HTTPException(502, f"LLM nie zwrócił JSON: {text[:200]}")
     try:
@@ -280,7 +294,7 @@ async def estimate_macros(
             c=float(data["c"]),
         )
     except (KeyError, ValueError, json.JSONDecodeError) as e:
-        raise HTTPException(502, f"Nie można sparsować odpowiedzi LLM: {e}")
+        raise HTTPException(502, f"Nie można sparsować odpowiedzi LLM: {e}") from e
 
 
 @router.get("/{recipe_id}", response_model=schemas.Recipe)
@@ -302,7 +316,9 @@ def create_recipe(
     if db.get(models.Recipe, payload.id):
         raise HTTPException(409, "Recipe with this id already exists")
     data = payload.model_dump()
-    data["ingredients"] = [i if isinstance(i, dict) else i.model_dump() for i in data["ingredients"]]
+    data["ingredients"] = [
+        i if isinstance(i, dict) else i.model_dump() for i in data["ingredients"]
+    ]
     r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), **data)
     db.add(r)
     db.commit()
@@ -338,13 +354,15 @@ def delete_recipe(
 ):
     r = _editable_recipe(db, user, recipe_id)
     affected_weeks = {
-        w for (w,) in db.query(models.MealPlanEntry.week_start)
+        w
+        for (w,) in db.query(models.MealPlanEntry.week_start)
         .filter(models.MealPlanEntry.recipe_id == recipe_id)
-        .distinct().all()
+        .distinct()
+        .all()
     }
-    db.query(models.MealPlanEntry).filter(
-        models.MealPlanEntry.recipe_id == recipe_id
-    ).delete(synchronize_session=False)
+    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.recipe_id == recipe_id).delete(
+        synchronize_session=False
+    )
     db.query(models.ShoppingItemRecipe).filter(
         models.ShoppingItemRecipe.recipe_id == recipe_id
     ).delete(synchronize_session=False)
@@ -352,6 +370,7 @@ def delete_recipe(
     db.commit()
     if affected_weeks:
         from ..agent.tools import regenerate_auto_shopping
+
         for week_start in affected_weeks:
             regenerate_auto_shopping(db, user, week_start)
     return None

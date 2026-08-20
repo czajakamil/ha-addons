@@ -1,5 +1,4 @@
 import re
-from typing import Dict, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -35,7 +34,7 @@ def _category_of(name: str) -> str:
     return "Inne"
 
 
-def _normalize_unit_qty(unit: str, qty: float) -> Tuple[str, float]:
+def _normalize_unit_qty(unit: str, qty: float) -> tuple[str, float]:
     u = (unit or "").strip().lower()
     if u == "kg":
         return "g", qty * 1000.0
@@ -44,7 +43,7 @@ def _normalize_unit_qty(unit: str, qty: float) -> Tuple[str, float]:
     return u, qty
 
 
-@router.get("/{week_start}", response_model=List[schemas.ShoppingItemOut])
+@router.get("/{week_start}", response_model=list[schemas.ShoppingItemOut])
 def get_shopping_list(
     week_start: str,
     db: Session = Depends(get_db),
@@ -64,7 +63,7 @@ def get_shopping_list(
 
 @router.post(
     "/{week_start}/generate",
-    response_model=List[schemas.ShoppingItemOut],
+    response_model=list[schemas.ShoppingItemOut],
 )
 def generate_shopping_list(
     week_start: str,
@@ -79,6 +78,7 @@ def generate_shopping_list(
         )
         .all()
     )
+
     def _delete_generated_items() -> None:
         old_ids = [
             i
@@ -103,23 +103,26 @@ def generate_shopping_list(
         return get_shopping_list(week_start, db, user)
 
     recipe_ids = {p.recipe_id for p in plan_rows}
-    recipes: Dict[str, models.Recipe] = {
+    recipes: dict[str, models.Recipe] = {
         r.id: r
         for r in db.query(models.Recipe)
-        .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, get_household_id(db, user.id)))
+        .filter(
+            models.Recipe.id.in_(recipe_ids),
+            visible_filter(models.Recipe, user, get_household_id(db, user.id)),
+        )
         .all()
     }
 
-    aggregate: Dict[Tuple[str, str], float] = {}
-    display_name: Dict[Tuple[str, str], str] = {}
-    sources: Dict[Tuple[str, str], set] = {}
+    aggregate: dict[tuple[str, str], float] = {}
+    display_name: dict[tuple[str, str], str] = {}
+    sources: dict[tuple[str, str], set] = {}
 
     for entry in plan_rows:
         rec = recipes.get(entry.recipe_id)
         if not rec or not rec.servings:
             continue
         scale = (entry.servings or 0) / float(rec.servings)
-        for ing in (rec.ingredients or []):
+        for ing in rec.ingredients or []:
             name = (ing.get("name") or "").strip()
             if not name:
                 continue
@@ -139,7 +142,7 @@ def generate_shopping_list(
         )
         .all()
     )
-    prev_checked: Dict[Tuple[str, str], int] = {
+    prev_checked: dict[tuple[str, str], int] = {
         (it.name.lower(), it.unit): it.checked for it in existing if not it.is_custom
     }
 

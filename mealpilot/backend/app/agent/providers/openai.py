@@ -1,9 +1,11 @@
 """OpenAI-compatible agent loop."""
+
 from __future__ import annotations
 
 import json
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 from sqlalchemy.orm import Session
@@ -19,13 +21,13 @@ async def run_openai(
     api_key: str,
     model: str,
     system_prompt: str,
-    history: List[Dict[str, Any]],
+    history: list[dict[str, Any]],
     db: Session,
     user: models.User,
-    tool_events: List[Dict[str, Any]],
+    tool_events: list[dict[str, Any]],
     changed_set: set,
 ) -> str:
-    messages: List[Dict[str, Any]] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         *history,
     ]
@@ -72,7 +74,7 @@ async def run_openai(
 
             # Strip extra fields (refusal, audio, …) that newer models return
             # but the API rejects when echoed back in the request.
-            clean_msg: Dict[str, Any] = {"role": msg["role"], "content": msg.get("content")}
+            clean_msg: dict[str, Any] = {"role": msg["role"], "content": msg.get("content")}
             if tool_calls:
                 clean_msg["tool_calls"] = tool_calls
             messages.append(clean_msg)
@@ -85,18 +87,22 @@ async def run_openai(
                     input_args = {}
 
                 result_text, is_error = call_tool(db, user, name, input_args, changed_set)
-                tool_events.append({
-                    "tool_use_id": call_id,
-                    "name": name,
-                    "input": input_args,
-                    "output": None if is_error else safe_json_parse(result_text),
-                    "error": result_text if is_error else None,
-                })
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": call_id,
-                    "content": result_text,
-                })
+                tool_events.append(
+                    {
+                        "tool_use_id": call_id,
+                        "name": name,
+                        "input": input_args,
+                        "output": None if is_error else safe_json_parse(result_text),
+                        "error": result_text if is_error else None,
+                    }
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": result_text,
+                    }
+                )
 
     return final_text or "(agent przekroczył limit kroków)"
 
@@ -106,13 +112,13 @@ async def stream_openai(
     api_key: str,
     model: str,
     system_prompt: str,
-    history: List[Dict[str, Any]],
+    history: list[dict[str, Any]],
     db: Session,
     user: models.User,
-    tool_events: List[Dict[str, Any]],
+    tool_events: list[dict[str, Any]],
     changed_set: set,
-) -> AsyncGenerator[Dict[str, Any], None]:
-    messages: List[Dict[str, Any]] = [
+) -> AsyncGenerator[dict[str, Any], None]:
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         *history,
     ]
@@ -132,9 +138,9 @@ async def stream_openai(
             }
 
             # index → {id, name, arguments_str}
-            pending_calls: Dict[int, Dict[str, str]] = {}
-            assistant_content: Optional[str] = None
-            finish_reason: Optional[str] = None
+            pending_calls: dict[int, dict[str, str]] = {}
+            assistant_content: str | None = None
+            finish_reason: str | None = None
 
             async with client.stream("POST", endpoint, headers=headers, json=body) as resp:
                 resp.raise_for_status()
@@ -178,7 +184,7 @@ async def stream_openai(
                     if fr:
                         finish_reason = fr
 
-            if not pending_calls:
+            if finish_reason not in (None, "tool_calls") or not pending_calls:
                 break
 
             clean_tool_calls = [
@@ -192,7 +198,7 @@ async def stream_openai(
                 }
                 for i in sorted(pending_calls.keys())
             ]
-            clean_msg: Dict[str, Any] = {"role": "assistant", "content": assistant_content}
+            clean_msg: dict[str, Any] = {"role": "assistant", "content": assistant_content}
             clean_msg["tool_calls"] = clean_tool_calls
             messages.append(clean_msg)
 
@@ -205,23 +211,32 @@ async def stream_openai(
                 except json.JSONDecodeError:
                     input_args = {}
 
-                yield {"type": "tool_start", "tool_use_id": call_id, "name": name, "input": input_args}
-                result_text, is_error = call_tool(db, user, name, input_args, changed_set)
-                tool_events.append({
+                yield {
+                    "type": "tool_start",
                     "tool_use_id": call_id,
                     "name": name,
                     "input": input_args,
-                    "output": None if is_error else safe_json_parse(result_text),
-                    "error": result_text if is_error else None,
-                })
+                }
+                result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                tool_events.append(
+                    {
+                        "tool_use_id": call_id,
+                        "name": name,
+                        "input": input_args,
+                        "output": None if is_error else safe_json_parse(result_text),
+                        "error": result_text if is_error else None,
+                    }
+                )
                 yield {
                     "type": "tool_result",
                     "tool_use_id": call_id,
                     "output": None if is_error else safe_json_parse(result_text),
                     "is_error": is_error,
                 }
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": call_id,
-                    "content": result_text,
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": result_text,
+                    }
+                )

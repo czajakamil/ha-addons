@@ -1,4 +1,5 @@
 """Smoke / release-blockers: minimalny zestaw, który MUSI przejść przed tagiem."""
+
 import pytest
 
 from tests.conftest import ADMIN_PASSWORD, ADMIN_USERNAME

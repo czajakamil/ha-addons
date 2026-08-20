@@ -1,5 +1,7 @@
+import contextlib
+
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, InvalidHashError, VerificationError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 _hasher = PasswordHasher()
 
@@ -28,7 +30,5 @@ def password_needs_rehash(password_hash: str) -> bool:
 
 def dummy_verify(password: str) -> None:
     """Wywołanie z dummy hashem żeby zrównać czas odpowiedzi gdy user nie istnieje."""
-    try:
+    with contextlib.suppress(VerifyMismatchError, InvalidHashError, VerificationError):
         _hasher.verify(_DUMMY_HASH, password)
-    except (VerifyMismatchError, InvalidHashError, VerificationError):
-        pass

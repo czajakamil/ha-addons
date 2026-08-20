@@ -11,19 +11,18 @@ Visibility / edit rules:
     creation regardless of can_edit.
   - Only created_by can change owner (re-pin personal <-> household).
 """
+
 from __future__ import annotations
 
-from typing import Optional
-from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 from . import models
-
 
 _MISSING = object()
 
 
-def get_household_id(db: Session, user_id: int) -> Optional[int]:
+def get_household_id(db: Session, user_id: int) -> int | None:
     cache = db.info.setdefault("_household_id_cache", {})
     hit = cache.get(user_id, _MISSING)
     if hit is not _MISSING:
@@ -34,11 +33,11 @@ def get_household_id(db: Session, user_id: int) -> Optional[int]:
     return hh
 
 
-def get_membership(db: Session, user_id: int) -> Optional[models.HouseholdMember]:
+def get_membership(db: Session, user_id: int) -> models.HouseholdMember | None:
     return db.get(models.HouseholdMember, user_id)
 
 
-def visible_filter(model, user: models.User, household_id: Optional[int]):
+def visible_filter(model, user: models.User, household_id: int | None):
     """SQL filter: resources the user can see."""
     if household_id is not None:
         return or_(
@@ -48,13 +47,13 @@ def visible_filter(model, user: models.User, household_id: Optional[int]):
     return model.owner_user_id == user.id
 
 
-def can_view(resource, user: models.User, household_id: Optional[int]) -> bool:
+def can_view(resource, user: models.User, household_id: int | None) -> bool:
     if resource.owner_user_id is not None:
         return resource.owner_user_id == user.id
     return household_id is not None and resource.owner_household_id == household_id
 
 
-def can_edit(resource, user: models.User, member: Optional[models.HouseholdMember]) -> bool:
+def can_edit(resource, user: models.User, member: models.HouseholdMember | None) -> bool:
     if resource.owner_user_id is not None:
         return resource.owner_user_id == user.id
     # household-owned

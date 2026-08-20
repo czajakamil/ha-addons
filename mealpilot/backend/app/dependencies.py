@@ -1,12 +1,11 @@
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from . import models
 from .db import get_db
-
 
 API_KEY_HEADER = "X-MealPilot-Token"
 _LAST_USED_THROTTLE = timedelta(seconds=60)
@@ -29,19 +28,17 @@ def get_current_user(
     token = x_mealpilot_token.strip() if x_mealpilot_token else ""
     if token:
         digest = _hash_api_key(token)
-        api_key = (
-            db.query(models.ApiKey).filter(models.ApiKey.key_hash == digest).one_or_none()
-        )
+        api_key = db.query(models.ApiKey).filter(models.ApiKey.key_hash == digest).one_or_none()
         if not api_key:
             raise _unauthorized()
         user = db.get(models.User, api_key.user_id)
         if not user or not user.is_active:
             raise _unauthorized()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_used = api_key.last_used_at
         if last_used is not None and last_used.tzinfo is None:
             # SQLite zwraca naive datetime — traktuj jako UTC, żeby móc odjąć od aware `now`.
-            last_used = last_used.replace(tzinfo=timezone.utc)
+            last_used = last_used.replace(tzinfo=UTC)
         if last_used is None or (now - last_used) > _LAST_USED_THROTTLE:
             api_key.last_used_at = now
             db.commit()

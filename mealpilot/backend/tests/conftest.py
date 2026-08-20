@@ -5,6 +5,7 @@ bo `app.db` tworzy engine na podstawie MEALPILOT_DB w czasie importu. conftest.p
 jest ładowany przez pytest przed modułami testowymi, więc ustawiamy je tutaj na
 samej górze.
 """
+
 import os
 import tempfile
 from pathlib import Path
@@ -30,10 +31,8 @@ for _k in (
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import models  # noqa: E402  (rejestruje tabele w metadata)
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-
 
 # --- Stałe pomocnicze ------------------------------------------------------
 ADMIN_USERNAME = "admin"
@@ -51,6 +50,7 @@ def clean_state():
     """Świeży schemat bazy + wyczyszczony rate limiter przed każdym testem."""
     _reset_schema()
     from app.ratelimit import login_limiter
+
     login_limiter._buckets.clear()
     # Posprzątaj obrazy między testami.
     images_dir = Path(os.environ["MEALPILOT_IMAGES_DIR"])
@@ -114,7 +114,10 @@ def make_user(admin_client, new_client):
 
     Zwraca (client, user_id).
     """
-    def _make(username: str, password: str = DEFAULT_PASSWORD, role: str = "user", login: bool = True):
+
+    def _make(
+        username: str, password: str = DEFAULT_PASSWORD, role: str = "user", login: bool = True
+    ):
         r = admin_client.post(
             "/api/admin/users",
             json={"username": username, "password": password, "role": role},

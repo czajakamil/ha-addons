@@ -32,8 +32,10 @@ def test_create_requires_title(admin_client):
 def test_legacy_string_steps_coerced(admin_client):
     _make_recipe(admin_client, "steps1", steps=["Krok A", "Krok B"])
     body = admin_client.get("/api/recipes/steps1").json()
-    assert body["steps"] == [{"text": "Krok A", "duration_minutes": None},
-                             {"text": "Krok B", "duration_minutes": None}]
+    assert body["steps"] == [
+        {"text": "Krok A", "duration_minutes": None},
+        {"text": "Krok B", "duration_minutes": None},
+    ]
 
 
 def test_rating_upsert_and_aggregate(admin_client):

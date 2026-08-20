@@ -10,23 +10,27 @@ Claude Desktop config example:
       }
     }
 """
+
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from fastapi.responses import Response
 from mcp.server.sse import SseServerTransport
-from starlette.types import Receive, Scope, Send
 from sqlalchemy.orm import Session
+from starlette.types import Receive, Scope, Send
 
 import mcp_server as _mcp
+
 from .. import models
 from ..db import SessionLocal
 
 _LAST_USED_THROTTLE = timedelta(seconds=60)
 
+
 class _AlreadySentResponse(Response):
     """No-op response used when the SSE transport already sent the full HTTP response."""
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         pass
 
@@ -45,11 +49,11 @@ def _resolve_user(raw_key: str) -> models.User:
         user = db.get(models.User, api_key.user_id)
         if not user or not user.is_active:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User inactive or not found")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_used = api_key.last_used_at
         if last_used is not None and last_used.tzinfo is None:
             # SQLite zwraca naive datetime — traktuj jako UTC, żeby móc odjąć od aware `now`.
-            last_used = last_used.replace(tzinfo=timezone.utc)
+            last_used = last_used.replace(tzinfo=UTC)
         if last_used is None or (now - last_used) > _LAST_USED_THROTTLE:
             api_key.last_used_at = now
             db.commit()

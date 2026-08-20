@@ -9,6 +9,7 @@ Run with::
 
     MEALPILOT_API_KEY=mp_xxx python mcp_server.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +17,7 @@ import json
 import os
 from contextvars import ContextVar
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 from mcp.server import Server
@@ -35,8 +36,8 @@ request_api_key: ContextVar[str] = ContextVar("request_api_key", default="")
 server: Server = Server("mealpilot")
 
 
-def _headers() -> Dict[str, str]:
-    headers: Dict[str, str] = {"Accept": "application/json"}
+def _headers() -> dict[str, str]:
+    headers: dict[str, str] = {"Accept": "application/json"}
     key = request_api_key.get() or API_KEY
     if key:
         headers["X-MealPilot-Token"] = key
@@ -45,13 +46,13 @@ def _headers() -> Dict[str, str]:
     return headers
 
 
-def _result(payload: Any) -> List[TextContent]:
+def _result(payload: Any) -> list[TextContent]:
     if isinstance(payload, str):
         return [TextContent(type="text", text=payload)]
     return [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False, indent=2))]
 
 
-def _error(message: str) -> List[TextContent]:
+def _error(message: str) -> list[TextContent]:
     return [TextContent(type="text", text=f"ERROR: {message}")]
 
 
@@ -59,8 +60,8 @@ async def _request(
     method: str,
     path: str,
     *,
-    params: Optional[Dict[str, Any]] = None,
-    json_body: Optional[Any] = None,
+    params: dict[str, Any] | None = None,
+    json_body: Any | None = None,
 ) -> Any:
     url = f"{BASE_URL}{path}"
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -89,7 +90,7 @@ def _current_week_start() -> str:
     return _monday_of(date.today()).isoformat()
 
 
-_CANONICAL_MEALS = ['Śniadanie', 'II Śniadanie', 'Obiad', 'Przekąska', 'Kolacja']
+_CANONICAL_MEALS = ["Śniadanie", "II Śniadanie", "Obiad", "Przekąska", "Kolacja"]
 
 
 def _normalize_meal(meal: str) -> str:
@@ -136,7 +137,7 @@ WEEK_START_HINT = (
 )
 
 
-TOOLS: List[Tool] = [
+TOOLS: list[Tool] = [
     # ----------------------------- PRZEPISY: ODCZYT ----------------------------- #
     Tool(
         name="list_recipes",
@@ -170,7 +171,7 @@ TOOLS: List[Tool] = [
     Tool(
         name="list_tags",
         description=(
-            "Zwraca {\"tags\": string[]} — posortowane, unikalne tagi z widocznych "
+            'Zwraca {"tags": string[]} — posortowane, unikalne tagi z widocznych '
             "przepisów (np. 'azjatyckie', 'wegetariańskie'). WYWOŁAJ PRZED filter_recipes/"
             "create_recipe: filtrowanie i spójność słownictwa wymagają DOKŁADNEGO, "
             "case-sensitive dopasowania. Nie wymyślaj tagów spoza tej listy."
@@ -180,7 +181,7 @@ TOOLS: List[Tool] = [
     Tool(
         name="list_meal_types",
         description=(
-            "Zwraca {\"meal_types\": string[]} — posortowane, unikalne typy posiłków "
+            'Zwraca {"meal_types": string[]} — posortowane, unikalne typy posiłków '
             "(np. 'śniadanie', 'obiad', 'kolacja'). WYWOŁAJ PRZED filter_recipes/"
             "create_recipe — dopasowanie jest DOKŁADNE i case-sensitive."
         ),
@@ -203,34 +204,45 @@ TOOLS: List[Tool] = [
             "type": "object",
             "properties": {
                 "tags": {
-                    "type": "array", "items": {"type": "string"},
+                    "type": "array",
+                    "items": {"type": "string"},
                     "description": "Wszystkie tagi muszą wystąpić (AND). Dokładne dopasowanie.",
                 },
                 "meal_types": {
-                    "type": "array", "items": {"type": "string"},
-                    "description": "Przynajmniej jeden typ musi pasować (OR). Dokładne dopasowanie.",
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Przynajmniej jeden typ musi pasować (OR). Dokładne dopasowanie."
+                    ),
                 },
                 "max_kcal": {
                     "type": "number",
-                    "description": "Górny limit kcal sumarycznie dla całego przepisu (nie na porcję).",
+                    "description": (
+                        "Górny limit kcal sumarycznie dla całego przepisu (nie na porcję)."
+                    ),
                 },
                 "min_protein": {
                     "type": "number",
                     "description": "Dolny limit białka (g) sumarycznie dla całego przepisu.",
                 },
                 "min_my_rating": {
-                    "type": "integer", "minimum": 1, "maximum": 5,
-                    "description": "Tylko przepisy z oceną użytkownika >= wartość. Brak oceny = wykluczony.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": (
+                        "Tylko przepisy z oceną użytkownika >= wartość. Brak oceny = wykluczony."
+                    ),
                 },
                 "min_avg_rating": {
-                    "type": "number", "minimum": 1.0, "maximum": 5.0,
+                    "type": "number",
+                    "minimum": 1.0,
+                    "maximum": 5.0,
                     "description": "Tylko przepisy ze średnią >= wartość. Brak ocen = wykluczony.",
                 },
             },
             "additionalProperties": False,
         },
     ),
-
     # ---------------------------- PRZEPISY: ZAPIS ------------------------------ #
     Tool(
         name="create_recipe",
@@ -245,24 +257,44 @@ TOOLS: List[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "id": {"type": "string", "description": "Unikalny slug. Nowy — błąd 409 gdy zajęty."},
+                "id": {
+                    "type": "string",
+                    "description": "Unikalny slug. Nowy — błąd 409 gdy zajęty.",
+                },
                 "title": {"type": "string", "description": "Nazwa wyświetlana w UI."},
                 "tags": {
-                    "type": "array", "items": {"type": "string"},
+                    "type": "array",
+                    "items": {"type": "string"},
                     "description": "Tagi tematyczne. Trzymaj się słownictwa z list_tags.",
                 },
                 "meal_types": {
-                    "type": "array", "items": {"type": "string"},
+                    "type": "array",
+                    "items": {"type": "string"},
                     "description": "Typy posiłków. Spójne z list_meal_types.",
                 },
                 "servings": {"type": "integer", "description": "Liczba porcji (domyślnie 1)."},
                 "prep_time": {"type": "integer", "description": "Czas przygotowania w minutach."},
                 "cook_time": {"type": "integer", "description": "Czas gotowania w minutach."},
-                "kcal": {"type": "number", "description": "Kalorie sumarycznie dla całego przepisu."},
-                "p": {"type": "number", "description": "Białko (g) sumarycznie dla całego przepisu."},
-                "f": {"type": "number", "description": "Tłuszcz (g) sumarycznie dla całego przepisu."},
-                "c": {"type": "number", "description": "Węglowodany (g) sumarycznie dla całego przepisu."},
-                "hue": {"type": "integer", "description": "Odcień karty w UI (0–360, domyślnie 40)."},
+                "kcal": {
+                    "type": "number",
+                    "description": "Kalorie sumarycznie dla całego przepisu.",
+                },
+                "p": {
+                    "type": "number",
+                    "description": "Białko (g) sumarycznie dla całego przepisu.",
+                },
+                "f": {
+                    "type": "number",
+                    "description": "Tłuszcz (g) sumarycznie dla całego przepisu.",
+                },
+                "c": {
+                    "type": "number",
+                    "description": "Węglowodany (g) sumarycznie dla całego przepisu.",
+                },
+                "hue": {
+                    "type": "integer",
+                    "description": "Odcień karty w UI (0–360, domyślnie 40).",
+                },
                 "ingredients": {
                     "type": "array",
                     "description": "Składniki dla podanej liczby porcji (servings).",
@@ -271,13 +303,17 @@ TOOLS: List[Tool] = [
                         "properties": {
                             "name": {"type": "string"},
                             "qty": {"type": "number", "description": "Ilość w jednostce `unit`."},
-                            "unit": {"type": "string", "description": "np. 'g', 'ml', 'szt', 'łyżka'."},
+                            "unit": {
+                                "type": "string",
+                                "description": "np. 'g', 'ml', 'szt', 'łyżka'.",
+                            },
                         },
                         "required": ["name", "qty", "unit"],
                     },
                 },
                 "steps": {
-                    "type": "array", "items": {"type": "string"},
+                    "type": "array",
+                    "items": {"type": "string"},
                     "description": "Kolejne kroki przygotowania, każdy jako oddzielny string.",
                 },
             },
@@ -299,8 +335,16 @@ TOOLS: List[Tool] = [
             "properties": {
                 "recipe_id": {"type": "string", "description": "ID przepisu do edycji."},
                 "title": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}, "description": "Nadpisuje całą listę tagów."},
-                "meal_types": {"type": "array", "items": {"type": "string"}, "description": "Nadpisuje całą listę typów."},
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Nadpisuje całą listę tagów.",
+                },
+                "meal_types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Nadpisuje całą listę typów.",
+                },
                 "servings": {"type": "integer"},
                 "prep_time": {"type": "integer", "description": "Minuty."},
                 "cook_time": {"type": "integer", "description": "Minuty."},
@@ -322,7 +366,11 @@ TOOLS: List[Tool] = [
                         "required": ["name", "qty", "unit"],
                     },
                 },
-                "steps": {"type": "array", "items": {"type": "string"}, "description": "Nadpisuje całą listę kroków."},
+                "steps": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Nadpisuje całą listę kroków.",
+                },
             },
             "required": ["recipe_id"],
             "additionalProperties": False,
@@ -332,11 +380,13 @@ TOOLS: List[Tool] = [
         name="delete_recipe",
         description=(
             "[DESTRUKCYJNE][POTWIERDŹ] Usuwa przepis ORAZ wszystkie powiązane wpisy w planach "
-            "tygodni. Nieodwracalne. -> {\"ok\": true}. Błędy: 403 gdy nie właściciel, 404 gdy brak."
+            'tygodni. Nieodwracalne. -> {"ok": true}. Błędy: 403 gdy nie właściciel, 404 gdy brak.'
         ),
         inputSchema={
             "type": "object",
-            "properties": {"recipe_id": {"type": "string", "description": "ID przepisu do usunięcia."}},
+            "properties": {
+                "recipe_id": {"type": "string", "description": "ID przepisu do usunięcia."}
+            },
             "required": ["recipe_id"],
             "additionalProperties": False,
         },
@@ -354,7 +404,9 @@ TOOLS: List[Tool] = [
             "properties": {
                 "recipe_id": {"type": "string", "description": "ID przepisu do oceny."},
                 "rating": {
-                    "type": "integer", "minimum": 0, "maximum": 5,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5,
                     "description": "Ocena 1–5. Wartość 0 usuwa istniejącą ocenę.",
                 },
             },
@@ -362,7 +414,6 @@ TOOLS: List[Tool] = [
             "additionalProperties": False,
         },
     ),
-
     # ----------------------------- PLAN TYGODNIA ------------------------------- #
     Tool(
         name="get_week_plan",
@@ -383,7 +434,8 @@ TOOLS: List[Tool] = [
         name="get_current_week_plan",
         description=(
             "Jak get_week_plan, ale week_start (poniedziałek bieżącego tygodnia w strefie "
-            "serwera) liczony automatycznie. Użyj dla 'ten tydzień' / 'teraz' — nie licz daty ręcznie."
+            "serwera) liczony automatycznie. Użyj dla 'ten tydzień' / 'teraz' — "
+            "nie licz daty ręcznie."
         ),
         inputSchema={"type": "object", "properties": {}, "additionalProperties": False},
     ),
@@ -405,10 +457,21 @@ TOOLS: List[Tool] = [
                     "items": {
                         "type": "object",
                         "properties": {
-                            "day": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0=poniedziałek, 6=niedziela."},
-                            "meal": {"type": "string", "description": "Slot, np. 'obiad'. (day, meal) musi być unikalne."},
+                            "day": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6,
+                                "description": "0=poniedziałek, 6=niedziela.",
+                            },
+                            "meal": {
+                                "type": "string",
+                                "description": "Slot, np. 'obiad'. (day, meal) musi być unikalne.",
+                            },
                             "recipe_id": {"type": "string"},
-                            "servings": {"type": "integer", "description": "Porcje do zjedzenia w tym slocie."},
+                            "servings": {
+                                "type": "integer",
+                                "description": "Porcje do zjedzenia w tym slocie.",
+                            },
                         },
                         "required": ["day", "meal", "recipe_id", "servings"],
                     },
@@ -428,7 +491,12 @@ TOOLS: List[Tool] = [
             "type": "object",
             "properties": {
                 "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."},
-                "day": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0=poniedziałek."},
+                "day": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6,
+                    "description": "0=poniedziałek.",
+                },
                 "meal": {"type": "string", "description": "Slot, np. 'obiad'."},
                 "recipe_id": {"type": "string"},
                 "servings": {"type": "integer", "description": "Porcje w tym slocie."},
@@ -439,9 +507,7 @@ TOOLS: List[Tool] = [
     ),
     Tool(
         name="remove_plan_entry",
-        description=(
-            "Usuwa wpis (day, meal) z planu (no-op, jeśli go nie ma). -> WeekPlan."
-        ),
+        description=("Usuwa wpis (day, meal) z planu (no-op, jeśli go nie ma). -> WeekPlan."),
         inputSchema={
             "type": "object",
             "properties": {
@@ -458,17 +524,18 @@ TOOLS: List[Tool] = [
         description=(
             "Sumy makro na każdy dzień tygodnia, przeskalowane wg (entry.servings / "
             "recipe.servings) — czyli faktyczna ilość do zjedzenia. "
-            "-> {\"0\":{kcal,p,f,c}, ... \"6\":{...}} (0=poniedziałek..6=niedziela), "
+            '-> {"0":{kcal,p,f,c}, ... "6":{...}} (0=poniedziałek..6=niedziela), '
             "wartości zaokrąglone do 2 miejsc; dni bez wpisów = same zera."
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
+            "properties": {
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
+            },
             "required": ["week_start"],
             "additionalProperties": False,
         },
     ),
-
     # ------------------------------ LISTA ZAKUPÓW ------------------------------ #
     Tool(
         name="get_shopping_list",
@@ -478,7 +545,9 @@ TOOLS: List[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
+            "properties": {
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
+            },
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -493,7 +562,9 @@ TOOLS: List[Tool] = [
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
+            "properties": {
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
+            },
             "required": ["week_start"],
             "additionalProperties": False,
         },
@@ -530,10 +601,15 @@ TOOLS: List[Tool] = [
                 "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."},
                 "name": {"type": "string", "description": "Nazwa produktu (1–200 znaków)."},
                 "qty": {"type": "number", "description": "Ilość w jednostce `unit` (domyślnie 1)."},
-                "unit": {"type": "string", "description": "Jednostka, np. 'g', 'ml', 'szt' (domyślnie 'szt')."},
+                "unit": {
+                    "type": "string",
+                    "description": "Jednostka, np. 'g', 'ml', 'szt' (domyślnie 'szt').",
+                },
                 "category": {
                     "type": "string",
-                    "description": "Kategoria PL (np. 'Nabiał'). Pominięta = wykryta automatycznie z nazwy.",
+                    "description": (
+                        "Kategoria PL (np. 'Nabiał'). Pominięta = wykryta automatycznie z nazwy."
+                    ),
                 },
             },
             "required": ["week_start", "name"],
@@ -545,7 +621,7 @@ TOOLS: List[Tool] = [
         description=(
             "[DESTRUKCYJNE] Usuwa jedną pozycję listy zakupów (ręczną lub wygenerowaną). "
             "Nieodwracalne. item_id to pole `id` z get_shopping_list (liczba) — NIE recipe_id "
-            "ani nazwa. -> {\"ok\": true}. Błąd 404, gdy pozycja nie istnieje / brak dostępu."
+            'ani nazwa. -> {"ok": true}. Błąd 404, gdy pozycja nie istnieje / brak dostępu.'
         ),
         inputSchema={
             "type": "object",
@@ -560,22 +636,23 @@ TOOLS: List[Tool] = [
         name="clear_shopping_list",
         description=(
             "[DESTRUKCYJNE][POTWIERDŹ] Usuwa WSZYSTKIE pozycje (wygenerowane i ręczne) "
-            "z listy zakupów tygodnia. -> {\"ok\": true}."
+            'z listy zakupów tygodnia. -> {"ok": true}.'
         ),
         inputSchema={
             "type": "object",
-            "properties": {"week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}},
+            "properties": {
+                "week_start": {"type": "string", "description": "Poniedziałek (YYYY-MM-DD)."}
+            },
             "required": ["week_start"],
             "additionalProperties": False,
         },
     ),
-
     # -------------------------------- POMOCNICZE ------------------------------- #
     Tool(
         name="estimate_recipe_macros",
         description=(
             "Szacuje makro przepisu modelem LLM na podstawie składników. "
-            "-> {\"kcal\":num, \"p\":num, \"f\":num, \"c\":num} — SUMY dla CAŁEGO przepisu "
+            '-> {"kcal":num, "p":num, "f":num, "c":num} — SUMY dla CAŁEGO przepisu '
             "(wszystkich porcji łącznie), gotowe do przekazania do create_recipe / update_recipe. "
             "Użyj PRZED create_recipe, gdy użytkownik nie podał makro. "
             "Błędy: 424 (brak skonfigurowanego LLM lub wyczerpana dzienna kwota AI — nie ponawiaj, "
@@ -587,7 +664,10 @@ TOOLS: List[Tool] = [
                 "title": {"type": "string", "description": "Nazwa przepisu (kontekst dla modelu)."},
                 "servings": {
                     "type": "integer",
-                    "description": "Liczba porcji, dla której podano ingredients (wynik i tak jest sumą całości).",
+                    "description": (
+                        "Liczba porcji, dla której podano ingredients "
+                        "(wynik i tak jest sumą całości)."
+                    ),
                 },
                 "ingredients": {
                     "type": "array",
@@ -597,7 +677,10 @@ TOOLS: List[Tool] = [
                         "properties": {
                             "name": {"type": "string"},
                             "qty": {"type": "number"},
-                            "unit": {"type": "string", "description": "np. 'g', 'ml', 'szt', 'łyżka'."},
+                            "unit": {
+                                "type": "string",
+                                "description": "np. 'g', 'ml', 'szt', 'łyżka'.",
+                            },
                         },
                         "required": ["name", "qty", "unit"],
                     },
@@ -611,7 +694,7 @@ TOOLS: List[Tool] = [
 
 
 @server.list_tools()
-async def list_tools() -> List[Tool]:
+async def list_tools() -> list[Tool]:
     return TOOLS
 
 
@@ -620,7 +703,7 @@ async def list_tools() -> List[Tool]:
 # ---------------------------------------------------------------------------
 
 
-async def _enrich_plan_with_titles(week_plan: Dict[str, Any]) -> Dict[str, Any]:
+async def _enrich_plan_with_titles(week_plan: dict[str, Any]) -> dict[str, Any]:
     recipes = await _request("GET", "/api/recipes")
     recipe_map = {r["id"]: r for r in (recipes or [])}
     for e in week_plan.get("entries", []) or []:
@@ -632,12 +715,12 @@ async def _enrich_plan_with_titles(week_plan: Dict[str, Any]) -> Dict[str, Any]:
     return week_plan
 
 
-async def _get_plan_entries(week_start: str) -> List[Dict[str, Any]]:
+async def _get_plan_entries(week_start: str) -> list[dict[str, Any]]:
     plan = await _request("GET", f"/api/plan/{week_start}")
     return list(plan.get("entries") or [])
 
 
-async def _put_plan(week_start: str, entries: List[Dict[str, Any]]) -> Any:
+async def _put_plan(week_start: str, entries: list[dict[str, Any]]) -> Any:
     payload = [
         {
             "day": int(e["day"]),
@@ -650,7 +733,7 @@ async def _put_plan(week_start: str, entries: List[Dict[str, Any]]) -> Any:
     return await _request("PUT", f"/api/plan/{week_start}", json_body=payload)
 
 
-async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
+async def _dispatch(name: str, args: dict[str, Any]) -> Any:
     if name == "list_recipes":
         return await _request("GET", "/api/recipes")
 
@@ -664,7 +747,7 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
         return await _request("GET", "/api/recipes/meta/meal_types")
 
     if name == "filter_recipes":
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if args.get("tags"):
             params["tags"] = ",".join(args["tags"])
         if args.get("meal_types"):
@@ -716,15 +799,18 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
         meal = _normalize_meal(str(args["meal"]))
         entries = await _get_plan_entries(ws)
         entries = [
-            e for e in entries
+            e
+            for e in entries
             if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())
         ]
-        entries.append({
-            "day": int(args["day"]),
-            "meal": meal,
-            "recipe_id": args["recipe_id"],
-            "servings": int(args["servings"]),
-        })
+        entries.append(
+            {
+                "day": int(args["day"]),
+                "meal": meal,
+                "recipe_id": args["recipe_id"],
+                "servings": int(args["servings"]),
+            }
+        )
         return await _put_plan(ws, entries)
 
     if name == "remove_plan_entry":
@@ -732,7 +818,8 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
         meal = _normalize_meal(str(args["meal"]))
         entries = await _get_plan_entries(ws)
         entries = [
-            e for e in entries
+            e
+            for e in entries
             if not (int(e["day"]) == int(args["day"]) and e["meal"].lower() == meal.lower())
         ]
         return await _put_plan(ws, entries)
@@ -742,7 +829,7 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
         plan = await _request("GET", f"/api/plan/{ws}")
         recipes = await _request("GET", "/api/recipes") or []
         rmap = {r["id"]: r for r in recipes}
-        out: Dict[int, Dict[str, float]] = {
+        out: dict[int, dict[str, float]] = {
             d: {"kcal": 0.0, "p": 0.0, "f": 0.0, "c": 0.0} for d in range(7)
         }
         for e in plan.get("entries") or []:
@@ -771,16 +858,14 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
         )
 
     if name == "add_shopping_item":
-        body: Dict[str, Any] = {"name": args["name"]}
+        body: dict[str, Any] = {"name": args["name"]}
         if args.get("qty") is not None:
             body["qty"] = args["qty"]
         if args.get("unit") is not None:
             body["unit"] = args["unit"]
         if args.get("category") is not None:
             body["category"] = args["category"]
-        return await _request(
-            "POST", f"/api/shopping/{args['week_start']}/items", json_body=body
-        )
+        return await _request("POST", f"/api/shopping/{args['week_start']}/items", json_body=body)
 
     if name == "delete_shopping_item":
         await _request("DELETE", f"/api/shopping/items/{args['item_id']}")
@@ -805,7 +890,7 @@ async def _dispatch(name: str, args: Dict[str, Any]) -> Any:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: Dict[str, Any] | None) -> List[TextContent]:
+async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
     args = dict(arguments or {})
     try:
         result = await _dispatch(name, args)
@@ -813,7 +898,7 @@ async def call_tool(name: str, arguments: Dict[str, Any] | None) -> List[TextCon
         return _error(str(e))
     except httpx.HTTPError as e:
         return _error(f"HTTP error: {e}")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return _error(f"{type(e).__name__}: {e}")
     return _result(result)
 

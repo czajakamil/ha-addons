@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -19,7 +17,7 @@ from ..routers.plan import get_week_plan
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 
 
-@router.get("", response_model=List[schemas.WeekTemplateOut])
+@router.get("", response_model=list[schemas.WeekTemplateOut])
 def list_templates(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),

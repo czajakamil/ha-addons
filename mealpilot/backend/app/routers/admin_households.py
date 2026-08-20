@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import update
 from sqlalchemy.orm import Session
@@ -18,11 +16,14 @@ def _to_out(db: Session, hh: models.Household) -> schemas.HouseholdOut:
         .count()
     )
     return schemas.HouseholdOut(
-        id=hh.id, name=hh.name, created_at=hh.created_at, member_count=count,
+        id=hh.id,
+        name=hh.name,
+        created_at=hh.created_at,
+        member_count=count,
     )
 
 
-@router.get("", response_model=List[schemas.HouseholdOut])
+@router.get("", response_model=list[schemas.HouseholdOut])
 def list_households(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
@@ -83,7 +84,7 @@ def delete_household(
     return None
 
 
-@router.get("/{household_id}/members", response_model=List[schemas.HouseholdMemberOut])
+@router.get("/{household_id}/members", response_model=list[schemas.HouseholdMemberOut])
 def list_members(
     household_id: int,
     db: Session = Depends(get_db),

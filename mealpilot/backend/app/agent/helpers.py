@@ -1,17 +1,18 @@
 """Pure helpers used by the agent tool handlers."""
+
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from datetime import date, timedelta
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from .. import models
 
-
-CANONICAL_MEALS = ['Śniadanie', 'II Śniadanie', 'Obiad', 'Przekąska', 'Kolacja']
+CANONICAL_MEALS = ["Śniadanie", "II Śniadanie", "Obiad", "Przekąska", "Kolacja"]
 
 _PL_ASCII = str.maketrans(
     "ąćęłńóśźżÄÅÖÜäåöü",
@@ -68,7 +69,7 @@ def category_of(name: str) -> str:
     return "Inne"
 
 
-def normalize_unit_qty(unit: str, qty: float) -> Tuple[str, float]:
+def normalize_unit_qty(unit: str, qty: float) -> tuple[str, float]:
     u = (unit or "").strip().lower()
     if u == "kg":
         return "g", qty * 1000.0
@@ -77,7 +78,7 @@ def normalize_unit_qty(unit: str, qty: float) -> Tuple[str, float]:
     return u, qty
 
 
-def recipe_to_dict(r: models.Recipe) -> Dict[str, Any]:
+def recipe_to_dict(r: models.Recipe) -> dict[str, Any]:
     return {
         "id": r.id,
         "title": r.title,
@@ -97,7 +98,7 @@ def recipe_to_dict(r: models.Recipe) -> Dict[str, Any]:
     }
 
 
-def recipe_to_summary(r: models.Recipe) -> Dict[str, Any]:
+def recipe_to_summary(r: models.Recipe) -> dict[str, Any]:
     return {
         "id": r.id,
         "title": r.title,
@@ -115,7 +116,7 @@ def recipe_to_summary(r: models.Recipe) -> Dict[str, Any]:
     }
 
 
-def plan_entry_to_dict(e: models.MealPlanEntry) -> Dict[str, Any]:
+def plan_entry_to_dict(e: models.MealPlanEntry) -> dict[str, Any]:
     return {
         "day": e.day,
         "meal": e.meal,
@@ -124,7 +125,7 @@ def plan_entry_to_dict(e: models.MealPlanEntry) -> Dict[str, Any]:
     }
 
 
-def shopping_item_to_dict(it: models.ShoppingItem) -> Dict[str, Any]:
+def shopping_item_to_dict(it: models.ShoppingItem) -> dict[str, Any]:
     return {
         "id": it.id,
         "week_start": it.week_start,
@@ -158,9 +159,9 @@ def delete_recipe_sources_for_items(db: Session, item_ids: Iterable[int]) -> Non
     ids = list(item_ids)
     if not ids:
         return
-    db.query(models.ShoppingItemRecipe).filter(
-        models.ShoppingItemRecipe.item_id.in_(ids)
-    ).delete(synchronize_session="fetch")
+    db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.item_id.in_(ids)).delete(
+        synchronize_session="fetch"
+    )
 
 
 def safe_json_parse(text: str) -> Any:

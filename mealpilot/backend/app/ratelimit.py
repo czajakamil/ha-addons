@@ -3,22 +3,22 @@
 Sensowny dla single-instance deploya (MealPilot to single-user app na jednym hoście).
 Dla wielu replik trzeba by przepiąć na Redis.
 """
+
 from __future__ import annotations
 
 import threading
 import time
 from collections import defaultdict, deque
-from typing import Deque, Dict, Tuple
 
 
 class SlidingWindowLimiter:
     def __init__(self, max_attempts: int, window_seconds: float):
         self.max_attempts = max_attempts
         self.window = window_seconds
-        self._buckets: Dict[str, Deque[float]] = defaultdict(deque)
+        self._buckets: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
 
-    def check(self, key: str) -> Tuple[bool, float]:
+    def check(self, key: str) -> tuple[bool, float]:
         """Zwraca (allowed, retry_after_seconds)."""
         now = time.monotonic()
         with self._lock:

@@ -77,7 +77,9 @@ def test_member_with_can_edit_can_edit_shared(admin_client, make_user, household
     _assign(admin_client, bob_id, household, can_edit=True)
     alice.post("/api/recipes", json=_recipe_payload("shared3"))
     alice.put("/api/recipes/shared3/ownership", json={"share_with_household": True})
-    assert bob.put("/api/recipes/shared3", json={"title": "Edytowane przez Boba"}).status_code == 200
+    assert (
+        bob.put("/api/recipes/shared3", json={"title": "Edytowane przez Boba"}).status_code == 200
+    )
 
 
 def test_cannot_edit_invisible_personal_recipe(make_user):
@@ -104,4 +106,7 @@ def test_only_creator_can_repin_ownership(admin_client, make_user, household):
     alice.post("/api/recipes", json=_recipe_payload("shared4"))
     alice.put("/api/recipes/shared4/ownership", json={"share_with_household": True})
     # Bob widzi przepis, ale nie jest twórcą → nie może zmienić ownershipu (404).
-    assert bob.put("/api/recipes/shared4/ownership", json={"share_with_household": False}).status_code == 404
+    assert (
+        bob.put("/api/recipes/shared4/ownership", json={"share_with_household": False}).status_code
+        == 404
+    )

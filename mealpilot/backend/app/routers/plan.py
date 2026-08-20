@@ -1,4 +1,3 @@
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -35,7 +34,7 @@ def get_week_plan(
 @router.put("/{week_start}", response_model=schemas.WeekPlan)
 def replace_week_plan(
     week_start: str,
-    entries: List[schemas.PlanEntry],
+    entries: list[schemas.PlanEntry],
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):

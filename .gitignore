@@ -207,3 +207,6 @@ marimo/_lsp/
 __marimo__/
 
 mealpilot/data/
+
+# macOS
+.DS_Store

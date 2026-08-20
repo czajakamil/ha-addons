@@ -1,4 +1,5 @@
 """MCP SSE transport: bramka autoryzacji + regresja naive datetime (commit 256f1e8)."""
+
 from datetime import datetime, timedelta
 
 import pytest
