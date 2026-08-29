@@ -97,11 +97,9 @@ def regenerate_auto_shopping(db: Session, user: models.User, week_start: str) ->
             by_key[key] = it
 
     if stale:
-        stale_ids = [it.id for it in stale]
-        delete_recipe_sources_for_items(db, stale_ids)
         for it in stale:
             assert_can_edit(db, user, it)
-            db.delete(it)
+            db.delete(it)  # cascades to shopping_item_recipes
         db.flush()
 
     for key, qty in aggregate.items():
@@ -211,8 +209,7 @@ def add_shopping_item(db: Session, user: models.User, args: dict[str, Any]) -> d
 def delete_shopping_item(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
     item_id = _coerce_item_id(args.get("item_id"))
     item = require_editable(db, user, models.ShoppingItem, item_id)
-    delete_recipe_sources_for_items(db, [item_id])
-    db.delete(item)
+    db.delete(item)  # cascades to shopping_item_recipes
     db.commit()
     return {"deleted": item_id}
 
@@ -222,9 +219,8 @@ def clear_shopping_list(db: Session, user: models.User, args: dict[str, Any]) ->
     rows = _items(db, user, week_start)
     for it in rows:
         assert_can_edit(db, user, it)
-    delete_recipe_sources_for_items(db, [it.id for it in rows])
     for it in rows:
-        db.delete(it)
+        db.delete(it)  # cascades to shopping_item_recipes
     db.commit()
     return {"cleared": week_start, "removed": len(rows)}
 

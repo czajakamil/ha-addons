@@ -14,7 +14,7 @@ from . import models
 from .db import DB_PATH, Base, SessionLocal, engine
 from .images import IMAGES_DIR
 from .middleware import CloudflareAccessMiddleware
-from .routers import admin_households, admin_users, agent, auth, mcp_sse, plan, recipes, shopping
+from .routers import admin_households, admin_users, agent, auth, mcp_http, mcp_sse, plan, recipes, shopping
 from .routers import settings as settings_router
 from .routers import templates as templates_router
 from .security import hash_password, verify_password
@@ -158,7 +158,10 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate(engine)
     _provision_admin()
-    yield
+    # The Streamable HTTP manager dispatches requests inside its own task group,
+    # which only exists for the duration of this context.
+    async with mcp_http.session_manager_lifespan():
+        yield
 
 
 app = FastAPI(title="MealPilot API", version="0.2.0", lifespan=lifespan)
@@ -199,6 +202,7 @@ app.include_router(settings_router.router)
 app.include_router(agent.router)
 app.include_router(templates_router.router)
 app.include_router(mcp_sse.router)
+app.include_router(mcp_http.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")

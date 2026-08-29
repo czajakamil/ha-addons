@@ -135,6 +135,9 @@ async def mcp_post_message(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Token nie należy do właściciela tej sesji MCP")
 
     await sse_transport.handle_post_message(request.scope, request.receive, request._send)
+    # handle_post_message already wrote the 202; returning None would make
+    # FastAPI serialize a second response and blow up the ASGI cycle.
+    return _AlreadySentResponse()
 
 
 def _claim_session_id(known_before: set[UUID]) -> UUID | None:

@@ -191,10 +191,13 @@ export async function updateUser(
   );
 }
 
+export type ApiKeyScope = 'read' | 'write';
+
 export interface ApiKey {
   id: number;
   name: string;
   prefix: string;
+  scope: ApiKeyScope;
   created_at: string;
   last_used_at: string | null;
 }
@@ -207,12 +210,15 @@ export async function listApiKeys(): Promise<ApiKey[]> {
   return asJson<ApiKey[]>(await apiFetch('/auth/api-keys'));
 }
 
-export async function createApiKey(name: string): Promise<ApiKeyCreated> {
+export async function createApiKey(
+  name: string,
+  scope: ApiKeyScope = 'write',
+): Promise<ApiKeyCreated> {
   return asJson<ApiKeyCreated>(
     await apiFetch('/auth/api-keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, scope }),
     }),
   );
 }

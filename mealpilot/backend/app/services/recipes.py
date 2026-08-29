@@ -22,7 +22,7 @@ from .common import (
     unique_slug,
     visible_query,
 )
-from .errors import Invalid, NotFound
+from .errors import Invalid, NotFound, ServiceError
 
 LIST_LIMIT_DEFAULT = 50
 LIST_LIMIT_MAX = 200
@@ -327,8 +327,7 @@ def create_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[
     title = str(args.get("title", "")).strip()
     if not title:
         raise Invalid("title jest wymagane.")
-    base = slugify(str(args.get("id") or "")) if args.get("id") else slugify(title)
-    recipe_id = unique_slug(db, base)
+    recipe_id = unique_slug(db, slugify(title))
 
     data = _coerce_writable({**args, "title": title}, partial=False)
     r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), id=recipe_id, **data)
@@ -371,9 +370,17 @@ def delete_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[
     )
     db.delete(db.get(models.Recipe, recipe_id))
     db.commit()
+    regenerated = []
     for week_start in sorted(affected_weeks):
-        regenerate_auto_shopping(db, user, week_start)
-    return {"deleted": recipe_id, "affected_weeks": sorted(affected_weeks)}
+        # The delete is already committed; a week this user may not edit must not
+        # abort the cleanup of the weeks they can.
+        try:
+            regenerate_auto_shopping(db, user, week_start)
+        except ServiceError:
+            db.rollback()
+            continue
+        regenerated.append(week_start)
+    return {"deleted": recipe_id, "affected_weeks": regenerated}
 
 
 def rate_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:

@@ -47,11 +47,12 @@ def _reset_schema() -> None:
 
 @pytest.fixture(autouse=True)
 def clean_state():
-    """Świeży schemat bazy + wyczyszczony rate limiter przed każdym testem."""
+    """Świeży schemat bazy + wyczyszczone rate limitery przed każdym testem."""
     _reset_schema()
-    from app.ratelimit import login_limiter
+    from app.ratelimit import login_limiter, mcp_auth_limiter, mcp_message_limiter, mcp_session_limiter
 
-    login_limiter._buckets.clear()
+    for limiter in (login_limiter, mcp_auth_limiter, mcp_message_limiter, mcp_session_limiter):
+        limiter._buckets.clear()
     # Posprzątaj obrazy między testami.
     images_dir = Path(os.environ["MEALPILOT_IMAGES_DIR"])
     if images_dir.exists():

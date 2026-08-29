@@ -210,3 +210,5 @@ mealpilot/data/
 
 # macOS
 .DS_Store
+# TypeScript incremental build cache — a build artifact, not source.
+*.tsbuildinfo

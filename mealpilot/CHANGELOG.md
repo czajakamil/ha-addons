@@ -1,3 +1,17 @@
+## 0.2.20
+- Jeden wspólny rejestr narzędzi dla agenta AI, serwera MCP i API — te same 29 narzędzi, te same opisy i te same uprawnienia w czacie, w Claude Desktop i w interfejsie
+- Nowe narzędzia: wyszukiwanie przepisów po tytule/tagach/składnikach (`search_recipes`, odporne na wielkość liter i polskie znaki), notatki do przepisu, udostępnianie przepisu domownikom oraz pełna obsługa szablonów tygodnia (lista, zapis, zastosowanie, usunięcie). Agent w aplikacji dostał też ocenianie przepisów i szacowanie makro
+- Pola meal prep (przepis na zapas, liczba dni, osobne kroki) są wreszcie dostępne dla agenta; doszły filtry po łącznym czasie przygotowania i po meal prepie
+- Naprawa uprawnień w household: domownik bez prawa edycji nie zmieni już cudzego przepisu przez czat
+- Naprawa gubienia współdzielenia: zastąpienie planu tygodnia lub przegenerowanie listy zakupów nie zamienia już wspólnych wpisów na prywatne; odhaczone pozycje listy przeżywają regenerację
+- Plan tygodnia i lista zakupów pokazują w czacie dokładnie to samo, co ekran aplikacji (wcześniej w household potrafiły się różnić)
+- Serwer MCP działa teraz w procesie add-onu, bez wewnętrznych zapytań HTTP — szybciej i bez drugiego modelu uprawnień. Błędy są zgłaszane jako prawdziwe błędy protokołu, a narzędzia niosą adnotacje (tylko odczyt / destrukcyjne / idempotentne), więc klient sam może zapytać o potwierdzenie
+- Nowy transport MCP: Streamable HTTP pod `/mcp` (następca SSE w specyfikacji MCP) — zalecany dla nowych konfiguracji klientów. Dotychczasowy `/mcp/sse` działa dalej bez zmian, nie trzeba niczego przepinać
+- Naprawa błędu: każda wiadomość MCP po SSE kończyła się w logach wyjątkiem „response already completed” — endpoint `/mcp/messages` odsyłał drugą odpowiedź HTTP po tej wysłanej już przez transport
+- Klucze API mają zakres: **odczyt i zapis** albo **tylko odczyt**. Klucz tylko-do-odczytu nie zmieni danych ani przez API, ani przez MCP
+- Endpointy MCP są limitowane liczbą żądań na adres IP, a wiadomość na `/mcp/messages` musi pochodzić od klucza, który otworzył daną sesję SSE
+- **Zmiany łamiące dla integracji po MCP/agencie**: `list_recipes` i `filter_recipes` zwracają teraz stronicowane skróty (`{items, total, limit, offset, has_more}`) zamiast całej biblioteki; `get_shopping_list` i `get_week_nutrition_summary` zwracają obiekt z `week_start` zamiast gołej listy/mapy dni; `create_recipe` nie przyjmuje już `id` (slug nadaje serwer); `week_start` musi być poniedziałkiem — inny dzień to teraz czytelny błąd z podpowiedzią właściwej daty zamiast pustej odpowiedzi. Narzędzie usuwania pozycji zakupów nazywa się `delete_shopping_item` (stara nazwa `remove_shopping_item` nadal działa)
+
 ## 0.2.19
 - Porządki w kodzie backendu — konfiguracja i wdrożenie ruff (formatowanie, sortowanie importów, nowoczesne type hinty), naprawa wykrytych ostrzeżeń lintera; bez zmian funkcjonalnych
 

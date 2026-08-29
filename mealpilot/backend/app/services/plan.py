@@ -85,6 +85,19 @@ def _assert_recipes_visible(db: Session, user: models.User, recipe_ids: set[str]
         )
 
 
+def _stored_entries(rows: list[models.MealPlanEntry]) -> list[dict[str, Any]]:
+    """Existing rows as desired-state dicts, without re-validating stored data."""
+    return [
+        {
+            "day": e.day,
+            "meal": normalize_meal(e.meal),
+            "recipe_id": e.recipe_id,
+            "servings": max(1, e.servings or 1),
+        }
+        for e in rows
+    ]
+
+
 def normalize_entries(raw_entries: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for e in list(raw_entries or []):
@@ -180,7 +193,7 @@ def add_plan_entry(db: Session, user: models.User, args: dict[str, Any]) -> dict
         raise Invalid("recipe_id jest wymagane.")
     servings = _coerce_servings(args.get("servings"))
 
-    current = normalize_entries([plan_entry_to_dict(e) for e in _entry_rows(db, user, week_start)])
+    current = _stored_entries(_entry_rows(db, user, week_start))
     kept = [e for e in current if not (e["day"] == day and e["meal"].lower() == meal.lower())]
     kept.append({"day": day, "meal": meal, "recipe_id": recipe_id, "servings": servings})
     reconcile_week(db, user, week_start, kept)
@@ -192,7 +205,7 @@ def remove_plan_entry(db: Session, user: models.User, args: dict[str, Any]) -> d
     day = _coerce_day(args.get("day"))
     meal = normalize_meal(str(args.get("meal", "")))
 
-    current = normalize_entries([plan_entry_to_dict(e) for e in _entry_rows(db, user, week_start)])
+    current = _stored_entries(_entry_rows(db, user, week_start))
     kept = [e for e in current if not (e["day"] == day and e["meal"].lower() == meal.lower())]
     reconcile_week(db, user, week_start, kept)
     return _enrich(db, user, week_start, _entry_rows(db, user, week_start))

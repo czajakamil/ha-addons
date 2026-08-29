@@ -19,12 +19,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcp.server import Server
-from mcp.types import TextContent, Tool, ToolAnnotations
+from mcp.types import Tool, ToolAnnotations
 
 from .. import models
 from ..db import SessionLocal
 from ..services import registry as tools
-from ..services.errors import Forbidden, ServiceError
+from ..services.errors import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +89,8 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, An
 
     spec = tools.get_spec(name)
     if principal.scope == "read" and not spec.read_only:
-        raise Forbidden(
-            f"Klucz API ma zakres tylko-do-odczytu — narzędzie {spec.name} zapisuje dane. "
+        raise RuntimeError(
+            f"[forbidden] Klucz API ma zakres tylko-do-odczytu — narzędzie {spec.name} zapisuje dane. "
             "Utwórz klucz o zakresie 'write' w Ustawieniach → Klucze API."
         )
 
@@ -113,7 +113,3 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, An
     if not isinstance(result, dict):
         return {"result": result}
     return result
-
-
-def text_result(payload: str) -> list[TextContent]:
-    return [TextContent(type="text", text=payload)]

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..ai_usage import check_quota, record_usage
-from .errors import Invalid, ServiceError, Unavailable, Upstream
+from .errors import Invalid, Unavailable, Upstream
 
 _SYSTEM_PROMPT = "You are a nutrition data API. Always respond with raw JSON only, no markdown, no explanation."
 
@@ -63,12 +63,9 @@ async def call_llm(
 
 async def estimate_recipe_macros(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
     """Ask the configured LLM for whole-recipe macros. Counts against the AI quota."""
-    try:
-        check_quota(db, user)
-    except ServiceError:
-        raise
-    except Exception as exc:  # HTTPException from ai_usage
-        raise Unavailable(f"Kwota AI wyczerpana lub zablokowana: {getattr(exc, 'detail', exc)}") from exc
+    # Raises HTTPException(403/429); REST returns it verbatim and MCP turns it
+    # into an isError result, so there is nothing useful to translate here.
+    check_quota(db, user)
 
     endpoint = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
     api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()

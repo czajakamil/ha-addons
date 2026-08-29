@@ -4,7 +4,7 @@ Strategia testów przed wypuszczeniem kolejnych wersji add-onu. Dwie warstwy:
 
 | Warstwa | Narzędzie | Lokalizacja | Co pokrywa |
 |---|---|---|---|
-| **API E2E + unit** | `pytest` + Starlette `TestClient` na realnym SQLite | `backend/tests/` | ~80% pokrycia: auth, ownership, plan/zakupy, agent, MCP, admin, migracje |
+| **API E2E + unit** | `pytest` + Starlette `TestClient` na realnym SQLite | `backend/tests/` | auth, ownership, warstwa narzędzi (`app/services/`), plan/zakupy/szablony, agent, MCP, admin, migracje |
 | **Browser smoke** | `Playwright` | `frontend/e2e/` | że UI się renderuje i kluczowe ekrany działają end-to-end |
 
 LLM jest **zawsze mockowany** — testy nie wykonują płatnych wywołań do API modeli.
@@ -41,14 +41,21 @@ pip install -r backend/requirements-test.txt
   migracja w miejscu.
 - **Auth**: setup raz, walidacja hasła/loginu, błędne logowanie, rate-limit (429),
   rotacja hasła unieważnia sesje + kasuje klucze API, klucze API (auth nagłówkiem, odwołanie).
-- **Recipes**: walidacja, oceny (agregacja + filtry), notatki, upload/usuwanie obrazka, meta tagów.
+- **Recipes**: walidacja, wyszukiwanie tekstowe i filtry (tagi, makro, czas, meal prep, oceny),
+  oceny (agregacja + filtry), notatki, pola meal prep, upload/usuwanie obrazka, meta tagów.
 - **Ownership (multi-user)**: prywatne niewidoczne dla innych, udostępnianie do household,
   uprawnienia edycji (`can_edit`, twórca), re-pin tylko przez twórcę.
-- **Plan / Zakupy / Szablony**: walidacja nieznanych przepisów, idempotentny PUT, konsolidacja
-  i normalizacja jednostek (kg→g), trwałość odhaczeń, pozycje custom, szablony (apply, pomijanie usuniętych).
+- **Plan / Zakupy / Szablony**: walidacja `week_start` (musi być poniedziałkiem) i nieznanych
+  przepisów, idempotentny PUT, zachowanie właściciela wierszy przy zastępowaniu planu i regeneracji
+  listy, konsolidacja i normalizacja jednostek (kg→g), trwałość odhaczeń, pozycje custom,
+  szablony (apply, pomijanie usuniętych).
 - **Agent AI**: status/limit zużycia, blokada quoty (403/429), CRUD konwersacji, `run` (mock),
   streaming SSE (mock providera).
-- **MCP SSE**: bramka autoryzacji (401), regresja naive-datetime klucza API (commit 256f1e8).
+- **Warstwa narzędzi**: rejestr jest jedynym źródłem prawdy (brak drugiej listy narzędzi),
+  spójność nazw/schematów/flag, dispatch narzędzi i mapowanie błędów domenowych.
+- **MCP**: bramka autoryzacji (401), zakres klucza API (`read` odrzuca narzędzia zapisujące),
+  powiązanie POST `/mcp/messages` z właścicielem sesji SSE, limity liczby żądań,
+  regresja naive-datetime klucza API.
 - **Cloudflare Access**: brak/zły/poprawny token, ścieżki bypass, walidacja konfiguracji.
 - **Migracje**: stara baza podnosi się na nowym schemacie bez utraty danych; idempotencja.
 
