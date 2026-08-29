@@ -77,6 +77,8 @@ class ApiKey(Base):
     name = Column(String, nullable=False)
     prefix = Column(String, nullable=False, index=True)
     key_hash = Column(String, nullable=False, unique=True, index=True)
+    # "read" keys may only call read-only tools / safe HTTP methods.
+    scope = Column(String, nullable=False, default="write")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     last_used_at = Column(DateTime, nullable=True)
 

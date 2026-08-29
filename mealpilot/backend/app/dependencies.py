@@ -8,6 +8,7 @@ from . import models
 from .db import get_db
 
 API_KEY_HEADER = "X-MealPilot-Token"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _LAST_USED_THROTTLE = timedelta(seconds=60)
 _AUTH_ERROR = "Not authenticated"
 
@@ -42,6 +43,11 @@ def get_current_user(
         if last_used is None or (now - last_used) > _LAST_USED_THROTTLE:
             api_key.last_used_at = now
             db.commit()
+        if (api_key.scope or "write") == "read" and request.method not in SAFE_METHODS:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Ten klucz API ma zakres tylko-do-odczytu.",
+            )
         return user
 
     user_id = request.session.get("user_id")

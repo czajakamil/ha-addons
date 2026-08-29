@@ -317,6 +317,7 @@ class ShoppingItemCreate(BaseModel):
 
 class ApiKeyCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    scope: Literal["read", "write"] = "write"
 
 
 class ApiKeyOut(BaseModel):
@@ -324,6 +325,7 @@ class ApiKeyOut(BaseModel):
     id: int
     name: str
     prefix: str
+    scope: Literal["read", "write"] = "write"
     created_at: datetime
     last_used_at: datetime | None = None
 

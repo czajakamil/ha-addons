@@ -15,8 +15,22 @@ from ..agent_runner import generate_conversation_title, run_agent
 from ..ai_usage import check_quota, record_usage
 from ..db import SessionLocal, get_db
 from ..dependencies import get_current_user
+from ..services import registry as tools_registry
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
+
+
+@router.get("/tools")
+def list_agent_tools(_user: models.User = Depends(get_current_user)):
+    """The agent's real tool surface, straight from the shared registry.
+
+    The UI renders this; it used to render a hand-maintained TypeScript copy
+    that had already drifted (it advertised tools the agent did not have).
+    """
+    return {
+        "groups": [{"label": label, "icon": icon} for label, icon in tools_registry.GROUP_ORDER],
+        "tools": [tools_registry.describe(spec) for spec in tools_registry.TOOL_SPECS],
+    }
 
 
 def _usage_status(user: models.User) -> schemas.AiUsageStatus:

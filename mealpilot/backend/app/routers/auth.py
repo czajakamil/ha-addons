@@ -189,6 +189,7 @@ def create_api_key(
         name=payload.name.strip(),
         prefix=raw[:12],
         key_hash=_hash_api_key(raw),
+        scope=payload.scope,
     )
     db.add(key)
     db.commit()
@@ -197,6 +198,7 @@ def create_api_key(
         id=key.id,
         name=key.name,
         prefix=key.prefix,
+        scope=key.scope,
         created_at=key.created_at,
         last_used_at=key.last_used_at,
         key=raw,

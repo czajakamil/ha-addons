@@ -1,46 +1,12 @@
-import re
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..agent.helpers import attach_recipe_source, delete_recipe_sources_for_items
 from ..db import get_db
 from ..dependencies import get_current_user
-from ..ownership import get_household_id, visible_filter
+from ..services import shopping as shopping_svc
 
 router = APIRouter(prefix="/api/shopping", tags=["shopping"])
-
-
-def _category_of(name: str) -> str:
-    n = (name or "").lower()
-    if re.search(r"kurczak|łosos|łoso|tofu|jajko|wołowin|indyk|szynk", n):
-        return "Mięso, ryby, białko"
-    if re.search(r"mleko|śmietan|feta|jogurt|masł|ser", n):
-        return "Nabiał"
-    if re.search(
-        r"papryka|cebul|ogórek|pomidor|marchew|ziemniak|brokuł|pieczark|czosnek|awokado|cytryn|szczypior|koperek|dymka|imbir",
-        n,
-    ):
-        return "Warzywa i owoce"
-    if re.search(r"banan|owoc", n):
-        return "Warzywa i owoce"
-    if re.search(r"ryż|kasza|owsian|płatk|makaron|chleb|kromka", n):
-        return "Suche i zboża"
-    if re.search(r"oliw|olej|sos|miód|przyp|tymianek|cynamon|oregano|sól|papryka słodka", n):
-        return "Tłuszcze i przyprawy"
-    if re.search(r"bulion|passata|oliwk|orzech", n):
-        return "Spiżarnia"
-    return "Inne"
-
-
-def _normalize_unit_qty(unit: str, qty: float) -> tuple[str, float]:
-    u = (unit or "").strip().lower()
-    if u == "kg":
-        return "g", qty * 1000.0
-    if u == "l":
-        return "ml", qty * 1000.0
-    return u, qty
 
 
 @router.get("/{week_start}", response_model=list[schemas.ShoppingItemOut])
@@ -49,125 +15,16 @@ def get_shopping_list(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    rows = (
-        db.query(models.ShoppingItem)
-        .filter(
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
-        )
-        .order_by(models.ShoppingItem.category, models.ShoppingItem.name)
-        .all()
-    )
-    return rows
+    return shopping_svc.get_shopping_list(db, user, {"week_start": week_start})["items"]
 
 
-@router.post(
-    "/{week_start}/generate",
-    response_model=list[schemas.ShoppingItemOut],
-)
+@router.post("/{week_start}/generate", response_model=list[schemas.ShoppingItemOut])
 def generate_shopping_list(
     week_start: str,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    plan_rows = (
-        db.query(models.MealPlanEntry)
-        .filter(
-            models.MealPlanEntry.owner_user_id == user.id,
-            models.MealPlanEntry.week_start == week_start,
-        )
-        .all()
-    )
-
-    def _delete_generated_items() -> None:
-        old_ids = [
-            i
-            for (i,) in db.query(models.ShoppingItem.id)
-            .filter(
-                models.ShoppingItem.owner_user_id == user.id,
-                models.ShoppingItem.week_start == week_start,
-                models.ShoppingItem.is_custom == 0,
-            )
-            .all()
-        ]
-        delete_recipe_sources_for_items(db, old_ids)
-        db.query(models.ShoppingItem).filter(
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
-            models.ShoppingItem.is_custom == 0,
-        ).delete(synchronize_session="fetch")
-
-    if not plan_rows:
-        _delete_generated_items()
-        db.commit()
-        return get_shopping_list(week_start, db, user)
-
-    recipe_ids = {p.recipe_id for p in plan_rows}
-    recipes: dict[str, models.Recipe] = {
-        r.id: r
-        for r in db.query(models.Recipe)
-        .filter(
-            models.Recipe.id.in_(recipe_ids),
-            visible_filter(models.Recipe, user, get_household_id(db, user.id)),
-        )
-        .all()
-    }
-
-    aggregate: dict[tuple[str, str], float] = {}
-    display_name: dict[tuple[str, str], str] = {}
-    sources: dict[tuple[str, str], set] = {}
-
-    for entry in plan_rows:
-        rec = recipes.get(entry.recipe_id)
-        if not rec or not rec.servings:
-            continue
-        scale = (entry.servings or 0) / float(rec.servings)
-        for ing in rec.ingredients or []:
-            name = (ing.get("name") or "").strip()
-            if not name:
-                continue
-            qty = float(ing.get("qty") or 0) * scale
-            unit_in = (ing.get("unit") or "").strip()
-            unit, qty = _normalize_unit_qty(unit_in, qty)
-            key = (name.lower(), unit)
-            aggregate[key] = aggregate.get(key, 0.0) + qty
-            display_name.setdefault(key, name)
-            sources.setdefault(key, set()).add(rec.id)
-
-    existing = (
-        db.query(models.ShoppingItem)
-        .filter(
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
-        )
-        .all()
-    )
-    prev_checked: dict[tuple[str, str], int] = {
-        (it.name.lower(), it.unit): it.checked for it in existing if not it.is_custom
-    }
-
-    _delete_generated_items()
-
-    for key, qty in aggregate.items():
-        name = display_name[key]
-        item = models.ShoppingItem(
-            created_by=user.id,
-            owner_user_id=user.id,
-            week_start=week_start,
-            name=name,
-            qty=round(qty, 3),
-            unit=key[1],
-            category=_category_of(name),
-            checked=prev_checked.get(key, 0),
-            is_custom=0,
-        )
-        db.add(item)
-        db.flush()
-        for recipe_id in sources.get(key, ()):
-            attach_recipe_source(db, item, recipe_id)
-    db.commit()
-
-    return get_shopping_list(week_start, db, user)
+    return shopping_svc.generate_shopping_list(db, user, {"week_start": week_start})["items"]
 
 
 @router.patch("/items/{item_id}", response_model=schemas.ShoppingItemOut)
@@ -177,21 +34,7 @@ def patch_shopping_item_by_id(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    hh = get_household_id(db, user.id)
-    item = (
-        db.query(models.ShoppingItem)
-        .filter(
-            models.ShoppingItem.id == item_id,
-            visible_filter(models.ShoppingItem, user, hh),
-        )
-        .one_or_none()
-    )
-    if not item:
-        raise HTTPException(404, "Shopping item not found")
-    item.checked = 1 if payload.checked else 0
-    db.commit()
-    db.refresh(item)
-    return item
+    return shopping_svc.check_shopping_item(db, user, {"item_id": item_id, "checked": payload.checked})
 
 
 @router.patch("/{week_start}/items/{item_id}", response_model=schemas.ShoppingItemOut)
@@ -212,78 +55,20 @@ def add_shopping_item(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    name = payload.name.strip()
-    unit_in = (payload.unit or "").strip()
-    unit, qty = _normalize_unit_qty(unit_in, float(payload.qty or 0))
-    category = payload.category or _category_of(name)
-
-    existing = (
-        db.query(models.ShoppingItem)
-        .filter(
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
-            models.ShoppingItem.name == name,
-            models.ShoppingItem.unit == unit,
-        )
-        .one_or_none()
-    )
-    if existing:
-        existing.qty = round((existing.qty or 0.0) + qty, 3)
-        existing.category = category
-        attach_recipe_source(db, existing, payload.recipe_id)
-        db.commit()
-        db.refresh(existing)
-        return existing
-
-    item = models.ShoppingItem(
-        created_by=user.id,
-        owner_user_id=user.id,
-        week_start=week_start,
-        name=name,
-        qty=round(qty, 3),
-        unit=unit,
-        category=category,
-        checked=0,
-        is_custom=1,
-    )
-    db.add(item)
-    db.flush()
-    attach_recipe_source(db, item, payload.recipe_id)
-    db.commit()
-    db.refresh(item)
-    return item
+    return shopping_svc.add_shopping_item(db, user, {"week_start": week_start, **payload.model_dump()})
 
 
-@router.delete(
-    "/items/{item_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_shopping_item_by_id(
     item_id: int,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    hh = get_household_id(db, user.id)
-    item = (
-        db.query(models.ShoppingItem)
-        .filter(
-            models.ShoppingItem.id == item_id,
-            visible_filter(models.ShoppingItem, user, hh),
-        )
-        .one_or_none()
-    )
-    if not item:
-        raise HTTPException(404, "Shopping item not found")
-    delete_recipe_sources_for_items(db, [item_id])
-    db.delete(item)
-    db.commit()
+    shopping_svc.delete_shopping_item(db, user, {"item_id": item_id})
     return None
 
 
-@router.delete(
-    "/{week_start}/items/{item_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/{week_start}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_shopping_item(
     week_start: str,
     item_id: int,
@@ -299,19 +84,5 @@ def clear_shopping_list(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    ids = [
-        i
-        for (i,) in db.query(models.ShoppingItem.id)
-        .filter(
-            models.ShoppingItem.owner_user_id == user.id,
-            models.ShoppingItem.week_start == week_start,
-        )
-        .all()
-    ]
-    delete_recipe_sources_for_items(db, ids)
-    db.query(models.ShoppingItem).filter(
-        models.ShoppingItem.owner_user_id == user.id,
-        models.ShoppingItem.week_start == week_start,
-    ).delete(synchronize_session=False)
-    db.commit()
+    shopping_svc.clear_shopping_list(db, user, {"week_start": week_start})
     return None

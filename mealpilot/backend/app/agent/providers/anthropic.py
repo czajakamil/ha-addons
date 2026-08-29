@@ -72,7 +72,7 @@ async def run_anthropic(
                 tu_id = tu.get("id", str(uuid.uuid4()))
                 name = tu.get("name", "")
                 input_args = tu.get("input") or {}
-                result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                result_text, is_error = await call_tool(db, user, name, input_args, changed_set)
                 tool_events.append(
                     {
                         "tool_use_id": tu_id,
@@ -180,7 +180,7 @@ async def stream_anthropic(
                                 "name": name,
                                 "input": input_args,
                             }
-                            result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                            result_text, is_error = await call_tool(db, user, name, input_args, changed_set)
                             block["_result_text"] = result_text
                             block["_is_error"] = is_error
                             tool_events.append(

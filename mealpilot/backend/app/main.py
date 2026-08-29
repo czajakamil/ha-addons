@@ -3,8 +3,9 @@ import secrets
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
@@ -18,6 +19,7 @@ from .routers import settings as settings_router
 from .routers import templates as templates_router
 from .security import hash_password, verify_password
 from .seed import seed_for_user
+from .services.errors import ServiceError
 
 SECRET_FILE = Path(DB_PATH).parent / ".session_secret"
 
@@ -109,6 +111,11 @@ def _migrate(engine_) -> None:
             if "is_custom" not in cols:
                 conn.execute(text("ALTER TABLE shopping_items ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0"))
 
+        if "api_keys" in tables:
+            cols = {c["name"] for c in inspector.get_columns("api_keys")}
+            if "scope" not in cols:
+                conn.execute(text("ALTER TABLE api_keys ADD COLUMN scope VARCHAR NOT NULL DEFAULT 'write'"))
+
         if "agent_settings" in tables:
             cols = {c["name"] for c in inspector.get_columns("agent_settings")}
             if "ui_prefs" not in cols:
@@ -174,6 +181,13 @@ app.add_middleware(
     max_age=60 * 60 * 24 * 30,
 )
 app.add_middleware(CloudflareAccessMiddleware)
+
+
+@app.exception_handler(ServiceError)
+async def _service_error_handler(_request: Request, exc: ServiceError) -> JSONResponse:
+    """Domain errors carry their own status code and a machine-readable `error`."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": str(exc), "error": exc.code})
+
 
 app.include_router(auth.router)
 app.include_router(admin_users.router)
