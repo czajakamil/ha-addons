@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ApiKey, ApiKeyCreated } from '../auth';
+import type { ApiKey, ApiKeyCreated, ApiKeyScope } from '../auth';
 import { createApiKey, deleteApiKey, listApiKeys } from '../auth';
 
 export function ApiKeysScreen() {
@@ -8,6 +8,7 @@ export function ApiKeysScreen() {
   const [loading, setLoading] = useState(true);
 
   const [newName, setNewName] = useState('');
+  const [newScope, setNewScope] = useState<ApiKeyScope>('write');
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<ApiKeyCreated | null>(null);
   const [copied, setCopied] = useState(false);
@@ -34,7 +35,7 @@ export function ApiKeysScreen() {
     if (!name) return;
     setCreating(true);
     try {
-      const created = await createApiKey(name);
+      const created = await createApiKey(name, newScope);
       setNewName('');
       setJustCreated(created);
       setCopied(false);
@@ -66,6 +67,10 @@ export function ApiKeysScreen() {
     } catch {
       setCopied(false);
     }
+  }
+
+  function scopeLabel(scope: ApiKeyScope): string {
+    return scope === 'read' ? 'Tylko odczyt' : 'Odczyt i zapis';
   }
 
   function fmtDate(s: string | null): string {
@@ -107,12 +112,29 @@ export function ApiKeysScreen() {
               placeholder="np. agent-mcp"
             />
           </label>
+          <label className="user-add-field" style={{ flex: '2 1 180px' }}>
+            <span className="field-label">Uprawnienia</span>
+            <select
+              className="edit-input"
+              value={newScope}
+              onChange={(e) => setNewScope(e.target.value as ApiKeyScope)}
+            >
+              <option value="write">Odczyt i zapis</option>
+              <option value="read">Tylko odczyt</option>
+            </select>
+          </label>
           <div className="user-add-submit">
             <button className="btn primary" type="submit" disabled={creating || !newName.trim()}>
               {creating ? 'Generowanie…' : 'Wygeneruj klucz'}
             </button>
           </div>
         </form>
+
+        <div className="sub" style={{ marginTop: 10, lineHeight: 1.6 }}>
+          Klucz <strong>tylko do odczytu</strong> nie może nic zmienić ani usunąć — dobry wybór dla
+          Claude Desktop, jeśli chcesz tylko przeglądać przepisy, plan i listę zakupów. Klucz{' '}
+          <strong>odczyt i zapis</strong> pozwala także dodawać i modyfikować dane.
+        </div>
 
         {justCreated && (
           <div
@@ -128,7 +150,8 @@ export function ApiKeysScreen() {
               Klucz wygenerowany — skopiuj go teraz
             </div>
             <div className="sub" style={{ marginBottom: 10 }}>
-              Pokazujemy go tylko raz. Po zamknięciu tej karty zobaczysz tylko prefix.
+              Uprawnienia: <strong>{scopeLabel(justCreated.scope)}</strong>. Pokazujemy go tylko
+              raz. Po zamknięciu tej karty zobaczysz tylko prefix.
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <code
@@ -165,9 +188,10 @@ export function ApiKeysScreen() {
       <section className="card" style={{ padding: 20 }}>
         <div className="eyebrow" style={{ marginBottom: 12 }}>Jak podłączyć agenta MCP</div>
         <p style={{ marginBottom: 12, lineHeight: 1.6 }}>
-          Serwer MCP dostępny jest przez HTTP/SSE pod adresem <code>/mcp/sse</code>. Wygeneruj
-          klucz powyżej, a następnie dodaj wpis do konfiguracji MCP swojego klienta (np. Claude
-          Desktop lub VS Code):
+          Serwer MCP dostępny jest pod adresem <code>/mcp</code> (Streamable HTTP — transport
+          zalecany dla nowych konfiguracji). Starszy <code>/mcp/sse</code> działa dalej, więc
+          istniejących wpisów nie musisz przepinać. Wygeneruj klucz powyżej, a następnie dodaj
+          wpis do konfiguracji MCP swojego klienta (np. Claude Desktop lub VS Code):
         </p>
         <pre
           style={{
@@ -187,10 +211,10 @@ export function ApiKeysScreen() {
       "args": [
         "-y",
         "mcp-remote@latest",
-        "http://<adres-HA>:8000/mcp/sse",
+        "http://<adres-HA>:8000/mcp",
         "--allow-http",
         "--transport",
-        "sse-only",
+        "http-only",
         "--header",
         "X-MealPilot-Token:\${MEALPILOT_TOKEN}"
       ],
@@ -222,6 +246,10 @@ export function ApiKeysScreen() {
             <code>npx</code> jest w innej lokalizacji, zmień ścieżkę w polu{' '}
             <code>command</code>.
           </li>
+          <li>
+            Klucz o zakresie <strong>tylko odczyt</strong> zadziała tu tak samo, ale narzędzia
+            zapisujące (dodawanie przepisów, edycja planu, czyszczenie listy) zostaną odrzucone.
+          </li>
         </ul>
       </section>
 
@@ -241,6 +269,7 @@ export function ApiKeysScreen() {
                 <tr>
                   <th>Nazwa</th>
                   <th>Prefix</th>
+                  <th>Uprawnienia</th>
                   <th>Utworzony</th>
                   <th>Ostatnio użyty</th>
                   <th style={{ textAlign: 'right' }}>Akcje</th>
@@ -252,6 +281,11 @@ export function ApiKeysScreen() {
                     <td style={{ fontWeight: 500 }}>{k.name}</td>
                     <td>
                       <code style={{ fontSize: 12 }}>{k.prefix}…</code>
+                    </td>
+                    <td>
+                      <span className={k.scope === 'read' ? 'chip olive' : 'chip terra'}>
+                        {scopeLabel(k.scope)}
+                      </span>
                     </td>
                     <td>{fmtDate(k.created_at)}</td>
                     <td>{fmtDate(k.last_used_at)}</td>

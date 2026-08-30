@@ -72,3 +72,8 @@ def can_change_owner(resource, user: models.User) -> bool:
 def default_owner_kwargs(user: models.User) -> dict:
     """Default ownership for newly created resources: personal."""
     return {"owner_user_id": user.id, "owner_household_id": None}
+
+
+def household_owner_kwargs(household_id: int) -> dict:
+    """Ownership for resources that belong to a household rather than one member."""
+    return {"owner_user_id": None, "owner_household_id": household_id}

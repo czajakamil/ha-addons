@@ -4,7 +4,7 @@ import { apiFetch } from './data';
 export interface UiPrefs {
   recipesGrouped: boolean;
   macroTargets: MacroTarget;
-  favoriteRecipeIds: string[];
+  favoriteRecipeIds: number[];
 }
 
 const DEFAULTS: UiPrefs = {
@@ -16,7 +16,7 @@ const DEFAULTS: UiPrefs = {
 interface ServerShape {
   recipes_grouped?: boolean;
   macro_targets?: { kcal?: number; p?: number; f?: number; c?: number };
-  favorite_recipe_ids?: string[];
+  favorite_recipe_ids?: number[];
 }
 
 let cache: UiPrefs = { ...DEFAULTS, macroTargets: { ...DEFAULTS.macroTargets }, favoriteRecipeIds: [] };

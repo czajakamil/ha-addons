@@ -1,6 +1,7 @@
 from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -186,6 +187,123 @@ def update_user(
     return _user_admin_out(db, user)
 
 
+def _household_successor(db: Session, user_id: int) -> int | None:
+    """Lowest-numbered *other* member of the leaving user's household, if any.
+
+    Recipes shared with a household outlive whoever happened to type them in, so
+    they need a new `created_by` rather than a tombstone.
+    """
+    membership = db.get(models.HouseholdMember, user_id)
+    if membership is None:
+        return None
+    return (
+        db.query(func.min(models.HouseholdMember.user_id))
+        .filter(
+            models.HouseholdMember.household_id == membership.household_id,
+            models.HouseholdMember.user_id != user_id,
+        )
+        .scalar()
+    )
+
+
+def _purge_user_data(db: Session, user_id: int) -> None:
+    """Remove every row that belongs to `user_id`, in foreign-key-safe order.
+
+    This has to be exhaustive. SQLite reuses the id of a deleted row whenever it
+    was the highest one (the primary keys here are plain INTEGER PRIMARY KEY, not
+    AUTOINCREMENT), so anything left behind is not merely orphaned garbage — the
+    next user created inherits it. A surviving `api_keys` row means a leaked key
+    keeps working against a brand-new account; surviving `agent_conversations`
+    means that account can read a stranger's chat history.
+    """
+    successor = _household_successor(db, user_id)
+
+    # --- Agent: conversations -> messages -> tool uses ---------------------
+    conv_ids = [
+        i for (i,) in db.query(models.AgentConversation.id).filter(models.AgentConversation.user_id == user_id).all()
+    ]
+    if conv_ids:
+        msg_ids = [
+            i
+            for (i,) in db.query(models.AgentMessage.id).filter(models.AgentMessage.conversation_id.in_(conv_ids)).all()
+        ]
+        if msg_ids:
+            db.query(models.AgentToolUse).filter(models.AgentToolUse.message_id.in_(msg_ids)).delete(
+                synchronize_session=False
+            )
+        db.query(models.AgentMessage).filter(models.AgentMessage.conversation_id.in_(conv_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(models.AgentConversation).filter(models.AgentConversation.id.in_(conv_ids)).delete(
+            synchronize_session=False
+        )
+    db.query(models.AgentSettings).filter(models.AgentSettings.user_id == user_id).delete(synchronize_session=False)
+
+    # --- Credentials -------------------------------------------------------
+    db.query(models.ApiKey).filter(models.ApiKey.user_id == user_id).delete(synchronize_session=False)
+
+    # --- This user's ratings/notes on anybody's recipes --------------------
+    db.query(models.RecipeRating).filter(models.RecipeRating.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.RecipeNote).filter(models.RecipeNote.user_id == user_id).delete(synchronize_session=False)
+
+    # --- Recipes: hand the shared ones over, destroy the private ones ------
+    owned_recipes = (
+        db.query(models.Recipe.id, models.Recipe.owner_household_id)
+        .filter(or_(models.Recipe.created_by == user_id, models.Recipe.owner_user_id == user_id))
+        .all()
+    )
+    reassign_ids = [rid for rid, household_id in owned_recipes if household_id is not None and successor is not None]
+    doomed_ids = [rid for rid, household_id in owned_recipes if household_id is None or successor is None]
+
+    if reassign_ids:
+        db.query(models.Recipe).filter(models.Recipe.id.in_(reassign_ids)).update(
+            {models.Recipe.created_by: successor}, synchronize_session=False
+        )
+    if doomed_ids:
+        # Other members can only ever have touched a household recipe, and those
+        # were reassigned above — but clear these by recipe id anyway, because
+        # the rows must be gone before the recipe itself can be.
+        db.query(models.RecipeRating).filter(models.RecipeRating.recipe_id.in_(doomed_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(models.RecipeNote).filter(models.RecipeNote.recipe_id.in_(doomed_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.recipe_id.in_(doomed_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(models.MealPlanEntry).filter(models.MealPlanEntry.recipe_id.in_(doomed_ids)).delete(
+            synchronize_session=False
+        )
+
+    # --- Plan / shopping / templates --------------------------------------
+    db.query(models.MealPlanEntry).filter(
+        or_(models.MealPlanEntry.created_by == user_id, models.MealPlanEntry.owner_user_id == user_id)
+    ).delete(synchronize_session=False)
+
+    item_ids = [
+        i
+        for (i,) in db.query(models.ShoppingItem.id)
+        .filter(or_(models.ShoppingItem.created_by == user_id, models.ShoppingItem.owner_user_id == user_id))
+        .all()
+    ]
+    if item_ids:
+        db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.item_id.in_(item_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(models.ShoppingItem).filter(models.ShoppingItem.id.in_(item_ids)).delete(synchronize_session=False)
+
+    db.query(models.WeekTemplate).filter(
+        or_(models.WeekTemplate.created_by == user_id, models.WeekTemplate.owner_user_id == user_id)
+    ).delete(synchronize_session=False)
+
+    # Recipes last: nothing may still point at them.
+    if doomed_ids:
+        db.query(models.Recipe).filter(models.Recipe.id.in_(doomed_ids)).delete(synchronize_session=False)
+
+    db.query(models.HouseholdMember).filter(models.HouseholdMember.user_id == user_id).delete(synchronize_session=False)
+
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: int,
@@ -200,19 +318,7 @@ def delete_user(
     if user.role == "admin" and user.is_active and _admin_count(db) <= 1:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot delete the last admin")
 
-    db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).delete(synchronize_session=False)
-    shopping_item_ids = [
-        i for (i,) in db.query(models.ShoppingItem.id).filter(models.ShoppingItem.created_by == user_id).all()
-    ]
-    if shopping_item_ids:
-        db.query(models.ShoppingItemRecipe).filter(models.ShoppingItemRecipe.item_id.in_(shopping_item_ids)).delete(
-            synchronize_session=False
-        )
-    db.query(models.ShoppingItem).filter(models.ShoppingItem.created_by == user_id).delete(synchronize_session=False)
-    db.query(models.WeekTemplate).filter(models.WeekTemplate.created_by == user_id).delete(synchronize_session=False)
-    # Remove household membership; orphaned household-owned recipes are reassigned to creator
-    db.query(models.HouseholdMember).filter(models.HouseholdMember.user_id == user_id).delete(synchronize_session=False)
-    db.query(models.Recipe).filter(models.Recipe.created_by == user_id).delete(synchronize_session=False)
+    _purge_user_data(db, user_id)
     db.delete(user)
     db.commit()
     return None

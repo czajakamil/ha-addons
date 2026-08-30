@@ -15,8 +15,22 @@ from ..agent_runner import generate_conversation_title, run_agent
 from ..ai_usage import check_quota, record_usage
 from ..db import SessionLocal, get_db
 from ..dependencies import get_current_user
+from ..services import registry as tools_registry
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
+
+
+@router.get("/tools")
+def list_agent_tools(_user: models.User = Depends(get_current_user)):
+    """The agent's real tool surface, straight from the shared registry.
+
+    The UI renders this; it used to render a hand-maintained TypeScript copy
+    that had already drifted (it advertised tools the agent did not have).
+    """
+    return {
+        "groups": [{"label": label, "icon": icon} for label, icon in tools_registry.GROUP_ORDER],
+        "tools": [tools_registry.describe(spec) for spec in tools_registry.TOOL_SPECS],
+    }
 
 
 def _usage_status(user: models.User) -> schemas.AiUsageStatus:
@@ -343,124 +357,132 @@ async def stream_conversation(
         return f"data: {json.dumps(data)}\n\n"
 
     async def generate():
+        # One session for the whole stream, closed exactly once in `finally`.
+        # Every early return below — and a client that disconnects mid-stream,
+        # which throws GeneratorExit in here — used to leak it; a handful of
+        # abandoned conversations was enough to exhaust the connection pool.
         stream_db = SessionLocal()
-        tool_events: list[dict[str, Any]] = []
-        changed_set: set = set()
-        text_parts: list[str] = []
-
         try:
-            endpoint_url = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
-            api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
+            tool_events: list[dict[str, Any]] = []
+            changed_set: set = set()
+            text_parts: list[str] = []
 
-            if not endpoint_url:
-                yield _sse({"type": "error", "message": "Brak konfiguracji MEALPILOT_AI_API_URL"})
-                return
-            if not api_key:
-                yield _sse({"type": "error", "message": "Brak konfiguracji MEALPILOT_AI_API_KEY"})
-                return
-
-            stream_user = stream_db.get(models.User, captured_user_id)
-            if stream_user is None:
-                yield _sse({"type": "error", "message": "Użytkownik nie znaleziony"})
-                return
-
-            if is_anthropic(endpoint_url):
-                provider = stream_anthropic(
-                    endpoint_url,
-                    api_key,
-                    model,
-                    system_prompt,
-                    history,
-                    stream_db,
-                    stream_user,
-                    tool_events,
-                    changed_set,
-                )
-            else:
-                provider = stream_openai(
-                    endpoint_url,
-                    api_key,
-                    model,
-                    system_prompt,
-                    history,
-                    stream_db,
-                    stream_user,
-                    tool_events,
-                    changed_set,
-                )
-
-            async for event in provider:
-                if event["type"] == "text_delta":
-                    text_parts.append(event["text"])
-                yield _sse(event)
-
-        except Exception as exc:
-            yield _sse({"type": "error", "message": str(exc)})
-            stream_db.close()
-            return
-
-        # Persist assistant message
-        reply = "".join(text_parts) or "(brak odpowiedzi)"
-        now = datetime.now(UTC)
-
-        char_count = sum(len(m.get("content") or "") for m in history) + len(reply)
-        for ev in tool_events:
-            char_count += len(str(ev.get("input") or "")) + len(str(ev.get("output") or ""))
-        approx_tokens = max(1, char_count // 4)
-
-        stream_conv = stream_db.get(models.AgentConversation, captured_conv_id)
-        if stream_conv is None:
-            stream_db.close()
-            return
-
-        record_usage(stream_db, stream_user, tokens=approx_tokens)
-
-        assistant_msg = models.AgentMessage(
-            conversation_id=captured_conv_id,
-            role="assistant",
-            content=reply,
-            created_at=now,
-        )
-        stream_db.add(assistant_msg)
-        stream_db.flush()
-
-        for ev in tool_events:
-            stream_db.add(
-                models.AgentToolUse(
-                    message_id=assistant_msg.id,
-                    tool_use_id=ev["tool_use_id"],
-                    tool_name=ev["name"],
-                    input=ev["input"] or {},
-                    output=ev.get("error") if ev.get("error") else ev["output"],
-                    is_error=1 if ev.get("error") else 0,
-                    started_at=now,
-                    finished_at=now,
-                )
-            )
-
-        stream_conv.updated_at = now
-
-        generated_title: str | None = None
-        if is_first_turn and reply and not reply.startswith("❗"):
             try:
-                generated_title = await generate_conversation_title(model, first_user_text, reply)
-            except Exception:
-                generated_title = None
-            if generated_title:
-                stream_conv.title = generated_title
+                endpoint_url = os.environ.get("MEALPILOT_AI_API_URL", "").strip()
+                api_key = os.environ.get("MEALPILOT_AI_API_KEY", "").strip()
 
-        stream_db.commit()
-        stream_db.refresh(assistant_msg)
-        stream_db.close()
+                if not endpoint_url:
+                    yield _sse({"type": "error", "message": "Brak konfiguracji MEALPILOT_AI_API_URL"})
+                    return
+                if not api_key:
+                    yield _sse({"type": "error", "message": "Brak konfiguracji MEALPILOT_AI_API_KEY"})
+                    return
 
-        yield _sse(
-            {
-                "type": "done",
-                "message_id": assistant_msg.id,
-                "changed": sorted(changed_set),
-                "title": generated_title,
-            }
-        )
+                stream_user = stream_db.get(models.User, captured_user_id)
+                if stream_user is None:
+                    yield _sse({"type": "error", "message": "Użytkownik nie znaleziony"})
+                    return
+
+                if is_anthropic(endpoint_url):
+                    provider = stream_anthropic(
+                        endpoint_url,
+                        api_key,
+                        model,
+                        system_prompt,
+                        history,
+                        stream_db,
+                        stream_user,
+                        tool_events,
+                        changed_set,
+                    )
+                else:
+                    provider = stream_openai(
+                        endpoint_url,
+                        api_key,
+                        model,
+                        system_prompt,
+                        history,
+                        stream_db,
+                        stream_user,
+                        tool_events,
+                        changed_set,
+                    )
+
+                async for event in provider:
+                    if event["type"] == "text_delta":
+                        text_parts.append(event["text"])
+                    yield _sse(event)
+
+            # Deliberately `Exception`, not `BaseException`: a disconnected
+            # client raises GeneratorExit, which must propagate so the generator
+            # actually finishes (and hits `finally`) instead of being reported
+            # to a socket nobody is reading.
+            except Exception as exc:
+                yield _sse({"type": "error", "message": str(exc)})
+                return
+
+            # Persist assistant message
+            reply = "".join(text_parts) or "(brak odpowiedzi)"
+            now = datetime.now(UTC)
+
+            char_count = sum(len(m.get("content") or "") for m in history) + len(reply)
+            for ev in tool_events:
+                char_count += len(str(ev.get("input") or "")) + len(str(ev.get("output") or ""))
+            approx_tokens = max(1, char_count // 4)
+
+            stream_conv = stream_db.get(models.AgentConversation, captured_conv_id)
+            if stream_conv is None:
+                return
+
+            record_usage(stream_db, stream_user, tokens=approx_tokens)
+
+            assistant_msg = models.AgentMessage(
+                conversation_id=captured_conv_id,
+                role="assistant",
+                content=reply,
+                created_at=now,
+            )
+            stream_db.add(assistant_msg)
+            stream_db.flush()
+
+            for ev in tool_events:
+                stream_db.add(
+                    models.AgentToolUse(
+                        message_id=assistant_msg.id,
+                        tool_use_id=ev["tool_use_id"],
+                        tool_name=ev["name"],
+                        input=ev["input"] or {},
+                        output=ev.get("error") if ev.get("error") else ev["output"],
+                        is_error=1 if ev.get("error") else 0,
+                        started_at=now,
+                        finished_at=now,
+                    )
+                )
+
+            stream_conv.updated_at = now
+
+            generated_title: str | None = None
+            if is_first_turn and reply and not reply.startswith("❗"):
+                try:
+                    generated_title = await generate_conversation_title(model, first_user_text, reply)
+                except Exception:
+                    generated_title = None
+                if generated_title:
+                    stream_conv.title = generated_title
+
+            stream_db.commit()
+            stream_db.refresh(assistant_msg)
+
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": assistant_msg.id,
+                    "changed": sorted(changed_set),
+                    "title": generated_title,
+                }
+            )
+        finally:
+            stream_db.close()
 
     return StreamingResponse(
         generate(),

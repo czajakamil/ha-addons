@@ -40,7 +40,6 @@ def test_admin_can_login_and_me(admin_client):
 
 def test_recipe_crud_round_trip(admin_client):
     payload = {
-        "id": "test_recipe_1",
         "title": "Testowy przepis",
         "servings": 2,
         "ingredients": [{"name": "jajko", "qty": 2, "unit": "szt"}],
@@ -49,24 +48,27 @@ def test_recipe_crud_round_trip(admin_client):
     r = admin_client.post("/api/recipes", json=payload)
     assert r.status_code == 201, r.text
     assert r.json()["title"] == "Testowy przepis"
+    rid = r.json()["id"]
 
-    r = admin_client.get("/api/recipes/test_recipe_1")
+    r = admin_client.get(f"/api/recipes/{rid}")
     assert r.status_code == 200
     assert r.json()["steps"][0]["text"] == "Krok pierwszy"
 
-    r = admin_client.put("/api/recipes/test_recipe_1", json={"title": "Zmieniony"})
+    r = admin_client.put(f"/api/recipes/{rid}", json={"title": "Zmieniony"})
     assert r.status_code == 200
     assert r.json()["title"] == "Zmieniony"
+    # Zmiana tytułu nie rusza id — powiązania planu i listy zakupów przeżywają.
+    assert r.json()["id"] == rid
 
-    r = admin_client.delete("/api/recipes/test_recipe_1")
+    r = admin_client.delete(f"/api/recipes/{rid}")
     assert r.status_code == 204
 
-    r = admin_client.get("/api/recipes/test_recipe_1")
+    r = admin_client.get(f"/api/recipes/{rid}")
     assert r.status_code == 404
 
 
 def test_plan_then_generate_shopping(admin_client):
-    # Setup zasiał demo-przepisy z prefixem u{uid}_. Pobierz istniejący przepis.
+    # Setup zasiał demo-przepisy. Pobierz istniejący przepis.
     recipes = admin_client.get("/api/recipes").json()
     assert recipes, "setup powinien zasiać demo-przepisy"
     rid = recipes[0]["id"]

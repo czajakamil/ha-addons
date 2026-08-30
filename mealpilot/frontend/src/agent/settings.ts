@@ -2,35 +2,29 @@ import { apiFetch } from '../data';
 
 export interface AgentSettings {
   model: string;
+  /**
+   * Nadpisanie promptu systemowego przez użytkownika.
+   * Pusty string = "użyj domyślnego" — backend podstawia wtedy swój
+   * DEFAULT_SYSTEM_PROMPT. Frontend NIE trzyma własnej kopii promptu,
+   * żeby nie przypiąć do bazy przestarzałej wersji.
+   */
   systemPrompt: string;
+  /** Domyślny prompt z backendu (tylko do podglądu / przywracania). */
+  defaultSystemPrompt: string;
 }
 
-export const DEFAULT_SYSTEM_PROMPT = `Jesteś agentem MealPilot — pomagasz użytkownikowi planować posiłki na tydzień i prowadzić bibliotekę przepisów.
-
-Zasady ogólne:
-1. Zanim zaproponujesz plan, wywołaj list_recipes (lub filter_recipes), list_tags i list_meal_types — żeby znać RZECZYWISTE id przepisów i dostępne wartości. Nigdy nie zgaduj ani nie wymyślaj id przepisu.
-2. Zanim cokolwiek dostosujesz, sprawdź get_current_week_plan — nie nadpisuj tego co już jest, chyba że user tego chce.
-3. Przed wywołaniem set_week_plan lub add_plan_entry zawsze najpierw pobierz listę przepisów (list_recipes / filter_recipes) i używaj wyłącznie id z odpowiedzi — nigdy nie konstruuj id samodzielnie.
-4. Przed wywołaniem set_week_plan (ale NIE add_plan_entry) pokaż użytkownikowi propozycję i czekaj na potwierdzenie.
-5. Przy planowaniu uwzględniaj różnorodność — nie powtarzaj tego samego przepisu więcej niż 3 razy w tygodniu.
-6. Jeśli user pyta o kalorie/makra, użyj get_week_nutrition_summary.
-7. Odpowiadaj po polsku. Bądź konkretny i zwięzły.
-
-Tworzenie przepisów (create_recipe):
-8. Gdy user opisuje nowy przepis lub wkleja przepis z internetu — wyekstrahuj składniki, kroki, czasy, porcje. Najpierw wywołaj list_tags i list_meal_types, żeby dopasować się do istniejących wartości (zamiast tworzyć duplikaty typu "azjatyckie" vs "azjatycki").
-9. Jeśli user nie podał kcal/białka/tłuszczu/węgli — oszacuj je na podstawie składników (typowe wartości na 100 g) i policz na porcję. W podglądzie wyraźnie napisz, że makro jest **szacunkowe** i zaproponuj poprawki.
-10. Brakujących krytycznych pól (servings, kroki, składniki) nie zgaduj — dopytaj użytkownika.
-11. Hue dobierz losowo (0–360) lub w nawiązaniu do typu kuchni (np. azjatyckie ~30, włoskie ~10, vege ~120).
-12. Zawsze pokaż pełen podgląd przepisu i czekaj na potwierdzenie przed wywołaniem create_recipe. Po utworzeniu zaproponuj korekty (zmiana makro, dodanie tagu) — używaj wtedy update_recipe.`;
+const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
 const DEFAULTS: AgentSettings = {
-  model: 'claude-haiku-4-5-20251001',
-  systemPrompt: DEFAULT_SYSTEM_PROMPT,
+  model: DEFAULT_MODEL,
+  systemPrompt: '',
+  defaultSystemPrompt: '',
 };
 
 interface ServerShape {
   model?: string;
   system_prompt?: string;
+  default_system_prompt?: string;
 }
 
 let cache: AgentSettings = { ...DEFAULTS };
@@ -38,9 +32,15 @@ let loaded = false;
 
 function fromServer(s: ServerShape): AgentSettings {
   return {
-    model: s.model || DEFAULTS.model,
-    systemPrompt: s.system_prompt || DEFAULTS.systemPrompt,
+    model: s.model || DEFAULT_MODEL,
+    systemPrompt: s.system_prompt ?? '',
+    defaultSystemPrompt: s.default_system_prompt ?? '',
   };
+}
+
+/** Prompt pokazywany w UI: nadpisanie użytkownika albo domyślny z serwera. */
+export function effectiveSystemPrompt(s: AgentSettings): string {
+  return s.systemPrompt || s.defaultSystemPrompt;
 }
 
 export async function fetchSettings(): Promise<AgentSettings> {
@@ -58,11 +58,13 @@ export async function persistSettings(s: AgentSettings): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: s.model,
-      system_prompt: s.systemPrompt,
+      // Nie odsyłamy domyślnego promptu — pusty string znaczy
+      // "użyj domyślnego z backendu".
+      system_prompt: s.systemPrompt.trim() === s.defaultSystemPrompt.trim() ? '' : s.systemPrompt,
     }),
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  cache = { ...s };
+  cache = fromServer((await res.json()) as ServerShape);
   loaded = true;
 }
 

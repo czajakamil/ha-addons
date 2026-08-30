@@ -6,7 +6,7 @@ from . import models
 
 RECIPES = [
     {
-        "id": "kurczak_z_ryzem",
+        "key": "kurczak_z_ryzem",
         "title": "Kurczak z ryżem i warzywami",
         "tags": ["lunch", "high-protein", "meal-prep"],
         "servings": 4,
@@ -36,7 +36,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "owsianka_z_owocami",
+        "key": "owsianka_z_owocami",
         "title": "Owsianka z owocami i orzechami",
         "tags": ["śniadanie", "vege", "szybkie"],
         "servings": 1,
@@ -62,7 +62,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "salatka_grecka",
+        "key": "salatka_grecka",
         "title": "Sałatka grecka z fetą",
         "tags": ["kolacja", "vege", "letnie"],
         "servings": 2,
@@ -89,7 +89,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "losos_pieczony",
+        "key": "losos_pieczony",
         "title": "Łosoś pieczony z brokułem",
         "tags": ["obiad", "high-protein", "omega-3"],
         "servings": 2,
@@ -116,7 +116,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "kasza_z_warzywami",
+        "key": "kasza_z_warzywami",
         "title": "Kasza gryczana z pieczarkami",
         "tags": ["obiad", "vege", "tanio"],
         "servings": 3,
@@ -143,7 +143,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "zupa_pomidorowa",
+        "key": "zupa_pomidorowa",
         "title": "Zupa pomidorowa z ryżem",
         "tags": ["obiad", "vege", "comfort"],
         "servings": 4,
@@ -170,7 +170,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "tofu_stir_fry",
+        "key": "tofu_stir_fry",
         "title": "Tofu stir-fry z makaronem",
         "tags": ["kolacja", "vege", "azjatycka"],
         "servings": 2,
@@ -198,7 +198,7 @@ RECIPES = [
         ],
     },
     {
-        "id": "jajecznica",
+        "key": "jajecznica",
         "title": "Jajecznica z awokado",
         "tags": ["śniadanie", "high-protein", "szybkie"],
         "servings": 1,
@@ -246,16 +246,23 @@ PLAN = [
 
 def seed_for_user(db: Session, user_id: int) -> None:
     """Seed demo recipes and a starter plan for a fresh user account."""
-    has_recipes = db.query(models.Recipe).filter(models.Recipe.created_by == user_id).count() > 0
-    if not has_recipes:
+    mine = db.query(models.Recipe).filter(models.Recipe.created_by == user_id)
+    if mine.count() == 0:
         for r in RECIPES:
-            data = {**r, "id": f"u{user_id}_{r['id']}"}
-            db.add(models.Recipe(created_by=user_id, owner_user_id=user_id, **data))
+            fields = {k: v for k, v in r.items() if k != "key"}
+            db.add(models.Recipe(created_by=user_id, owner_user_id=user_id, **fields))
         db.commit()
+
+    # Ids are assigned by the database, so PLAN's seed keys are resolved by title.
+    by_title = {row.title: row.id for row in mine.all()}
+    seeded_ids = {r["key"]: by_title.get(r["title"]) for r in RECIPES}
 
     has_plan = db.query(models.MealPlanEntry).filter(models.MealPlanEntry.created_by == user_id).count() > 0
     if not has_plan:
-        for day, meal, recipe_id in PLAN:
+        for day, meal, key in PLAN:
+            recipe_id = seeded_ids.get(key)
+            if recipe_id is None:
+                continue
             db.add(
                 models.MealPlanEntry(
                     created_by=user_id,
@@ -263,7 +270,7 @@ def seed_for_user(db: Session, user_id: int) -> None:
                     week_start=WEEK_START,
                     day=day,
                     meal=meal,
-                    recipe_id=f"u{user_id}_{recipe_id}",
+                    recipe_id=recipe_id,
                     servings=1,
                 )
             )

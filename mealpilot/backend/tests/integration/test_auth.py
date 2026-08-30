@@ -111,3 +111,36 @@ def test_invalid_api_key_rejected(new_client):
     c = new_client()
     r = c.get("/api/auth/me", headers={"X-MealPilot-Token": "mp_nieprawidlowy"})
     assert r.status_code == 401
+
+
+# --- Setup token (MEALPILOT_SETUP_TOKEN) -----------------------------------
+
+
+def test_setup_requires_token_when_operator_set_one(client, monkeypatch):
+    """UI musi umieć przesłać `setup_token` — bez niego setup jest zablokowany."""
+    monkeypatch.setenv("MEALPILOT_SETUP_TOKEN", "s3kret")
+
+    r = client.post("/api/auth/setup", json={"username": "admin", "password": "AdminPass1234"})
+    assert r.status_code == 403
+    assert r.json()["detail"] == "Invalid setup token"
+
+    r = client.post(
+        "/api/auth/setup",
+        json={"username": "admin", "password": "AdminPass1234", "setup_token": "zle"},
+    )
+    assert r.status_code == 403
+
+    r = client.post(
+        "/api/auth/setup",
+        json={"username": "admin", "password": "AdminPass1234", "setup_token": "s3kret"},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["role"] == "admin"
+
+
+def test_setup_token_ignored_when_not_configured(client):
+    r = client.post(
+        "/api/auth/setup",
+        json={"username": "admin", "password": "AdminPass1234", "setup_token": "cokolwiek"},
+    )
+    assert r.status_code == 201, r.text

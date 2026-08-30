@@ -11,6 +11,7 @@ export function AuthScreen({ mode, onAuthenticated }: Props) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [setupToken, setSetupToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -38,7 +39,7 @@ export function AuthScreen({ mode, onAuthenticated }: Props) {
     setBusy(true);
     try {
       const user = isSetup
-        ? await setupAdmin(username.trim(), password)
+        ? await setupAdmin(username.trim(), password, setupToken.trim())
         : await login(username.trim(), password);
       onAuthenticated(user);
     } catch (err) {
@@ -78,15 +79,32 @@ export function AuthScreen({ mode, onAuthenticated }: Props) {
           />
         </label>
         {isSetup && (
-          <label>
-            Powtórz hasło
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-          </label>
+          <>
+            <label>
+              Powtórz hasło
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>
+                Token setupu <span className="auth-optional">(opcjonalny)</span>
+              </span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={setupToken}
+                onChange={(e) => setSetupToken(e.target.value)}
+              />
+            </label>
+            <p className="auth-hint">
+              Token wypełnij tylko wtedy, gdy w konfiguracji dodatku ustawiono{' '}
+              <code>MEALPILOT_SETUP_TOKEN</code>.
+            </p>
+          </>
         )}
 
         {error && <div className="auth-error">{error}</div>}

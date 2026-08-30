@@ -8,6 +8,8 @@ import {
   PLAN_CHANGED,
   RECIPES_CHANGED,
   currentWeekStart,
+  parseISODate,
+  shiftWeekStart,
   getPlan,
   getRecipes,
   recipeBy,
@@ -24,15 +26,15 @@ import type { MacroTarget, PlanEntry, SetTweak, Tweaks, WeekTemplate } from '../
 interface Props {
   tweaks: Tweaks;
   setTweak: SetTweak;
-  openRecipe: (id: string) => void;
+  openRecipe: (id: number) => void;
   macroTargets: MacroTarget;
   onTargetsChange: (t: MacroTarget) => Promise<void>;
-  favoriteIds: string[];
+  favoriteIds: number[];
 }
 
 interface DragState {
   fromKey: string;
-  recipe_id: string;
+  recipe_id: number;
   servings: number;
 }
 
@@ -73,11 +75,35 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   }, [plan, weekStart]);
 
   const todayIndex = useMemo(() => {
-    const today = new Date();
-    const start = new Date(weekStart);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = parseISODate(weekStart);
+    // Math.round, bo zmiana czasu przesuwa różnicę o ±1 h.
     const diff = Math.round((today.getTime() - start.getTime()) / 86400000);
     return diff >= 0 && diff < 7 ? diff : -1;
   }, [weekStart]);
+
+  // PWA bywa otwarta przez całą noc — po powrocie do karty sprawdź, czy nie
+  // zaczął się nowy tydzień. Przeskakujemy tylko wtedy, gdy user oglądał
+  // tydzień "bieżący"; ręcznie wybrany tydzień zostawiamy w spokoju.
+  const weekStartRef = useRef(weekStart);
+  weekStartRef.current = weekStart;
+  const lastKnownCurrentWeekRef = useRef(currentWeekStart());
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const fresh = currentWeekStart();
+      const stale = lastKnownCurrentWeekRef.current;
+      if (fresh === stale) return;
+      lastKnownCurrentWeekRef.current = fresh;
+      if (weekStartRef.current !== stale) return;
+      weekStartRef.current = fresh;
+      setWeekStart(fresh);
+      void loadPlan(fresh).then(() => setPlan([...getPlan(fresh)]));
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   useEffect(() => {
     setGoalsForm(macroTargets);
@@ -99,25 +125,25 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   const cellEntries = (day: number, meal: string) =>
     plan.filter((p) => p.day === day && p.meal.toLowerCase() === meal.toLowerCase());
 
-  const moveTo = (entry: { recipe_id: string; servings: number }, fromKey: string, day: number, meal: string) => {
+  const moveTo = (entry: { recipe_id: number; servings: number }, fromKey: string, day: number, meal: string) => {
     isDirtyRef.current = true;
     setPlan((prev) => {
       let next = prev;
       if (fromKey && fromKey !== 'library') {
         const [fd, fm, fr] = fromKey.split('|');
-        next = next.filter((p) => !(p.day === +fd && p.meal === fm && p.recipe_id === fr));
+        next = next.filter((p) => !(p.day === +fd && p.meal === fm && p.recipe_id === +fr));
       }
       next = next.filter((p) => !(p.day === day && p.meal === meal && p.recipe_id === entry.recipe_id));
       return [...next, { day, meal, recipe_id: entry.recipe_id, servings: entry.servings || 1 }];
     });
   };
 
-  const removeEntry = (day: number, meal: string, recipe: string) => {
+  const removeEntry = (day: number, meal: string, recipe: number) => {
     isDirtyRef.current = true;
     setPlan((prev) => prev.filter((p) => !(p.day === day && p.meal === meal && p.recipe_id === recipe)));
   };
 
-  const addRecipe = (day: number, meal: string, recipeId: string) => {
+  const addRecipe = (day: number, meal: string, recipeId: number) => {
     isDirtyRef.current = true;
     setPlan((prev) => {
       const filtered = prev.filter(
@@ -173,7 +199,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   };
 
   const fmtWeek = (s: string) => {
-    const start = new Date(s);
+    const start = parseISODate(s);
     const end = new Date(start.getTime() + 6 * 86400000);
     const fmt = (d: Date) =>
       `${d.getDate()} ${['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'][d.getMonth()]}`;
@@ -181,9 +207,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
   };
 
   const shiftWeek = (n: number) => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + n * 7);
-    const ws = d.toISOString().slice(0, 10);
+    const ws = shiftWeekStart(weekStart, n);
     setWeekStart(ws);
     loadPlan(ws).then(() => setPlan([...getPlan(ws)]));
   };
@@ -247,7 +271,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
                   };
                   ev.dataTransfer.effectAllowed = 'move';
                   try {
-                    ev.dataTransfer.setData('text/plain', e.recipe_id);
+                    ev.dataTransfer.setData('text/plain', String(e.recipe_id));
                   } catch {
                     /* noop */
                   }
@@ -672,7 +696,7 @@ export function PlanScreen({ tweaks, setTweak, openRecipe, macroTargets, onTarge
                 dragRef.current = { fromKey: 'library', recipe_id: r.id, servings: 1 };
                 ev.dataTransfer.effectAllowed = 'copy';
                 try {
-                  ev.dataTransfer.setData('text/plain', r.id);
+                  ev.dataTransfer.setData('text/plain', String(r.id));
                 } catch {
                   /* noop */
                 }

@@ -14,7 +14,7 @@ import {
   regenerateShopping,
   setShoppingChecked,
   SHOPPING_CHANGED,
-  WEEK_START,
+  currentWeekStart,
 } from '../data';
 import type { ShoppingItem } from '../types';
 
@@ -31,7 +31,7 @@ const CATEGORIES = [
 const CUSTOM_UNITS = ['szt', 'g', 'kg', 'ml', 'l', 'opak'] as const;
 
 export function ShoppingScreen() {
-  const ws = WEEK_START;
+  const ws = currentWeekStart();
   const [items, setItems] = useState<ShoppingItem[]>(() => getShopping(ws));
   const [loading, setLoading] = useState(items.length === 0);
   const [regenerating, setRegenerating] = useState(false);

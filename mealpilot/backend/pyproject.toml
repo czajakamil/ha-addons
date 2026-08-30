@@ -14,3 +14,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["N"]
+# Domain errors are named after the condition (NotFound, Forbidden), matching how
+# they read at the call site and how each transport maps them.
+"app/services/errors.py" = ["N818"]

@@ -1,0 +1,7 @@
+Migracje Alembica MealPilota.
+
+Katalog leży w `app/`, a nie w klasycznym `backend/alembic/`, bo Dockerfile
+kopiuje do obrazu tylko `backend/app`, `backend/mcp_server.py` i
+`backend/scripts` — dzięki temu migracje jadą razem z pakietem `app`.
+
+Jak dodać zmianę schematu: patrz nagłówek `app/migrator.py`.

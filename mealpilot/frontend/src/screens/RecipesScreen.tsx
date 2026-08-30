@@ -6,7 +6,7 @@ import { CookingMode } from './CookingMode';
 import {
   MEAL_TYPES_ALL,
   RECIPES_CHANGED,
-  WEEK_START,
+  currentWeekStart,
   addShoppingItem,
   createRecipe,
   deleteRating,
@@ -518,7 +518,7 @@ const emptyForm: RecipeForm = {
 
 interface NewRecipeModalProps {
   onClose: () => void;
-  onSave: (payload: Recipe) => Promise<void>;
+  onSave: (payload: Omit<Recipe, 'id'>) => Promise<void>;
 }
 
 function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
@@ -588,7 +588,6 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
     try {
       await onSave({
         ...form,
-        id: crypto.randomUUID(),
         servings: Math.trunc(form.servings) || 1,
         prep_time: Math.trunc(form.prep_time) || 0,
         cook_time: Math.trunc(form.cook_time) || 0,
@@ -957,9 +956,9 @@ function NewRecipeModal({ onClose, onSave }: NewRecipeModalProps) {
 
 interface RecipeCardProps {
   recipe: Recipe;
-  openRecipe: (id: string) => void;
+  openRecipe: (id: number) => void;
   isFavorite: boolean;
-  onToggleFavorite: (id: string) => void;
+  onToggleFavorite: (id: number) => void;
   currentUserId: number;
 }
 
@@ -1131,11 +1130,11 @@ function RecipeCard({ recipe: r, openRecipe, isFavorite, onToggleFavorite, curre
 }
 
 interface RecipesScreenProps {
-  openRecipe: (id: string) => void;
+  openRecipe: (id: number) => void;
   grouped: boolean;
   onGroupedChange: (v: boolean) => void;
-  favoriteIds: string[];
-  onToggleFavorite: (id: string) => void;
+  favoriteIds: number[];
+  onToggleFavorite: (id: number) => void;
   currentUserId: number;
 }
 
@@ -1162,7 +1161,7 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
       (q === '' || r.title.toLowerCase().includes(q.toLowerCase())),
   );
 
-  const handleSave = async (payload: Recipe) => {
+  const handleSave = async (payload: Omit<Recipe, 'id'>) => {
     await createRecipe(payload);
     await refresh();
     setShowNew(false);
@@ -1170,7 +1169,7 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
 
   const mealTypeGroups = useMemo(() => {
     const knownTypes = MEAL_TYPES_ALL.map((m) => m.id);
-    const assignedIds = new Set<string>();
+    const assignedIds = new Set<number>();
     const groups: { label: string; items: Recipe[] }[] = knownTypes.map((mt) => {
       const items = list.filter((r) => (r.meal_types || []).includes(mt));
       items.forEach((r) => assignedIds.add(r.id));
@@ -1315,10 +1314,10 @@ export function RecipesScreen({ openRecipe, grouped, onGroupedChange, favoriteId
 }
 
 interface RecipeDetailProps {
-  recipeId: string;
+  recipeId: number;
   onClose: () => void;
   isFavorite: boolean;
-  onToggleFavorite: (id: string) => void;
+  onToggleFavorite: (id: number) => void;
   currentUserId: number;
 }
 
@@ -1409,6 +1408,17 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
 
   const { overIdx: dragDetailIngOver, rowProps: detailIngRowProps, handleProps: detailIngHandleProps } = useSortable(moveDetailIng);
 
+  const setDraftSteps = useCallback(
+    (steps: Step[]) => {
+      setDraft((d) => {
+        if (!d) return d;
+        if (!d.is_meal_prep || stepsTab === 'cooking') return { ...d, steps };
+        return { ...d, meal_prep_steps: steps };
+      });
+    },
+    [stepsTab],
+  );
+
   if (!baseR || !draft) return null;
   const r = editing ? draft : baseR;
 
@@ -1433,17 +1443,6 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
     if (!draft.is_meal_prep || stepsTab === 'cooking') return draft.steps;
     return draft.meal_prep_steps ?? [];
   };
-  const setDraftSteps = useCallback(
-    (steps: Step[]) => {
-      setDraft((d) => {
-        if (!d) return d;
-        if (!d.is_meal_prep || stepsTab === 'cooking') return { ...d, steps };
-        return { ...d, meal_prep_steps: steps };
-      });
-    },
-    [stepsTab],
-  );
-
   const save = async () => {
     setSaving(true);
     setSaveError(null);
@@ -1487,7 +1486,7 @@ export function RecipeDetail({ recipeId, onClose, isFavorite, onToggleFavorite, 
     try {
       for (const ing of baseR.ingredients) {
         if (!ing.name.trim()) continue;
-        await addShoppingItem(WEEK_START, { name: ing.name, qty: ing.qty, unit: ing.unit, recipe_id: baseR.id });
+        await addShoppingItem(currentWeekStart(), { name: ing.name, qty: ing.qty, unit: ing.unit, recipe_id: baseR.id });
       }
       emitShoppingChanged();
       setAddedToShopping(true);

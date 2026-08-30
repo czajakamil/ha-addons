@@ -86,7 +86,7 @@ async def run_openai(
                 except json.JSONDecodeError:
                     input_args = {}
 
-                result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                result_text, is_error = await call_tool(db, user, name, input_args, changed_set)
                 tool_events.append(
                     {
                         "tool_use_id": call_id,
@@ -217,7 +217,7 @@ async def stream_openai(
                     "name": name,
                     "input": input_args,
                 }
-                result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                result_text, is_error = await call_tool(db, user, name, input_args, changed_set)
                 tool_events.append(
                     {
                         "tool_use_id": call_id,

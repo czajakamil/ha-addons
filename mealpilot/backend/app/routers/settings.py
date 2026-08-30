@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..agent.prompts import DEFAULT_SYSTEM_PROMPT
 from ..db import get_db
 from ..dependencies import get_current_user
 
@@ -18,16 +19,21 @@ def _get_or_create(db: Session, user_id: int) -> models.AgentSettings:
     return row
 
 
+def _agent_out(row: models.AgentSettings) -> schemas.AgentSettingsOut:
+    return schemas.AgentSettingsOut(
+        model=row.model,
+        system_prompt=row.system_prompt,
+        default_system_prompt=DEFAULT_SYSTEM_PROMPT,
+    )
+
+
 @router.get("/agent", response_model=schemas.AgentSettingsOut)
 def get_agent_settings(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     row = _get_or_create(db, user.id)
-    return schemas.AgentSettingsOut(
-        model=row.model,
-        system_prompt=row.system_prompt,
-    )
+    return _agent_out(row)
 
 
 @router.put("/agent", response_model=schemas.AgentSettingsOut)
@@ -41,10 +47,7 @@ def update_agent_settings(
     row.system_prompt = payload.system_prompt
     db.commit()
     db.refresh(row)
-    return schemas.AgentSettingsOut(
-        model=row.model,
-        system_prompt=row.system_prompt,
-    )
+    return _agent_out(row)
 
 
 def _prefs_from_row(row: models.AgentSettings) -> schemas.UiPrefsOut:
@@ -58,7 +61,9 @@ def _prefs_from_row(row: models.AgentSettings) -> schemas.UiPrefsOut:
             f=mt.get("f", 70),
             c=mt.get("c", 260),
         ),
-        favorite_recipe_ids=list(raw.get("favorite_recipe_ids") or []),
+        # Blobs written before recipe ids became integers can still hold slugs;
+        # they point at nothing now, so drop them instead of failing validation.
+        favorite_recipe_ids=[int(v) for v in (raw.get("favorite_recipe_ids") or []) if str(v).lstrip("-").isdigit()],
     )
 
 

@@ -12,7 +12,7 @@ from ..ownership import (
     get_membership,
     visible_filter,
 )
-from ..routers.plan import get_week_plan
+from ..services import templates as templates_svc
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 
@@ -110,39 +110,4 @@ def apply_template(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    hh = get_household_id(db, user.id)
-    tpl = db.get(models.WeekTemplate, template_id)
-    if not tpl or not can_view(tpl, user, hh):
-        raise HTTPException(404, "Template not found")
-
-    entries = [schemas.PlanEntry(**e) for e in tpl.entries]
-    recipe_ids = {e.recipe_id for e in entries}
-    if recipe_ids:
-        existing = {
-            r.id
-            for r in db.query(models.Recipe)
-            .filter(models.Recipe.id.in_(recipe_ids), visible_filter(models.Recipe, user, hh))
-            .all()
-        }
-        entries = [e for e in entries if e.recipe_id in existing]
-
-    db.query(models.MealPlanEntry).filter(
-        models.MealPlanEntry.owner_user_id == user.id,
-        models.MealPlanEntry.week_start == week_start,
-    ).delete(synchronize_session=False)
-
-    for e in entries:
-        db.add(
-            models.MealPlanEntry(
-                created_by=user.id,
-                owner_user_id=user.id,
-                week_start=week_start,
-                day=e.day,
-                meal=e.meal,
-                recipe_id=e.recipe_id,
-                servings=e.servings,
-            )
-        )
-    db.commit()
-
-    return get_week_plan(week_start, db, user)
+    return templates_svc.apply_week_template(db, user, {"template_id": template_id, "week_start": week_start})

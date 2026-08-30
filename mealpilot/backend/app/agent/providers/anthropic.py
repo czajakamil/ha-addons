@@ -20,6 +20,16 @@ def is_anthropic(endpoint: str) -> bool:
     return "anthropic.com" in endpoint or "/v1/messages" in endpoint
 
 
+def _error_message(payload: dict[str, Any]) -> str:
+    """Readable text out of an Anthropic ``error`` event / response body."""
+    err = payload.get("error")
+    if isinstance(err, dict):
+        kind = err.get("type") or "error"
+        message = err.get("message") or json_str(payload)
+        return f"{kind} — {message}"
+    return str(err) if err else json_str(payload)
+
+
 async def run_anthropic(
     endpoint: str,
     api_key: str,
@@ -72,7 +82,7 @@ async def run_anthropic(
                 tu_id = tu.get("id", str(uuid.uuid4()))
                 name = tu.get("name", "")
                 input_args = tu.get("input") or {}
-                result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                result_text, is_error = await call_tool(db, user, name, input_args, changed_set)
                 tool_events.append(
                     {
                         "tool_use_id": tu_id,
@@ -132,8 +142,22 @@ async def stream_anthropic(
                 async for raw_line in resp.aiter_lines():
                     if not raw_line.startswith("data: "):
                         continue
-                    payload = json.loads(raw_line[6:])
+                    try:
+                        payload = json.loads(raw_line[6:])
+                    except json.JSONDecodeError:
+                        # One malformed frame (a truncated chunk, a proxy's
+                        # keep-alive) used to abort the whole answer. Skip it,
+                        # the same way the OpenAI path does.
+                        continue
                     ev_type = payload.get("type")
+
+                    if ev_type == "error":
+                        # Anthropic signals a mid-stream failure (overloaded_error,
+                        # rate limits, invalid_request…) with an `error` event and
+                        # then simply stops sending. Ignoring it left the user
+                        # staring at "(brak odpowiedzi)"; raising turns it into a
+                        # visible `error` event on our own SSE stream.
+                        raise RuntimeError(f"Anthropic: {_error_message(payload)}")
 
                     if ev_type == "content_block_start":
                         idx = payload["index"]
@@ -180,7 +204,7 @@ async def stream_anthropic(
                                 "name": name,
                                 "input": input_args,
                             }
-                            result_text, is_error = call_tool(db, user, name, input_args, changed_set)
+                            result_text, is_error = await call_tool(db, user, name, input_args, changed_set)
                             block["_result_text"] = result_text
                             block["_is_error"] = is_error
                             tool_events.append(
