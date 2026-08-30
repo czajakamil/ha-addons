@@ -33,16 +33,43 @@ export function categoryOf(name: string): string {
   return 'Inne';
 }
 
+/**
+ * Formatuje datę jako YYYY-MM-DD w strefie LOKALNEJ.
+ * `toISOString()` konwertuje do UTC i potrafi cofnąć/przesunąć dzień
+ * (np. w Europe/Warsaw między 00:00 a 02:00), dlatego go tu nie używamy.
+ */
+export function toLocalISODate(d: Date): string {
+  const y = String(d.getFullYear()).padStart(4, '0');
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Parsuje YYYY-MM-DD jako północ czasu LOKALNEGO.
+ * `new Date('2026-08-24')` jest wg specyfikacji traktowane jako UTC, więc
+ * w strefach ujemnych dawałoby dzień wcześniej.
+ */
+export function parseISODate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+/** Poniedziałek bieżącego tygodnia (czas lokalny), format YYYY-MM-DD. */
 export function currentWeekStart(): string {
   const today = new Date();
   const day = today.getDay(); // 0=Sun, 1=Mon, ...
   const offset = day === 0 ? 6 : day - 1; // days since Monday
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - offset);
-  return monday.toISOString().slice(0, 10);
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+  return toLocalISODate(monday);
 }
 
-export const WEEK_START = currentWeekStart();
+/** Przesuwa tydzień o `weeks` tygodni względem poniedziałku `ws`. */
+export function shiftWeekStart(ws: string, weeks: number): string {
+  const d = parseISODate(ws);
+  d.setDate(d.getDate() + weeks * 7);
+  return toLocalISODate(d);
+}
 
 interface State {
   recipes: Recipe[];
@@ -50,7 +77,7 @@ interface State {
   shopping: Record<string, ShoppingItem[]>;
 }
 
-const state: State = { recipes: [], plan: { [WEEK_START]: [] }, shopping: {} };
+const state: State = { recipes: [], plan: {}, shopping: {} };
 export const apiBase = ((import.meta.env.VITE_API_BASE as string | undefined) ?? 'api').replace(
   /\/$/,
   '',
@@ -69,18 +96,18 @@ export async function loadRecipes(): Promise<void> {
   state.recipes = await jsonOrThrow<Recipe[]>(await apiFetch('/recipes'));
 }
 
-export async function loadPlan(ws: string = WEEK_START): Promise<void> {
+export async function loadPlan(ws: string = currentWeekStart()): Promise<void> {
   const data = await jsonOrThrow<{ entries?: PlanEntry[] }>(await apiFetch(`/plan/${ws}`));
   state.plan[ws] = data.entries ?? [];
 }
 
 export async function loadAll(): Promise<void> {
-  await Promise.all([loadRecipes(), loadPlan(WEEK_START)]);
+  await Promise.all([loadRecipes(), loadPlan(currentWeekStart())]);
 }
 
 export function resetClientState(): void {
   state.recipes = [];
-  state.plan = { [WEEK_START]: [] };
+  state.plan = {};
   state.shopping = {};
 }
 
@@ -96,7 +123,7 @@ export async function savePlan(ws: string, entries: PlanEntry[]): Promise<PlanEn
   return state.plan[ws];
 }
 
-export async function createRecipe(payload: Recipe): Promise<Recipe> {
+export async function createRecipe(payload: Omit<Recipe, 'id'>): Promise<Recipe> {
   const r = await jsonOrThrow<Recipe>(
     await apiFetch('/recipes', {
       method: 'POST',
@@ -108,9 +135,9 @@ export async function createRecipe(payload: Recipe): Promise<Recipe> {
   return r;
 }
 
-export async function updateRecipe(id: string, payload: Omit<Recipe, 'id'>): Promise<Recipe> {
+export async function updateRecipe(id: number, payload: Omit<Recipe, 'id'>): Promise<Recipe> {
   const r = await jsonOrThrow<Recipe>(
-    await apiFetch(`/recipes/${encodeURIComponent(id)}`, {
+    await apiFetch(`/recipes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -121,11 +148,11 @@ export async function updateRecipe(id: string, payload: Omit<Recipe, 'id'>): Pro
 }
 
 export async function updateRecipeOwnership(
-  id: string,
+  id: number,
   shareWithHousehold: boolean,
 ): Promise<Recipe> {
   const r = await jsonOrThrow<Recipe>(
-    await apiFetch(`/recipes/${encodeURIComponent(id)}/ownership`, {
+    await apiFetch(`/recipes/${id}/ownership`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ share_with_household: shareWithHousehold }),
@@ -140,11 +167,11 @@ export function recipeImageUrl(recipe: Pick<Recipe, 'image_filename'>): string |
   return `/images/${encodeURIComponent(recipe.image_filename)}`;
 }
 
-export async function uploadRecipeImage(id: string, file: File): Promise<Recipe> {
+export async function uploadRecipeImage(id: number, file: File): Promise<Recipe> {
   const fd = new FormData();
   fd.append('file', file);
   const r = await jsonOrThrow<Recipe>(
-    await apiFetch(`/recipes/${encodeURIComponent(id)}/image`, {
+    await apiFetch(`/recipes/${id}/image`, {
       method: 'POST',
       body: fd,
     }),
@@ -153,14 +180,14 @@ export async function uploadRecipeImage(id: string, file: File): Promise<Recipe>
   return r;
 }
 
-export async function refreshRecipe(id: string): Promise<Recipe> {
-  const r = await jsonOrThrow<Recipe>(await apiFetch(`/recipes/${encodeURIComponent(id)}`));
+export async function refreshRecipe(id: number): Promise<Recipe> {
+  const r = await jsonOrThrow<Recipe>(await apiFetch(`/recipes/${id}`));
   state.recipes = state.recipes.map((x) => (x.id === id ? r : x));
   return r;
 }
 
-export async function rateRecipe(id: string, rating: number): Promise<void> {
-  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/rating`, {
+export async function rateRecipe(id: number, rating: number): Promise<void> {
+  const res = await apiFetch(`/recipes/${id}/rating`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rating }),
@@ -168,13 +195,13 @@ export async function rateRecipe(id: string, rating: number): Promise<void> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 }
 
-export async function deleteRating(id: string): Promise<void> {
-  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/rating`, { method: 'DELETE' });
+export async function deleteRating(id: number): Promise<void> {
+  const res = await apiFetch(`/recipes/${id}/rating`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 }
 
-export async function saveRecipeNote(id: string, note: string): Promise<void> {
-  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/note`, {
+export async function saveRecipeNote(id: number, note: string): Promise<void> {
+  const res = await apiFetch(`/recipes/${id}/note`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ note }),
@@ -183,15 +210,15 @@ export async function saveRecipeNote(id: string, note: string): Promise<void> {
   state.recipes = state.recipes.map((r) => (r.id === id ? { ...r, my_note: note } : r));
 }
 
-export async function deleteRecipeNote(id: string): Promise<void> {
-  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}/note`, { method: 'DELETE' });
+export async function deleteRecipeNote(id: number): Promise<void> {
+  const res = await apiFetch(`/recipes/${id}/note`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   state.recipes = state.recipes.map((r) => (r.id === id ? { ...r, my_note: null } : r));
 }
 
-export async function deleteRecipeImage(id: string): Promise<Recipe> {
+export async function deleteRecipeImage(id: number): Promise<Recipe> {
   const r = await jsonOrThrow<Recipe>(
-    await apiFetch(`/recipes/${encodeURIComponent(id)}/image`, {
+    await apiFetch(`/recipes/${id}/image`, {
       method: 'DELETE',
     }),
   );
@@ -199,8 +226,8 @@ export async function deleteRecipeImage(id: string): Promise<Recipe> {
   return r;
 }
 
-export async function deleteRecipe(id: string): Promise<void> {
-  const res = await apiFetch(`/recipes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export async function deleteRecipe(id: number): Promise<void> {
+  const res = await apiFetch(`/recipes/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   state.recipes = state.recipes.filter((r) => r.id !== id);
   for (const ws of Object.keys(state.plan)) {
@@ -209,9 +236,9 @@ export async function deleteRecipe(id: string): Promise<void> {
 }
 
 export const getRecipes = (): Recipe[] => state.recipes;
-export const getPlan = (ws: string = WEEK_START): PlanEntry[] => state.plan[ws] ?? [];
+export const getPlan = (ws: string = currentWeekStart()): PlanEntry[] => state.plan[ws] ?? [];
 export const getPlanMap = (): Record<string, PlanEntry[]> => state.plan;
-export const recipeBy = (id: string): Recipe | undefined => state.recipes.find((r) => r.id === id);
+export const recipeBy = (id: number): Recipe | undefined => state.recipes.find((r) => r.id === id);
 
 export interface MacroEstimate {
   kcal: number;
@@ -286,16 +313,16 @@ export const emitShoppingChanged = (): void => {
   window.dispatchEvent(new Event(SHOPPING_CHANGED));
 };
 
-export const getShopping = (ws: string = WEEK_START): ShoppingItem[] =>
+export const getShopping = (ws: string = currentWeekStart()): ShoppingItem[] =>
   state.shopping[ws] ?? [];
 
-export async function loadShopping(ws: string = WEEK_START): Promise<ShoppingItem[]> {
+export async function loadShopping(ws: string = currentWeekStart()): Promise<ShoppingItem[]> {
   const items = await jsonOrThrow<ShoppingItem[]>(await apiFetch(`/shopping/${ws}`));
   state.shopping[ws] = items;
   return items;
 }
 
-export async function regenerateShopping(ws: string = WEEK_START): Promise<ShoppingItem[]> {
+export async function regenerateShopping(ws: string = currentWeekStart()): Promise<ShoppingItem[]> {
   const items = await jsonOrThrow<ShoppingItem[]>(
     await apiFetch(`/shopping/${ws}/generate`, { method: 'POST' }),
   );
@@ -321,7 +348,7 @@ export async function setShoppingChecked(
 
 export async function addShoppingItem(
   ws: string,
-  payload: { name: string; qty: number; unit: string; category?: string; recipe_id?: string },
+  payload: { name: string; qty: number; unit: string; category?: string; recipe_id?: number },
 ): Promise<ShoppingItem> {
   const item = await jsonOrThrow<ShoppingItem>(
     await apiFetch(`/shopping/${ws}/items`, {
@@ -342,7 +369,7 @@ export async function deleteShoppingItem(ws: string, id: number): Promise<void> 
   state.shopping[ws] = (state.shopping[ws] ?? []).filter((it) => it.id !== id);
 }
 
-export async function clearShopping(ws: string = WEEK_START): Promise<void> {
+export async function clearShopping(ws: string = currentWeekStart()): Promise<void> {
   const res = await apiFetch(`/shopping/${ws}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   state.shopping[ws] = [];

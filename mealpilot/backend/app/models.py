@@ -60,9 +60,10 @@ class HouseholdMember(Base):
 class AgentSettings(Base):
     __tablename__ = "agent_settings"
 
+    # Endpoint i klucz LLM celowo nie mają tu kolumn: biorą się ze zmiennych
+    # środowiskowych add-onu (MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY).
+    # Stare kolumny `endpoint` i `api_key` usuwa rewizja 0002.
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    endpoint = Column(String, nullable=False, default="")
-    api_key = Column(String, nullable=False, default="")
     model = Column(String, nullable=False, default="")
     system_prompt = Column(String, nullable=False, default="")
     ui_prefs = Column(JSON, nullable=False, default=dict)
@@ -94,7 +95,7 @@ class Recipe(Base):
         Index("ix_recipes_owner_user", "owner_user_id"),
     )
 
-    id = Column(String, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     created_by = Column("user_id", Integer, ForeignKey("users.id"), nullable=False, index=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
@@ -136,7 +137,7 @@ class MealPlanEntry(Base):
     week_start = Column(String, nullable=False, index=True)
     day = Column(Integer, nullable=False)
     meal = Column(String, nullable=False)
-    recipe_id = Column(String, ForeignKey("recipes.id"), nullable=False)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)
     servings = Column(Integer, nullable=False, default=1)
 
 
@@ -149,6 +150,18 @@ class AgentConversation(Base):
     model = Column(String, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+    # `passive_deletes=True` hands the actual row removal to the FK's
+    # ON DELETE CASCADE (enabled per connection in db.py); the ORM cascade keeps
+    # objects already loaded in the session consistent with it. Without this,
+    # deleting a conversation left its messages — and their tool uses — behind
+    # forever.
+    messages = relationship(
+        "AgentMessage",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class AgentMessage(Base):
@@ -165,6 +178,14 @@ class AgentMessage(Base):
     role = Column(String, nullable=False)  # "user" | "assistant"
     content = Column(String, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    conversation = relationship("AgentConversation", back_populates="messages")
+    tool_uses = relationship(
+        "AgentToolUse",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class AgentToolUse(Base):
@@ -184,6 +205,8 @@ class AgentToolUse(Base):
     is_error = Column(Integer, nullable=False, default=0)
     started_at = Column(DateTime, nullable=False, default=_utcnow)
     finished_at = Column(DateTime, nullable=True)
+
+    message = relationship("AgentMessage", back_populates="tool_uses")
 
 
 class WeekTemplate(Base):
@@ -209,7 +232,7 @@ class RecipeRating(Base):
     __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_rating_recipe_user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipe_id = Column(Integer, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -221,7 +244,7 @@ class RecipeNote(Base):
     __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_note_recipe_user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recipe_id = Column(String, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipe_id = Column(Integer, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     note = Column(String, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -230,8 +253,12 @@ class RecipeNote(Base):
 
 class ShoppingItem(Base):
     __tablename__ = "shopping_items"
+    # Nie ma tu klucza unikalnego na (twórca, tydzień, nazwa, jednostka): odkąd
+    # lista dziedziczy własność planu, dwie osoby mogą legalnie mieć tę samą
+    # pozycję w jednym tygodniu (jedna prywatnie, druga wspólnie). Deduplikacja
+    # jest w `services/shopping.py`, po widoczności. Rewizja 0002 zdejmuje stary
+    # constraint `uq_shop_user_week_name_unit`.
     __table_args__ = (
-        UniqueConstraint("user_id", "week_start", "name", "unit", name="uq_shop_user_week_name_unit"),
         Index("ix_shop_user_week", "user_id", "week_start"),
         Index("ix_shop_owner_household_week", "owner_household_id", "week_start"),
         Index("ix_shop_owner_user_week", "owner_user_id", "week_start"),
@@ -256,7 +283,7 @@ class ShoppingItem(Base):
     sources = relationship("ShoppingItemRecipe", cascade="all, delete-orphan", lazy="selectin")
 
     @property
-    def recipe_ids(self) -> list[str]:
+    def recipe_ids(self) -> list[int]:
         return [s.recipe_id for s in self.sources]
 
 
@@ -271,4 +298,4 @@ class ShoppingItemRecipe(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     item_id = Column(Integer, ForeignKey("shopping_items.id"), nullable=False)
-    recipe_id = Column(String, ForeignKey("recipes.id"), nullable=False)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)

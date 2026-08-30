@@ -38,7 +38,11 @@ pip install -r backend/requirements-test.txt
 
 ### Co jest pokryte
 - **Smoke / release-blockery** (`-m smoke`): healthz, setup, login, recipe CRUD, plan→zakupy,
-  migracja w miejscu.
+  migracja w miejscu, migracje Alembica.
+- **Migracje** (`test_migrations.py`, `test_alembic.py`): stara baza podnosi się bez utraty danych
+  (ręczne ALTER TABLE + przenumerowanie id przepisów), a Alembic ma test antydryfowy —
+  `upgrade head` na pustej bazie musi dać schemat identyczny z `Base.metadata`. Pokryte też trzy
+  ścieżki startu (pusta baza / adopcja bazy sprzed Alembica / baza już ostemplowana) i `downgrade`.
 - **Auth**: setup raz, walidacja hasła/loginu, błędne logowanie, rate-limit (429),
   rotacja hasła unieważnia sesje + kasuje klucze API, klucze API (auth nagłówkiem, odwołanie).
 - **Recipes**: walidacja, wyszukiwanie tekstowe i filtry (tagi, makro, czas, meal prep, oceny),

@@ -12,14 +12,13 @@ from ..ownership import default_owner_kwargs, get_household_id
 from .common import (
     clamp_limit,
     clamp_offset,
+    coerce_recipe_id,
     coerce_steps,
     fold,
     recipe_to_dict,
     recipe_to_summary,
     require_editable,
     require_visible,
-    slugify,
-    unique_slug,
     visible_query,
 )
 from .errors import Invalid, NotFound, ServiceError
@@ -56,12 +55,12 @@ _STEP_FIELDS = ("steps", "meal_prep_steps")
 # --------------------------------------------------------------------------- #
 
 
-def rating_maps(db: Session, user_id: int, recipe_ids: list[str]) -> dict[str, dict]:
+def rating_maps(db: Session, user_id: int, recipe_ids: list[int]) -> dict[str, dict]:
     """avg/count/my-rating/my-note for exactly the recipes being returned."""
-    avg_map: dict[str, float] = {}
-    count_map: dict[str, int] = {}
-    my_map: dict[str, int] = {}
-    note_map: dict[str, str] = {}
+    avg_map: dict[int, float] = {}
+    count_map: dict[int, int] = {}
+    my_map: dict[int, int] = {}
+    note_map: dict[int, str] = {}
     if recipe_ids:
         for rid, avg_r, cnt in (
             db.query(
@@ -96,7 +95,7 @@ def rating_maps(db: Session, user_id: int, recipe_ids: list[str]) -> dict[str, d
     return {"avg": avg_map, "count": count_map, "mine": my_map, "note": note_map}
 
 
-def _ratings_for(maps: dict[str, dict], rid: str) -> dict[str, Any]:
+def _ratings_for(maps: dict[str, dict], rid: int) -> dict[str, Any]:
     return {
         "avg_rating": maps["avg"].get(rid),
         "rating_count": maps["count"].get(rid, 0),
@@ -207,15 +206,24 @@ def query_recipes(
     return page
 
 
-def search_recipes(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
-    """Free-text search over title, tags, meal types and ingredient names."""
+def _search_terms(args: dict[str, Any]) -> tuple[str, list[str]]:
     raw = str(args.get("query") or "").strip()
     if not raw:
         raise Invalid("query jest wymagane — podaj szukany tekst (np. 'kurczak', 'makaron').")
     tokens = [t for t in fold(raw).split() if t]
     if not tokens:
         raise Invalid("query nie zawiera żadnego szukanego słowa.")
-    limit = clamp_limit(args.get("limit"), SEARCH_LIMIT_DEFAULT, LIST_LIMIT_MAX)
+    return raw, tokens
+
+
+def search_rows(db: Session, user: models.User, args: dict[str, Any]) -> list[models.Recipe]:
+    """Visible recipes matching `query` and every filter, best match first.
+
+    Split out of `search_recipes` so the REST endpoint can rank rows without
+    replaying the whole filter pass (and the rating maps behind it) a second
+    time just to get the ORM objects back.
+    """
+    _raw, tokens = _search_terms(args)
 
     scored: list[tuple[float, str, models.Recipe]] = []
     for r in filtered_rows(db, user, args):
@@ -238,7 +246,14 @@ def search_recipes(db: Session, user: models.User, args: dict[str, Any]) -> dict
         scored.append((-score, title, r))
 
     scored.sort(key=lambda t: (t[0], t[1]))
-    page = _paginate([r for _, _, r in scored], limit, 0)
+    return [r for _, _, r in scored]
+
+
+def search_recipes(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
+    """Free-text search over title, tags, meal types and ingredient names."""
+    raw, _tokens = _search_terms(args)
+    limit = clamp_limit(args.get("limit"), SEARCH_LIMIT_DEFAULT, LIST_LIMIT_MAX)
+    page = _paginate(search_rows(db, user, args), limit, 0)
     page["items"] = serialize(db, user, page["items"], full=False)
     page["query"] = raw
     return page
@@ -258,9 +273,7 @@ def filter_recipes(db: Session, user: models.User, args: dict[str, Any]) -> dict
 
 
 def get_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
-    recipe_id = str(args.get("recipe_id", "")).strip()
-    if not recipe_id:
-        raise Invalid("recipe_id jest wymagane.")
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     r = require_visible(db, user, models.Recipe, recipe_id)
     return serialize(db, user, [r], full=True)[0]
 
@@ -323,14 +336,13 @@ def _coerce_writable(args: dict[str, Any], *, partial: bool) -> dict[str, Any]:
 
 
 def create_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
-    """Create a recipe. The slug is derived server-side and de-duplicated."""
+    """Create a recipe. The id is a surrogate integer assigned by the database."""
     title = str(args.get("title", "")).strip()
     if not title:
         raise Invalid("title jest wymagane.")
-    recipe_id = unique_slug(db, slugify(title))
 
     data = _coerce_writable({**args, "title": title}, partial=False)
-    r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), id=recipe_id, **data)
+    r = models.Recipe(created_by=user.id, **default_owner_kwargs(user), **data)
     db.add(r)
     db.commit()
     db.refresh(r)
@@ -338,9 +350,7 @@ def create_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[
 
 
 def update_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
-    recipe_id = str(args.get("recipe_id", "")).strip()
-    if not recipe_id:
-        raise Invalid("recipe_id jest wymagane.")
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     r = require_editable(db, user, models.Recipe, recipe_id)
     for key, value in _coerce_writable(args, partial=True).items():
         setattr(r, key, value)
@@ -352,9 +362,7 @@ def update_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[
 def delete_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
     from .shopping import regenerate_auto_shopping
 
-    recipe_id = str(args.get("recipe_id", "")).strip()
-    if not recipe_id:
-        raise Invalid("recipe_id jest wymagane.")
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     require_editable(db, user, models.Recipe, recipe_id)
 
     affected_weeks = {
@@ -384,7 +392,7 @@ def delete_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[
 
 
 def rate_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
-    recipe_id = str(args.get("recipe_id", "")).strip()
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     r = require_visible(db, user, models.Recipe, recipe_id)
     try:
         rating = int(args.get("rating"))
@@ -411,7 +419,7 @@ def rate_recipe(db: Session, user: models.User, args: dict[str, Any]) -> dict[st
 
 
 def set_recipe_note(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
-    recipe_id = str(args.get("recipe_id", "")).strip()
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     r = require_visible(db, user, models.Recipe, recipe_id)
     note = str(args.get("note") or "")
     existing = (
@@ -433,7 +441,7 @@ def set_recipe_note(db: Session, user: models.User, args: dict[str, Any]) -> dic
 
 def share_recipe_with_household(db: Session, user: models.User, args: dict[str, Any]) -> dict[str, Any]:
     """Re-pin a recipe between personal and household. Creator-only, per ownership rules."""
-    recipe_id = str(args.get("recipe_id", "")).strip()
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     r = db.get(models.Recipe, recipe_id)
     if r is None:
         raise NotFound(f"Przepis nie istnieje: {recipe_id}")

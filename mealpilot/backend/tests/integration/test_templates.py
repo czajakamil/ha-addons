@@ -5,17 +5,19 @@ pytestmark = pytest.mark.integration
 WEEK = "2026-08-03"
 
 
-def _recipe(client, rid):
-    return client.post(
+def _recipe(client, title):
+    """Create a recipe and return the id the server assigned."""
+    r = client.post(
         "/api/recipes",
         json={
-            "id": rid,
-            "title": rid,
+            "title": title,
             "servings": 1,
             "ingredients": [{"name": "x", "qty": 1, "unit": "g"}],
             "steps": ["y"],
         },
     )
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
 
 
 def test_create_template_rejects_unknown_recipe(admin_client):
@@ -23,19 +25,19 @@ def test_create_template_rejects_unknown_recipe(admin_client):
         "/api/templates",
         json={
             "name": "T",
-            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": "ghost", "servings": 1}],
+            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": 999999, "servings": 1}],
         },
     )
     assert r.status_code == 400
 
 
 def test_create_and_apply_template(admin_client):
-    _recipe(admin_client, "t1")
+    t1 = _recipe(admin_client, "t1")
     r = admin_client.post(
         "/api/templates",
         json={
             "name": "Mój tydzień",
-            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": "t1", "servings": 2}],
+            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": t1, "servings": 2}],
         },
     )
     assert r.status_code == 201
@@ -45,36 +47,36 @@ def test_create_and_apply_template(admin_client):
     assert r.status_code == 200
     entries = r.json()["entries"]
     assert len(entries) == 1
-    assert entries[0]["recipe_id"] == "t1"
+    assert entries[0]["recipe_id"] == t1
     assert entries[0]["servings"] == 2
 
 
 def test_apply_skips_deleted_recipes(admin_client):
-    _recipe(admin_client, "t2")
-    _recipe(admin_client, "t3")
+    t2 = _recipe(admin_client, "t2")
+    t3 = _recipe(admin_client, "t3")
     tpl_id = admin_client.post(
         "/api/templates",
         json={
             "name": "T",
             "entries": [
-                {"day": 0, "meal": "Obiad", "recipe_id": "t2", "servings": 1},
-                {"day": 1, "meal": "Obiad", "recipe_id": "t3", "servings": 1},
+                {"day": 0, "meal": "Obiad", "recipe_id": t2, "servings": 1},
+                {"day": 1, "meal": "Obiad", "recipe_id": t3, "servings": 1},
             ],
         },
     ).json()["id"]
-    admin_client.delete("/api/recipes/t3")
+    admin_client.delete(f"/api/recipes/{t3}")
     entries = admin_client.post(f"/api/templates/{tpl_id}/apply/{WEEK}").json()["entries"]
     ids = {e["recipe_id"] for e in entries}
-    assert ids == {"t2"}
+    assert ids == {t2}
 
 
 def test_delete_template(admin_client):
-    _recipe(admin_client, "t4")
+    t4 = _recipe(admin_client, "t4")
     tpl_id = admin_client.post(
         "/api/templates",
         json={
             "name": "T",
-            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": "t4", "servings": 1}],
+            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": t4, "servings": 1}],
         },
     ).json()["id"]
     assert admin_client.delete(f"/api/templates/{tpl_id}").status_code == 204
@@ -84,12 +86,12 @@ def test_delete_template(admin_client):
 def test_template_not_visible_to_other_user(make_user):
     alice, _ = make_user("ta")
     bob, _ = make_user("tb")
-    _recipe(alice, "tpriv")
+    tpriv = _recipe(alice, "tpriv")
     tpl_id = alice.post(
         "/api/templates",
         json={
             "name": "T",
-            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": "tpriv", "servings": 1}],
+            "entries": [{"day": 0, "meal": "Obiad", "recipe_id": tpriv, "servings": 1}],
         },
     ).json()["id"]
     assert tpl_id not in {t["id"] for t in bob.get("/api/templates").json()}

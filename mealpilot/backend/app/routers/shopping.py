@@ -45,7 +45,12 @@ def patch_shopping_item(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    return patch_shopping_item_by_id(item_id, payload, db, user)
+    """Week-scoped variant (the one the frontend calls); 404 if the item is elsewhere."""
+    return shopping_svc.check_shopping_item(
+        db,
+        user,
+        {"week_start": week_start, "item_id": item_id, "checked": payload.checked},
+    )
 
 
 @router.post("/{week_start}/items", response_model=schemas.ShoppingItemOut)
@@ -75,7 +80,9 @@ def delete_shopping_item(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    return delete_shopping_item_by_id(item_id, db, user)
+    """Week-scoped variant (the one the frontend calls); 404 if the item is elsewhere."""
+    shopping_svc.delete_shopping_item(db, user, {"week_start": week_start, "item_id": item_id})
+    return None
 
 
 @router.delete("/{week_start}", status_code=status.HTTP_204_NO_CONTENT)

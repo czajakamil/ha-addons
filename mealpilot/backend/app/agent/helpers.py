@@ -1,6 +1,6 @@
 """JSON plumbing for the agent providers.
 
-Domain helpers (slugify, week handling, serializers, ownership guards) moved to
+Domain helpers (id coercion, week handling, serializers, ownership guards) moved to
 ``app/services/common.py`` — they are shared with REST and MCP and no longer
 belong to the agent layer.
 """

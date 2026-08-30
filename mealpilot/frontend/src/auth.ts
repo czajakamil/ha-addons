@@ -138,11 +138,21 @@ export async function login(username: string, password: string): Promise<AuthUse
   return asJson<AuthUser>(r);
 }
 
-export async function setupAdmin(username: string, password: string): Promise<AuthUser> {
+export async function setupAdmin(
+  username: string,
+  password: string,
+  setupToken?: string,
+): Promise<AuthUser> {
   const r = await apiFetch('/auth/setup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    // `setup_token` jest wymagany tylko gdy operator ustawił
+    // MEALPILOT_SETUP_TOKEN — inaczej backend go ignoruje.
+    body: JSON.stringify({
+      username,
+      password,
+      ...(setupToken ? { setup_token: setupToken } : {}),
+    }),
   });
   return asJson<AuthUser>(r);
 }

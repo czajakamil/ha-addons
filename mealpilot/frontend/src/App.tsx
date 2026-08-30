@@ -113,7 +113,7 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [uiPrefs, setUiPrefs] = useState<UiPrefs>(getUiPrefs);
   const [route, setRoute] = useState<Route>('plan');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
 
   async function updateUiPref<K extends keyof UiPrefs>(key: K, value: UiPrefs[K]) {
     const next = { ...uiPrefs, [key]: value };
@@ -121,7 +121,7 @@ function MainApp({ user, onLogout, showChangePwd, closeChangePwd }: MainAppProps
     await patchUiPrefs({ [key]: value });
   }
 
-  async function onToggleFavorite(id: string) {
+  async function onToggleFavorite(id: number) {
     const current = uiPrefs.favoriteRecipeIds ?? [];
     const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
     await updateUiPref('favoriteRecipeIds', next);

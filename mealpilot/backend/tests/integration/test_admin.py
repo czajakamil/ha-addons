@@ -48,7 +48,6 @@ def test_delete_user_removes_resources(admin_client, make_user, db_session):
     user.post(
         "/api/recipes",
         json={
-            "id": "rdel",
             "title": "x",
             "servings": 1,
             "ingredients": [{"name": "a", "qty": 1, "unit": "g"}],
@@ -118,20 +117,19 @@ def test_deleting_household_reassigns_resources(admin_client, make_user, db_sess
     user, uid = make_user("dom_user")
     hid = admin_client.post("/api/admin/households", json={"name": "H"}).json()["id"]
     admin_client.put(f"/api/admin/users/{uid}/household", json={"household_id": hid, "can_edit": True})
-    user.post(
+    rid = user.post(
         "/api/recipes",
         json={
-            "id": "rh",
             "title": "x",
             "servings": 1,
             "ingredients": [{"name": "a", "qty": 1, "unit": "g"}],
             "steps": ["s"],
         },
-    )
-    user.put("/api/recipes/rh/ownership", json={"share_with_household": True})
+    ).json()["id"]
+    user.put(f"/api/recipes/{rid}/ownership", json={"share_with_household": True})
 
     assert admin_client.delete(f"/api/admin/households/{hid}").status_code == 204
     # Przepis wraca do twórcy jako prywatny.
-    rec = db_session.get(models.Recipe, "rh")
+    rec = db_session.get(models.Recipe, rid)
     assert rec.owner_household_id is None
     assert rec.owner_user_id == uid

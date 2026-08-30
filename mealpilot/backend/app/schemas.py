@@ -212,7 +212,7 @@ class RecipeBase(BaseModel):
 
 
 class RecipeCreate(RecipeBase):
-    id: str
+    """No ``id`` field: it is a surrogate key the database assigns."""
 
 
 class RecipeUpdate(BaseModel):
@@ -243,7 +243,7 @@ class RecipeUpdate(BaseModel):
 
 class Recipe(RecipeBase):
     model_config = ConfigDict(from_attributes=True)
-    id: str
+    id: int
     image_filename: str | None = None
     created_by: int
     owner_user_id: int | None = None
@@ -261,7 +261,7 @@ class RatingUpsert(BaseModel):
 class RatingOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    recipe_id: str
+    recipe_id: int
     rating: int
 
 
@@ -272,7 +272,7 @@ class RecipeNoteUpsert(BaseModel):
 class RecipeNoteOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    recipe_id: str
+    recipe_id: int
     note: str
     updated_at: datetime
 
@@ -281,7 +281,7 @@ class PlanEntry(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     day: int = Field(ge=0, le=6)
     meal: str
-    recipe_id: str
+    recipe_id: int
     servings: int = 1
 
 
@@ -300,7 +300,7 @@ class ShoppingItemOut(BaseModel):
     category: str
     checked: bool
     is_custom: bool
-    recipe_ids: list[str] = []
+    recipe_ids: list[int] = []
 
 
 class ShoppingItemPatch(BaseModel):
@@ -312,7 +312,7 @@ class ShoppingItemCreate(BaseModel):
     qty: float = 1.0
     unit: str = "szt"
     category: str | None = None
-    recipe_id: str | None = None
+    recipe_id: int | None = None
 
 
 class ApiKeyCreateRequest(BaseModel):
@@ -335,15 +335,15 @@ class ApiKeyCreatedOut(ApiKeyOut):
 
 
 class AgentSettingsOut(BaseModel):
-    endpoint: str = ""
-    api_key: str = ""
     model: str = ""
+    # Pusty `system_prompt` oznacza "użyj domyślnego" — backend podstawia go
+    # w czasie rozmowy. `default_system_prompt` to jedyne źródło prawdy dla UI,
+    # żeby frontend nie trzymał własnej (dryfującej) kopii.
     system_prompt: str = ""
+    default_system_prompt: str = ""
 
 
 class AgentSettingsUpdate(BaseModel):
-    endpoint: str = Field(default="", max_length=2000)
-    api_key: str = Field(default="", max_length=4000)
     model: str = Field(default="", max_length=200)
     system_prompt: str = Field(default="", max_length=20000)
 
@@ -358,13 +358,13 @@ class MacroTargets(BaseModel):
 class UiPrefsOut(BaseModel):
     recipes_grouped: bool = False
     macro_targets: MacroTargets = MacroTargets()
-    favorite_recipe_ids: list[str] = []
+    favorite_recipe_ids: list[int] = []
 
 
 class UiPrefsPatch(BaseModel):
     recipes_grouped: bool | None = None
     macro_targets: MacroTargets | None = None
-    favorite_recipe_ids: list[str] | None = None
+    favorite_recipe_ids: list[int] | None = None
 
 
 AgentRole = Literal["user", "assistant"]

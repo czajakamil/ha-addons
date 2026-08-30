@@ -87,24 +87,6 @@ def fold(text: str) -> str:
     return strip_diacritics(str(text or "")).lower()
 
 
-def slugify(text: str) -> str:
-    """Convert a recipe title to a safe ASCII slug (lowercase, hyphens only)."""
-    s = strip_diacritics((text or "").strip().lower())
-    s = re.sub(r"[^a-z0-9]+", "-", s)
-    s = s.strip("-")
-    return s or "przepis"
-
-
-def unique_slug(db: Session, base: str) -> str:
-    """`base`, or `base-2`, `base-3`… — the first id no recipe occupies."""
-    if not db.get(models.Recipe, base):
-        return base
-    n = 2
-    while db.get(models.Recipe, f"{base}-{n}"):
-        n += 1
-    return f"{base}-{n}"
-
-
 def normalize_meal(meal: str) -> str:
     """Return the canonical meal name (case-insensitive), else capitalize."""
     stripped = str(meal or "").strip()
@@ -183,6 +165,23 @@ def clamp_offset(value: Any) -> int:
     if n < 0:
         raise Invalid("offset nie może być ujemny.")
     return n
+
+
+_RECIPE_ID_HINT = "musi być liczbą całkowitą — użyj pola `id` z search_recipes / list_recipes, nie tytułu przepisu."
+
+
+def coerce_recipe_id(value: Any, field: str = "recipe_id") -> int:
+    """Recipe ids are surrogate integers; models happily send ``"42"`` instead.
+
+    Accepting the numeric-string form keeps JSON-typed callers working, while a
+    title or a legacy slug fails loudly here rather than silently matching nothing.
+    """
+    if isinstance(value, bool) or value is None or (isinstance(value, str) and not value.strip()):
+        raise Invalid(f"{field} jest wymagane i {_RECIPE_ID_HINT}")
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError) as exc:
+        raise Invalid(f"{field} {_RECIPE_ID_HINT} Otrzymano: {value!r}.") from exc
 
 
 # --------------------------------------------------------------------------- #
@@ -325,7 +324,7 @@ def shopping_item_to_dict(it: models.ShoppingItem) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 
 
-def attach_recipe_source(db: Session, item: models.ShoppingItem, recipe_id: str | None) -> None:
+def attach_recipe_source(db: Session, item: models.ShoppingItem, recipe_id: int | None) -> None:
     """Record that `recipe_id` contributed to `item` (no-op if already recorded)."""
     if not recipe_id:
         return

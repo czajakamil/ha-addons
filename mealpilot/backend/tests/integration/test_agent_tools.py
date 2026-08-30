@@ -6,6 +6,7 @@ wywołanie korutyny opakowujemy w `asyncio.run`.
 """
 
 import asyncio
+import threading
 
 import pytest
 
@@ -192,16 +193,33 @@ def test_filter_is_meal_prep_both_ways(call):
 # --------------------------------------------------------------------------- #
 
 
-def test_create_derives_and_deduplicates_the_slug(call):
+def test_create_assigns_an_id_independent_of_the_title(call):
     first = _make(call, "Sernik Babci")
     second = _make(call, "Sernik Babci")
     third = _make(call, "Sernik Babci")
 
-    assert first["id"] == "sernik-babci"
-    assert second["id"] == "sernik-babci-2"
-    assert third["id"] == "sernik-babci-3"
-    # Oba istnieją niezależnie.
+    # Id jest kluczem surogatowym: powtórzony tytuł to nie konflikt.
+    assert len({first["id"], second["id"], third["id"]}) == 3
+    assert all(isinstance(r["id"], int) for r in (first, second, third))
     assert call("get_recipe", {"recipe_id": second["id"]})["title"] == "Sernik Babci"
+
+
+def test_update_does_not_change_the_id(call):
+    created = _make(call, "Stary tytuł")
+    renamed = call("update_recipe", {"recipe_id": created["id"], "title": "Nowy tytuł"})
+    assert renamed["id"] == created["id"]
+    assert renamed["title"] == "Nowy tytuł"
+
+
+def test_recipe_id_given_as_a_string_is_accepted(call):
+    # Modele często przekazują id jako tekst; liczy się, że da się je odczytać.
+    created = _make(call, "Jako tekst")
+    assert call("get_recipe", {"recipe_id": str(created["id"])})["id"] == created["id"]
+
+
+def test_recipe_id_that_is_not_a_number_is_rejected(call):
+    with pytest.raises(Invalid):
+        call("get_recipe", {"recipe_id": "sernik-babci"})
 
 
 def test_create_accepts_steps_as_strings_and_as_objects(call):
@@ -369,3 +387,68 @@ def test_alias_dispatches_to_the_real_tool(call):
     rid = _make(call, "Do listy")["id"]
     item = call("add_shopping_item", {"week_start": WEEK, "name": "Masło", "qty": 1, "unit": "szt", "recipe_id": rid})
     assert call("remove_shopping_item", {"item_id": item["id"]}) == {"deleted": item["id"]}
+
+
+# --------------------------------------------------------------------------- #
+# Dyspozycja: handlery synchroniczne nie mogą blokować pętli zdarzeń
+# --------------------------------------------------------------------------- #
+
+
+def _probe_spec(handler):
+    return registry.ToolSpec(
+        name="_probe",
+        title="Sonda",
+        group=registry.GROUP_HELPERS,
+        summary="s",
+        description="d",
+        input_schema={"type": "object", "properties": {}},
+        handler=handler,
+    )
+
+
+def test_sync_handler_runs_in_a_worker_thread(monkeypatch):
+    """`invoke` przenosi synchroniczne handlery do puli wątków.
+
+    Wołane wprost z korutyny zatrzymywały całą pętlę na czas zapytania SQL —
+    a dzieli ją każdy klient MCP i każdy krok agenta.
+    """
+    seen: dict[str, int] = {}
+
+    def handler(db, user, args):
+        seen["worker"] = threading.get_ident()
+        return {"ok": True}
+
+    monkeypatch.setitem(registry.SPECS_BY_NAME, "_probe", _probe_spec(handler))
+
+    async def _run():
+        seen["loop"] = threading.get_ident()
+        return await registry.invoke(None, None, "_probe", {})
+
+    assert asyncio.run(_run()) == {"ok": True}
+    assert seen["worker"] != seen["loop"]
+
+
+def test_async_handler_stays_on_the_event_loop(monkeypatch):
+    seen: dict[str, int] = {}
+
+    async def handler(db, user, args):
+        seen["handler"] = threading.get_ident()
+        return {"ok": True}
+
+    monkeypatch.setitem(registry.SPECS_BY_NAME, "_probe", _probe_spec(handler))
+
+    async def _run():
+        seen["loop"] = threading.get_ident()
+        return await registry.invoke(None, None, "_probe", {})
+
+    assert asyncio.run(_run()) == {"ok": True}
+    assert seen["handler"] == seen["loop"]
+
+
+def test_sync_handler_errors_still_propagate(monkeypatch):
+    def handler(db, user, args):
+        raise Invalid("bum")
+
+    monkeypatch.setitem(registry.SPECS_BY_NAME, "_probe", _probe_spec(handler))
+    with pytest.raises(Invalid):
+        asyncio.run(registry.invoke(None, None, "_probe", {}))

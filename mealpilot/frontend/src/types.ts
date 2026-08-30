@@ -10,7 +10,7 @@ export interface Step {
 }
 
 export interface Recipe {
-  id: string;
+  id: number;
   title: string;
   tags: string[];
   servings: number;
@@ -40,7 +40,7 @@ export interface Recipe {
 export interface PlanEntry {
   day: number;
   meal: string;
-  recipe_id: string;
+  recipe_id: number;
   servings: number;
 }
 
@@ -78,7 +78,7 @@ export interface ShoppingItem {
   category: string;
   checked: boolean;
   is_custom: boolean;
-  recipe_ids: string[];
+  recipe_ids: number[];
 }
 
 export interface Household {

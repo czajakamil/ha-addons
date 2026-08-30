@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import anyio.to_thread
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -157,7 +158,7 @@ RECIPE_WRITE_PROPS = {
 RECIPE_SUMMARY_SCHEMA = {
     "type": "object",
     "properties": {
-        "id": {"type": "string"},
+        "id": {"type": "integer"},
         "title": {"type": "string"},
         "tags": {"type": "array", "items": {"type": "string"}},
         "meal_types": {"type": "array", "items": {"type": "string"}},
@@ -217,7 +218,7 @@ PLAN_ENTRY_SCHEMA = {
     "properties": {
         "day": {"type": "integer", "minimum": 0, "maximum": 6},
         "meal": {"type": "string"},
-        "recipe_id": {"type": "string"},
+        "recipe_id": {"type": "integer"},
         "servings": {"type": "integer"},
         "recipe_title": {"type": "string"},
     },
@@ -241,7 +242,7 @@ SHOPPING_ITEM_SCHEMA = {
         "category": {"type": "string"},
         "checked": {"type": "boolean"},
         "is_custom": {"type": "boolean"},
-        "recipe_ids": {"type": "array", "items": {"type": "string"}},
+        "recipe_ids": {"type": "array", "items": {"type": "integer"}},
     },
     "required": ["id", "name", "qty", "unit", "category", "checked", "is_custom"],
 }
@@ -371,7 +372,7 @@ TOOL_SPECS: list[ToolSpec] = [
             f"wtedy NIE zgaduj id, użyj search_recipes. {_MACRO_NOTE}"
         ),
         input_schema=_obj(
-            {"recipe_id": {"type": "string", "description": "Pole `id` z search_recipes/list_recipes."}},
+            {"recipe_id": {"type": "integer", "description": "Pole `id` z search_recipes/list_recipes."}},
             ["recipe_id"],
         ),
         output_schema=RECIPE_FULL_SCHEMA,
@@ -416,10 +417,10 @@ TOOL_SPECS: list[ToolSpec] = [
         name="create_recipe",
         title="Dodaj przepis",
         group=GROUP_RECIPES,
-        summary="Tworzy nowy przepis. Id (slug) nadaje serwer — nie podawaj go.",
+        summary="Tworzy nowy przepis. Id (liczbę) nadaje serwer — nie podawaj go.",
         description=(
-            "Tworzy nowy przepis. **Id nadaje serwer** na podstawie tytułu (slug, z automatycznym "
-            "sufiksem -2/-3 przy kolizji) — nie musisz go wymyślać ani obsługiwać konfliktu. "
+            "Tworzy nowy przepis. **Id nadaje serwer** (kolejna liczba całkowita) — nie musisz go "
+            "wymyślać ani obsługiwać konfliktów nazw; id nie zmienia się przy zmianie tytułu. "
             f"{_MACRO_NOTE} Jeśli użytkownik nie podał makro, wywołaj najpierw estimate_recipe_macros "
             "i przekaż wynik tutaj — nie licz makro samodzielnie. tags/meal_types trzymaj w słownictwie "
             "z list_tags / list_meal_types. Dla gotowania na zapas ustaw is_meal_prep, meal_prep_days "
@@ -444,7 +445,7 @@ TOOL_SPECS: list[ToolSpec] = [
             "not_found gdy nie istnieje. -> pełny Recipe."
         ),
         input_schema=_obj(
-            {"recipe_id": {"type": "string", "description": "ID przepisu do edycji."}, **RECIPE_WRITE_PROPS},
+            {"recipe_id": {"type": "integer", "description": "ID przepisu do edycji."}, **RECIPE_WRITE_PROPS},
             ["recipe_id"],
         ),
         output_schema=RECIPE_FULL_SCHEMA,
@@ -461,9 +462,9 @@ TOOL_SPECS: list[ToolSpec] = [
             "listy zakupów dotkniętych tygodni. NIEODWRACALNE — zapytaj użytkownika o potwierdzenie. "
             '-> {"deleted": id, "affected_weeks": [...]}'
         ),
-        input_schema=_obj({"recipe_id": {"type": "string"}}, ["recipe_id"]),
+        input_schema=_obj({"recipe_id": {"type": "integer"}}, ["recipe_id"]),
         output_schema=_obj(
-            {"deleted": {"type": "string"}, "affected_weeks": {"type": "array", "items": {"type": "string"}}},
+            {"deleted": {"type": "integer"}, "affected_weeks": {"type": "array", "items": {"type": "string"}}},
             ["deleted"],
         ),
         handler=recipes_svc.delete_recipe,
@@ -483,7 +484,7 @@ TOOL_SPECS: list[ToolSpec] = [
         ),
         input_schema=_obj(
             {
-                "recipe_id": {"type": "string"},
+                "recipe_id": {"type": "integer"},
                 "rating": {"type": "integer", "minimum": 0, "maximum": 5, "description": "1–5; 0 usuwa ocenę."},
             },
             ["recipe_id", "rating"],
@@ -506,7 +507,7 @@ TOOL_SPECS: list[ToolSpec] = [
         ),
         input_schema=_obj(
             {
-                "recipe_id": {"type": "string"},
+                "recipe_id": {"type": "integer"},
                 "note": {"type": "string", "description": "Pusty string kasuje notatkę."},
             },
             ["recipe_id", "note"],
@@ -527,7 +528,7 @@ TOOL_SPECS: list[ToolSpec] = [
             "ale edytować mogą tylko ci z prawem edycji. -> Recipe z shared_with_household."
         ),
         input_schema=_obj(
-            {"recipe_id": {"type": "string"}, "share": {"type": "boolean", "description": "true = wspólny."}},
+            {"recipe_id": {"type": "integer"}, "share": {"type": "boolean", "description": "true = wspólny."}},
             ["recipe_id", "share"],
         ),
         output_schema=RECIPE_FULL_SCHEMA,
@@ -591,7 +592,7 @@ TOOL_SPECS: list[ToolSpec] = [
                         "properties": {
                             "day": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0=poniedziałek."},
                             "meal": {"type": "string", "description": "Slot, np. 'Obiad'. (day, meal) unikalne."},
-                            "recipe_id": {"type": "string"},
+                            "recipe_id": {"type": "integer"},
                             "servings": {"type": "integer", "minimum": 1},
                         },
                         "required": ["day", "meal", "recipe_id", "servings"],
@@ -620,7 +621,7 @@ TOOL_SPECS: list[ToolSpec] = [
                 "week_start": WEEK_START,
                 "day": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0=poniedziałek."},
                 "meal": {"type": "string", "description": "Slot, np. 'Obiad'."},
-                "recipe_id": {"type": "string"},
+                "recipe_id": {"type": "integer"},
                 "servings": {"type": "integer", "minimum": 1, "description": "Porcje w tym slocie."},
             },
             ["week_start", "day", "meal", "recipe_id", "servings"],
@@ -715,7 +716,9 @@ TOOL_SPECS: list[ToolSpec] = [
         summary="Oznacza pozycję jako kupioną lub odznacza (po id z get_shopping_list).",
         description=(
             "Odhacza/odznacza jedną pozycję listy. item_id to pole `id` z get_shopping_list "
-            "(liczba całkowita) — NIE recipe_id ani nazwa. -> zaktualizowany ShoppingItem."
+            "(liczba całkowita) — NIE recipe_id ani nazwa. Wymaga tylko widoczności pozycji: "
+            "na wspólnej liście household odhaczyć może każdy domownik, także bez prawa edycji "
+            "(dodawanie i usuwanie pozycji nadal go wymaga). -> zaktualizowany ShoppingItem."
         ),
         input_schema=_obj(
             {
@@ -737,8 +740,12 @@ TOOL_SPECS: list[ToolSpec] = [
         description=(
             "Dodaje ręczną pozycję (is_custom=true) do listy zakupów tygodnia — do rzeczy spoza planu. "
             "Jednostka jest normalizowana (kg→g, l→ml), kategoria nadawana automatycznie po nazwie, "
-            "gdy pominięta. UWAGA: jeśli istnieje już pozycja o TEJ SAMEJ (name, unit) w tym tygodniu, "
-            "ilości są SUMOWANE zamiast tworzenia drugiej pozycji. -> dodany/zaktualizowany ShoppingItem."
+            "gdy pominięta. UWAGA: jeśli istnieje już pozycja o TEJ SAMEJ (name, unit) w tym tygodniu "
+            "(porównanie bez względu na wielkość liter), ilości są SUMOWANE zamiast tworzenia drugiej "
+            "pozycji — a scalona pozycja staje się is_custom=true, więc generate_shopping_list "
+            "przestaje przeliczać jej ilość z planu (ręczna nadwyżka przeżywa regenerację). "
+            "W household pozycja trafia na wspólną listę, jeśli tydzień jest wspólny; wymaga wtedy "
+            "prawa edycji. -> dodany/zaktualizowany ShoppingItem."
         ),
         input_schema=_obj(
             {
@@ -747,7 +754,7 @@ TOOL_SPECS: list[ToolSpec] = [
                 "qty": {"type": "number", "description": "Ilość w jednostce `unit` (domyślnie 1)."},
                 "unit": {"type": "string", "description": "np. 'g', 'ml', 'szt' (domyślnie 'szt')."},
                 "category": {"type": "string", "description": "Pominięta = wykryta automatycznie z nazwy."},
-                "recipe_id": {"type": "string", "description": "Opcjonalnie: przepis, z którego to pochodzi."},
+                "recipe_id": {"type": "integer", "description": "Opcjonalnie: przepis, z którego to pochodzi."},
             },
             ["week_start", "name"],
         ),
@@ -922,12 +929,27 @@ def get_spec(name: str) -> ToolSpec:
 
 
 async def invoke(db: Session, user: models.User, name: str, args: dict[str, Any]) -> Any:
-    """Run one tool. Raises ServiceError subclasses for expected failures."""
+    """Run one tool. Raises ServiceError subclasses for expected failures.
+
+    Synchronous handlers are dispatched to a worker thread. They talk to
+    SQLAlchemy — and therefore to SQLite — synchronously, so calling them
+    straight from this coroutine parked the event loop for the whole query:
+    every MCP client and every agent step share that one loop, and
+    ``recipes_svc.filtered_rows`` alone loads the entire visible library.
+
+    On thread-safety: ``Session`` is not thread-safe, but nothing here shares
+    one. The caller owns exactly one session, hands it to exactly one worker
+    thread and awaits the result, so at most one thread touches it at a time —
+    including the ``db.rollback()`` the callers run afterwards, back on the
+    event loop, which only happens once this await has returned. The engine is
+    built with ``check_same_thread=False``, so the underlying SQLite connection
+    may legally move between threads.
+    """
     spec = get_spec(name)
     payload = dict(args or {})
     if spec.is_async:
         return await spec.handler(db, user, payload)
-    return spec.handler(db, user, payload)
+    return await anyio.to_thread.run_sync(spec.handler, db, user, payload)
 
 
 def describe(spec: ToolSpec) -> dict[str, Any]:

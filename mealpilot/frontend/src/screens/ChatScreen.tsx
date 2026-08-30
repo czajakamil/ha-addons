@@ -20,7 +20,7 @@ import {
   loadPlan,
   loadRecipes,
   loadShopping,
-  WEEK_START,
+  currentWeekStart,
 } from '../data';
 import { AgentInfoModal } from './AgentInfoModal';
 
@@ -139,10 +139,10 @@ export function ChatScreen() {
       tasks.push(loadRecipes().then(() => emitRecipesChanged()));
     }
     if (changed.includes('plan')) {
-      tasks.push(loadPlan(WEEK_START).then(() => emitPlanChanged()));
+      tasks.push(loadPlan(currentWeekStart()).then(() => emitPlanChanged()));
     }
     if (changed.includes('shopping')) {
-      tasks.push(loadShopping(WEEK_START).then(() => emitShoppingChanged()));
+      tasks.push(loadShopping(currentWeekStart()).then(() => emitShoppingChanged()));
     }
     await Promise.all(tasks);
   };

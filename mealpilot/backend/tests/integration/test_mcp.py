@@ -126,23 +126,23 @@ def test_token_cannot_drive_another_users_session(make_user):
 
 def test_read_scope_key_allows_get_but_rejects_unsafe_methods(make_user, client):
     owner, _ = make_user("mcp_read_scope")
-    owner.post("/api/recipes", json={"id": "ro", "title": "RO", "servings": 1, "ingredients": [], "steps": []})
+    rid = owner.post("/api/recipes", json={"title": "RO", "servings": 1, "ingredients": [], "steps": []}).json()["id"]
     raw = _api_key(owner, name="tylko-odczyt", scope="read")
     headers = {"X-MealPilot-Token": raw}
 
     assert client.get("/api/recipes", headers=headers).status_code == 200
-    assert client.get("/api/recipes/ro", headers=headers).status_code == 200
+    assert client.get(f"/api/recipes/{rid}", headers=headers).status_code == 200
 
-    payload = {"id": "rw", "title": "RW", "servings": 1, "ingredients": [], "steps": []}
+    payload = {"title": "RW", "servings": 1, "ingredients": [], "steps": []}
     assert client.post("/api/recipes", json=payload, headers=headers).status_code == 403
-    assert client.put("/api/recipes/ro", json={"title": "x"}, headers=headers).status_code == 403
-    assert client.delete("/api/recipes/ro", headers=headers).status_code == 403
+    assert client.put(f"/api/recipes/{rid}", json={"title": "x"}, headers=headers).status_code == 403
+    assert client.delete(f"/api/recipes/{rid}", headers=headers).status_code == 403
 
 
 def test_write_scope_key_may_write(make_user, client):
     owner, _ = make_user("mcp_write_scope")
     raw = _api_key(owner, name="zapis", scope="write")
-    payload = {"id": "zapis1", "title": "Zapis", "servings": 1, "ingredients": [], "steps": []}
+    payload = {"title": "Zapis", "servings": 1, "ingredients": [], "steps": []}
     r = client.post("/api/recipes", json=payload, headers={"X-MealPilot-Token": raw})
     assert r.status_code == 201
 
@@ -181,16 +181,17 @@ def test_read_scope_principal_cannot_call_a_write_tool(make_user, db_session):
 
 def test_read_scope_principal_may_call_a_read_only_tool(make_user):
     client, uid = make_user("mcp_scope_read_tool")
-    client.post("/api/recipes", json={"id": "ro2", "title": "RO2", "servings": 1, "ingredients": [], "steps": []})
+    rid = client.post("/api/recipes", json={"title": "RO2", "servings": 1, "ingredients": [], "steps": []}).json()["id"]
     out = _as_principal(uid, "read", "list_recipes", {"limit": 5})
-    assert [i["id"] for i in out["items"]] == ["ro2"]
+    assert [i["id"] for i in out["items"]] == [rid]
     assert out["total"] == 1
 
 
 def test_write_scope_principal_may_call_a_write_tool(make_user):
     _client, uid = make_user("mcp_scope_write_ok")
     out = _as_principal(uid, "write", "create_recipe", {"title": "Z MCP", "servings": 1})
-    assert out["id"] == "z-mcp"
+    assert isinstance(out["id"], int)
+    assert out["title"] == "Z MCP"
 
 
 def test_call_tool_without_a_principal_is_rejected():
@@ -201,8 +202,21 @@ def test_call_tool_without_a_principal_is_rejected():
 def test_service_errors_surface_as_runtime_errors(make_user):
     _client, uid = make_user("mcp_service_error")
     with pytest.raises(RuntimeError) as exc:
-        _as_principal(uid, "write", "get_recipe", {"recipe_id": "nie-ma"})
+        _as_principal(uid, "write", "get_recipe", {"recipe_id": 999999})
     assert "not_found" in str(exc.value)
+
+
+def test_failed_call_does_not_poison_the_next_one(make_user):
+    """Handler pracuje w wątku roboczym, `db.rollback()` leci potem w pętli zdarzeń.
+
+    Sesja SQLAlchemy nie jest thread-safe, ale przechodzi między wątkami
+    sekwencyjnie, nigdy równolegle — kolejne wywołanie musi normalnie zapisać.
+    """
+    _client, uid = make_user("mcp_rollback_ok")
+    with pytest.raises(RuntimeError):
+        _as_principal(uid, "write", "update_recipe", {"recipe_id": 999999, "title": "X"})
+    out = _as_principal(uid, "write", "create_recipe", {"title": "Po rollbacku", "servings": 1})
+    assert out["title"] == "Po rollbacku"
 
 
 # --------------------------------------------------------------------------- #

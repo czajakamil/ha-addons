@@ -64,13 +64,13 @@ def apply_week_template(db: Session, user: models.User, args: dict[str, Any]) ->
     tpl = require_visible(db, user, models.WeekTemplate, template_id)
 
     entries = normalize_entries(tpl.entries or [])
-    visible_ids = {
-        r.id
-        for r in visible_query(db, user, models.Recipe)
-        .filter(models.Recipe.id.in_({e["recipe_id"] for e in entries} or {""}))
-        .all()
-    }
-    skipped = sorted({e["recipe_id"] for e in entries if e["recipe_id"] not in visible_ids})
+    wanted = {e["recipe_id"] for e in entries}
+    visible_ids = (
+        {r.id for r in visible_query(db, user, models.Recipe).filter(models.Recipe.id.in_(wanted)).all()}
+        if wanted
+        else set()
+    )
+    skipped = sorted(wanted - visible_ids)
     entries = [e for e in entries if e["recipe_id"] in visible_ids]
 
     reconcile_week(db, user, week_start, entries)

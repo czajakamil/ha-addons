@@ -38,7 +38,7 @@ Warstwa domenowa (`app/services/`) jest wspólna dla REST, agenta i MCP:
 
 | Moduł | Zawartość |
 |---|---|
-| `common.py` | walidacja `week_start`, slugi, normalizacja jednostek/kroków, strażnicy uprawnień (`require_visible`, `require_editable`, `assert_can_edit`), serializery |
+| `common.py` | walidacja `week_start`, koercja `recipe_id`, normalizacja jednostek/kroków, strażnicy uprawnień (`require_visible`, `require_editable`, `assert_can_edit`), serializery |
 | `recipes.py` | wyszukiwanie, filtrowanie, CRUD przepisów, oceny, notatki, udostępnianie |
 | `plan.py` | odczyt i uzgadnianie planu tygodnia, makro tygodnia |
 | `shopping.py` | generowanie i edycja listy zakupów |
@@ -81,10 +81,11 @@ class HouseholdMember:
 
 class AgentSettings:
     user_id: int (FK, PK)
-    endpoint: str          # URL endpointu LLM (np. OpenAI-compatible lub Anthropic)
-    api_key: str
+    # Endpoint i klucz LLM NIE są tu trzymane — biorą się ze zmiennych środowiskowych
+    # add-onu (MEALPILOT_AI_API_URL / MEALPILOT_AI_API_KEY). Martwe kolumny `endpoint`
+    # i `api_key` usunęła migracja 0002_drop_dead_schema.
     model: str
-    system_prompt: str
+    system_prompt: str     # "" = użyj DEFAULT_SYSTEM_PROMPT z backendu (app/agent/prompts.py)
     ui_prefs: JSON         # { recipes_grouped, macro_targets, favorite_recipe_ids }
     updated_at: datetime
 
@@ -99,7 +100,7 @@ class ApiKey:
     last_used_at: datetime | null
 
 class Recipe:
-    id: str (PK)               # slug, np. "kurczak-z-ryzem" — nadawany przez serwer
+    id: int (PK, autoincrement) # klucz surogatowy — nadawany przez bazę, niezmienny przy zmianie tytułu
     created_by: int (FK→users) # kolumna bazy: "user_id"
     owner_user_id: int | null  # dokładnie jedno z owner_* musi być ustawione
     owner_household_id: int | null
@@ -123,7 +124,7 @@ class Recipe:
 
 class RecipeRating:
     id: int (PK)
-    recipe_id: str (FK, CASCADE)
+    recipe_id: int (FK, CASCADE)
     user_id: int (FK)
     rating: int (1–5)
     created_at: datetime
@@ -132,7 +133,7 @@ class RecipeRating:
 
 class RecipeNote:
     id: int (PK)
-    recipe_id: str (FK, CASCADE)
+    recipe_id: int (FK, CASCADE)
     user_id: int (FK)
     note: str (max 5000 znaków)
     created_at: datetime
@@ -147,7 +148,7 @@ class MealPlanEntry:
     week_start: str             # "YYYY-MM-DD" (poniedziałek)
     day: int                    # 0=poniedziałek … 6=niedziela
     meal: str                   # "Śniadanie"|"II Śniadanie"|"Obiad"|"Przekąska"|"Kolacja"
-    recipe_id: str (FK)
+    recipe_id: int (FK)
     servings: int               # porcje do zjedzenia w tym slocie
 
 class WeekTemplate:
@@ -197,15 +198,25 @@ class ShoppingItem:
     category: str              # patrz sekcja kategorii poniżej
     checked: int               # 0 | 1
     is_custom: int             # 0=wygenerowane z planu, 1=dopisane ręcznie
-    # UNIQUE(user_id, week_start, name, unit)
+    # Bez klucza unikalnego. Stary UNIQUE(user_id, week_start, name, unit) zdjęła migracja
+    # 0002_drop_dead_schema: klucz na twórcy przestał odpowiadać modelowi własności.
+    # Deduplikacja jest w services/shopping.py (scalanie po widoczności).
     # recipe_ids: property → lista przepisów, z których pochodzi (ShoppingItemRecipe)
 
 class ShoppingItemRecipe:
     id: int (PK)
     item_id: int (FK→shopping_items)
-    recipe_id: str (FK→recipes)
+    recipe_id: int (FK→recipes)
     # UNIQUE(item_id, recipe_id)
 ```
+
+**Migracje schematu.** Schemat jest wersjonowany Alembikiem — rewizje leżą w
+`backend/app/migrations/versions/` (celowo wewnątrz pakietu `app`, bo obraz add-onu kopiuje
+tylko `backend/app`), a aktualna wersja bazy siedzi w tabeli `alembic_version`. Przy starcie
+`app/main.py::_run_migrations()` rozpoznaje trzy stany: pusta baza → `upgrade head`; baza
+z tabelami bez `alembic_version` (instalacja sprzed Alembica) → zamrożony `_migrate()` +
+`stamp 0001_baseline` + `upgrade head`; baza z `alembic_version` → sam `upgrade head`. Każda
+zmiana schematu to od teraz nowa rewizja — instrukcja w nagłówku `backend/app/migrator.py`.
 
 **Kategorie zakupów** (przydzielane przez słownik regex):
 `"Mięso, ryby, białko"` | `"Nabiał"` | `"Warzywa i owoce"` | `"Suche i zboża"` | `"Tłuszcze i przyprawy"` | `"Spiżarnia"` | `"Inne"`
@@ -234,8 +245,8 @@ DELETE /api/recipes/{id}/image               → usuń zdjęcie
 POST   /api/recipes/estimate-macros          → LLM-szacowanie makro z listy składników
 ```
 
-> **Uwaga:** REST `POST /api/recipes` nadal przyjmuje `id` od klienta (UI je generuje).
-> Narzędzie `create_recipe` — nie; tam slug nadaje serwer.
+> **Uwaga:** `id` nadaje baza — ani REST `POST /api/recipes`, ani `create_recipe`
+> nie przyjmują go od klienta.
 
 **Filtry GET /api/recipes** (wszystkie opcjonalne):
 - `q: str` — wyszukiwanie tekstowe (tytuł, tagi, typy posiłku, nazwy składników)
@@ -313,8 +324,8 @@ POST   /api/auth/api-keys        → tworzy API key {name, scope?} → {id, name
 GET    /api/auth/api-keys        → lista kluczy (bez wartości, ze scope)
 DELETE /api/auth/api-keys/{id}   → usuń klucz (204)
 GET    /api/agent/tools          → {groups, tools} — opis narzędzi prosto z rejestru
-GET    /api/settings/agent       → AgentSettings
-PUT    /api/settings/agent       → zapisz ustawienia LLM/agenta
+GET    /api/settings/agent       → {model, system_prompt, default_system_prompt}
+PUT    /api/settings/agent       → zapisz {model, system_prompt}; system_prompt="" = użyj domyślnego
 GET    /api/settings/ui          → UiPrefs
 PATCH  /api/settings/ui          → zaktualizuj prefs
 GET|POST|DELETE /mcp             → MCP (Streamable HTTP)
@@ -436,6 +447,14 @@ MEALPILOT_API_KEY=mp_xxx MEALPILOT_DB=/data/mealpilot.db python mcp_server.py
 - po MCP — dopuszczony tylko dla narzędzi z `readOnlyHint=true`; próba wywołania narzędzia
   zapisującego kończy się błędem z informacją, żeby utworzyć klucz o zakresie `write`.
 
+Niezależnie od zakresu, klucz API uwierzytelnia **tylko na ścieżkach domenowych**
+(`/api/recipes`, `/api/plan`, `/api/shopping`, `/api/templates`, `/api/settings`, `/api/auth/me`
+oraz `/mcp/*`). Na `/api/auth/*` (poza `me`), `/api/admin/*` i `/api/agent/*` klucz dostaje `403`
+— tam wchodzi się wyłącznie sesją z przeglądarki. Dzięki temu wyciek klucza z konfiguracji
+klienta MCP nie daje możliwości mnożenia kluczy, zarządzania użytkownikami ani czytania cudzych
+rozmów z agentem. Lista prefiksów jest allowlistą (`API_KEY_PATH_PREFIXES` w `app/dependencies.py`),
+więc nowy router nie staje się automatycznie dostępny dla kluczy.
+
 Klucz tworzy się w **Ustawienia → Klucze API** (albo `POST /api/auth/api-keys` z `{"name": ..., "scope": "read"}`).
 Zakres `read` jest właściwym wyborem dla klienta, który ma tylko czytać (dashboard,
 automatyzacja HA, integracja raportująca) — nawet przejęty klucz nie zmieni wtedy danych.
@@ -488,7 +507,7 @@ Legenda flag: **R** = tylko odczyt, **D** = destrukcyjne, **I** = idempotentne,
 | `get_recipe` | R I | Jeden **pełny** przepis po `id`. | `Recipe` |
 | `list_tags` | R I | Unikalne tagi z widocznych przepisów. | `{tags: string[]}` |
 | `list_meal_types` | R I | Unikalne typy posiłków. | `{meal_types: string[]}` |
-| `create_recipe` | C | Tworzy przepis; **`id` nadaje serwer** (slug z tytułu, sufiks `-2`/`-3` przy kolizji). | `Recipe` |
+| `create_recipe` | C | Tworzy przepis; **`id` nadaje serwer** (kolejna liczba; powtórzony tytuł to nie konflikt). | `Recipe` |
 | `update_recipe` | — | PATCH-semantyka; tablice (`ingredients`, `steps`, `tags`, `meal_types`, `meal_prep_steps`) **nadpisywane w całości**. | `Recipe` |
 | `delete_recipe` | D C | Usuwa przepis, jego wpisy w planach i regeneruje listy dotkniętych tygodni. | `{deleted, affected_weeks}` |
 | `rate_recipe` | I C | Ocena 1–5; `rating=0` usuwa ocenę. | `Recipe` |
@@ -545,8 +564,8 @@ Wartości zaokrąglone do 2 miejsc.
 |---|---|---|---|
 | `get_shopping_list` | R I | Lista tygodnia, posortowana po `(category, name)`. | `ShoppingList` |
 | `generate_shopping_list` | I | Przelicza wygenerowaną część listy z planu; pozycje ręczne i odhaczenia zostają. | `ShoppingList` |
-| `check_shopping_item` | I | Odhacza/odznacza pozycję po `item_id`. | `ShoppingItem` |
-| `add_shopping_item` | — | Dodaje ręczną pozycję (`is_custom=true`); ta sama `(name, unit)` w tygodniu → ilości **sumowane**. | `ShoppingItem` |
+| `check_shopping_item` | I | Odhacza/odznacza pozycję po `item_id`. Wymaga tylko widoczności — na wspólnej liście odhaczy każdy domownik. | `ShoppingItem` |
+| `add_shopping_item` | — | Dodaje ręczną pozycję (`is_custom=true`); ta sama `(name, unit)` w tygodniu → ilości **sumowane**, a scalona pozycja staje się `is_custom` i przestaje być przeliczana z planu. | `ShoppingItem` |
 | `delete_shopping_item` | D | Usuwa jedną pozycję. Alias: `remove_shopping_item`. | `{deleted}` |
 | `clear_shopping_list` | D C | Usuwa **wszystkie** pozycje tygodnia, też ręczne. | `{cleared, removed}` |
 
@@ -562,7 +581,7 @@ ShoppingItem = {
   category: str,    ← PL, np. "Nabiał"|"Warzywa i owoce"|"Inne"
   checked: bool,
   is_custom: bool,  ← true = dopisane ręcznie
-  recipe_ids: str[] ← z jakich przepisów pochodzi
+  recipe_ids: int[] ← z jakich przepisów pochodzi
 }
 ```
 
@@ -617,6 +636,14 @@ i przekaż zwrócone `week_start` do pozostałych narzędzi tygodniowych.
   slot po slocie: istniejące sloty są aktualizowane w miejscu, więc plan wspólny pozostaje
   wspólny (kiedyś zamieniał się po cichu w prywatny).
 - **Regeneracja listy zakupów** działa tak samo: zachowuje `id` pozycji, właściciela i odhaczenia.
+- **Lista zakupów dziedziczy własność planu, z którego powstaje.** Pozycja jest wspólna, jeśli
+  przyczynił się do niej choć jeden household'owy wpis planu; plan prywatny daje listę prywatną.
+  Pozycja dopisana ręcznie trafia do bucketa tygodnia (wspólnego, jeśli tydzień jest wspólny).
+  Istniejące wiersze **nigdy** nie zmieniają właściciela — lista wygenerowana zanim plan został
+  udostępniony zostaje prywatna do czasu jej skasowania.
+- **Odhaczanie to nie edycja.** `check_shopping_item` wymaga wyłącznie widoczności pozycji, więc
+  domownik bez `can_edit` odhaczy zakup na wspólnej liście. Dopisanie, usunięcie i wyczyszczenie
+  listy nadal wymagają prawa edycji.
 
 ### Kroki przepisu
 
@@ -639,3 +666,24 @@ Pola `is_meal_prep`, `meal_prep_days`, `meal_prep_steps` są dostępne z poziomu
   w UI (Ustawienia → Klucze API) nadal wskazuje `/mcp/sse`.
 - Rate limiter jest w pamięci procesu — sensowny dla pojedynczej instancji add-onu,
   przy wielu replikach wymagałby wspólnego magazynu.
+- **Planu tygodnia nie da się jeszcze udostępnić household z poziomu API.** Wpisy planu
+  powstają zawsze jako prywatne (`default_owner_kwargs` w `services/plan.py`) i nie ma dla nich
+  endpointu `PUT .../ownership`, jaki mają przepisy i szablony. Warstwa zakupów jest już gotowa
+  na wspólne plany (dziedziczy ich własność), ale dopóki takiego endpointu nie ma, wspólny plan
+  może powstać wyłącznie przez bezpośrednią modyfikację bazy.
+- **Unikalność pozycji listy zakupów jest pilnowana tylko w kodzie.** Stary
+  `uq_shop_user_week_name_unit` został zdjęty (migracja `0002_drop_dead_schema`), a nowego nie
+  ma: kandydat `(COALESCE(owner_household_id, owner_user_id), week_start, lower(name), unit)`
+  miesza dwie przestrzenie identyfikatorów (household 3 i użytkownik 3 dają tę samą wartość),
+  a unikalny indeks na wyrażeniu jest pod SQLite źle odczytywany przez autogenerację Alembica.
+  Deduplikacja żyje więc w `services/shopping.py` (scalanie po `visible_query`) i każda nowa
+  ścieżka zapisu musi przez nią przechodzić.
+- **Bazy zaadoptowane z ery ręcznych migracji są tylko *przybliżeniem* rewizji `0001_baseline`.**
+  Stary `_migrate()` dokładał brakujące kolumny, ale nie constrainty ani indeksy na tabelach,
+  które zastał. Rewizja stemplowana przy adopcji jest deklaracją, nie gwarancją — dlatego
+  migracje ruszające istniejące struktury muszą sprawdzać reflection (`sa.inspect`), zanim
+  cokolwiek zdejmą.
+- **`filtered_rows` filtruje w Pythonie, nie w SQL.** Tagi, `meal_types` i składniki są
+  kolumnami JSON, więc filtrowanie po nich wymagałoby `json_each` i przypięcia warstwy serwisów
+  do SQLite. Przy bibliotece rzędu setek przepisów jest to bez znaczenia; przy tysiącach
+  trzeba będzie to przepisać.

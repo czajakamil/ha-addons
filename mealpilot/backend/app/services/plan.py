@@ -16,6 +16,7 @@ from .. import models
 from ..ownership import default_owner_kwargs
 from .common import (
     assert_can_edit,
+    coerce_recipe_id,
     current_week_start,
     normalize_meal,
     parse_week_start,
@@ -61,7 +62,7 @@ def _entry_rows(db: Session, user: models.User, week_start: str) -> list[models.
 def _enrich(db: Session, user: models.User, week_start: str, rows: list[models.MealPlanEntry]) -> dict[str, Any]:
     entries = [plan_entry_to_dict(e) for e in rows]
     recipe_ids = {e["recipe_id"] for e in entries}
-    titles: dict[str, str] = {}
+    titles: dict[int, str] = {}
     if recipe_ids:
         titles = {
             r.id: r.title for r in visible_query(db, user, models.Recipe).filter(models.Recipe.id.in_(recipe_ids)).all()
@@ -72,7 +73,7 @@ def _enrich(db: Session, user: models.User, week_start: str, rows: list[models.M
     }
 
 
-def _assert_recipes_visible(db: Session, user: models.User, recipe_ids: set[str]) -> None:
+def _assert_recipes_visible(db: Session, user: models.User, recipe_ids: set[int]) -> None:
     if not recipe_ids:
         return
     found = {r.id for r in visible_query(db, user, models.Recipe).filter(models.Recipe.id.in_(recipe_ids)).all()}
@@ -80,7 +81,7 @@ def _assert_recipes_visible(db: Session, user: models.User, recipe_ids: set[str]
     if missing:
         raise Invalid(
             "Nieznane lub niewidoczne recipe_id: "
-            + ", ".join(sorted(missing))
+            + ", ".join(str(m) for m in sorted(missing))
             + ". Pobierz aktualną listę (search_recipes / list_recipes) i użyj id z odpowiedzi."
         )
 
@@ -101,14 +102,11 @@ def _stored_entries(rows: list[models.MealPlanEntry]) -> list[dict[str, Any]]:
 def normalize_entries(raw_entries: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for e in list(raw_entries or []):
-        recipe_id = str(e.get("recipe_id") or "").strip()
-        if not recipe_id:
-            raise Invalid("Każdy wpis planu musi mieć recipe_id.")
         out.append(
             {
                 "day": _coerce_day(e.get("day")),
                 "meal": normalize_meal(str(e.get("meal", ""))),
-                "recipe_id": recipe_id,
+                "recipe_id": coerce_recipe_id(e.get("recipe_id")),
                 "servings": _coerce_servings(e.get("servings")),
             }
         )
@@ -188,9 +186,7 @@ def add_plan_entry(db: Session, user: models.User, args: dict[str, Any]) -> dict
     week_start = parse_week_start(args.get("week_start"))
     day = _coerce_day(args.get("day"))
     meal = normalize_meal(str(args.get("meal", "")))
-    recipe_id = str(args.get("recipe_id") or "").strip()
-    if not recipe_id:
-        raise Invalid("recipe_id jest wymagane.")
+    recipe_id = coerce_recipe_id(args.get("recipe_id"))
     servings = _coerce_servings(args.get("servings"))
 
     current = _stored_entries(_entry_rows(db, user, week_start))
@@ -215,7 +211,7 @@ def get_week_nutrition_summary(db: Session, user: models.User, args: dict[str, A
     week_start = parse_week_start(args.get("week_start"))
     rows = _entry_rows(db, user, week_start)
     recipe_ids = {e.recipe_id for e in rows}
-    recipes: dict[str, models.Recipe] = {}
+    recipes: dict[int, models.Recipe] = {}
     if recipe_ids:
         recipes = {
             r.id: r for r in visible_query(db, user, models.Recipe).filter(models.Recipe.id.in_(recipe_ids)).all()

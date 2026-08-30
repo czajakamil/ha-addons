@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  DEFAULT_SYSTEM_PROMPT,
+  effectiveSystemPrompt,
   fetchSettings,
   getSettings,
   isSettingsLoaded,
@@ -40,6 +40,8 @@ export function AgentSettingsScreen() {
     setError(null);
     try {
       await persistSettings(s);
+      // Serwer normalizuje prompt (pusty = domyślny) — bierzemy jego wersję.
+      setS(getSettings());
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -48,9 +50,14 @@ export function AgentSettingsScreen() {
     }
   }
 
+  // Pusty override = "użyj domyślnego z serwera"; textarea pokaże wtedy
+  // aktualny prompt backendu, a zapis wyśle pusty string.
   function onResetPrompt() {
-    update('systemPrompt', DEFAULT_SYSTEM_PROMPT);
+    update('systemPrompt', '');
   }
+
+  const promptValue = effectiveSystemPrompt(s);
+  const usingDefaultPrompt = !s.systemPrompt.trim();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -59,8 +66,8 @@ export function AgentSettingsScreen() {
           <div className="eyebrow">Ustawienia</div>
           <h1>Asystent AI</h1>
           <div className="sub">
-            Endpoint, klucz API i model agenta. Ustawienia są zapisywane na serwerze
-            i powiązane z Twoim kontem.
+            Model agenta i opcjonalny własny prompt systemowy. Ustawienia są zapisywane
+            na serwerze i powiązane z Twoim kontem.
           </div>
         </div>
       </header>
@@ -90,12 +97,22 @@ export function AgentSettingsScreen() {
           <div className="field-label" style={{ marginBottom: 6 }}>
             System prompt{' '}
             <span className="field-hint">
-              instrukcje dla agenta · <button type="button" className="linklike" onClick={onResetPrompt}>przywróć domyślny</button>
+              {usingDefaultPrompt
+                ? 'domyślny prompt z serwera'
+                : 'własna wersja — nadpisuje domyślną'}
+              {!usingDefaultPrompt && (
+                <>
+                  {' · '}
+                  <button type="button" className="linklike" onClick={onResetPrompt}>
+                    przywróć domyślny
+                  </button>
+                </>
+              )}
             </span>
           </div>
           <textarea
             className="edit-input"
-            value={s.systemPrompt}
+            value={promptValue}
             onChange={(e) => update('systemPrompt', e.target.value)}
             rows={10}
             style={{ fontFamily: 'inherit' }}

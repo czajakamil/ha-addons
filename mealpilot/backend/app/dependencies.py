@@ -12,6 +12,31 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _LAST_USED_THROTTLE = timedelta(seconds=60)
 _AUTH_ERROR = "Not authenticated"
 
+# An API key is a *data* credential handed to an external client (Claude
+# Desktop, a script). It must never be able to escalate itself into full account
+# control, so it only reaches the domain surface — never account management
+# (/api/auth/*: minting more keys, changing the password) and never
+# administration (/api/admin/*). Anything not listed here is denied by default,
+# so a new router does not silently become key-reachable.
+API_KEY_PATH_PREFIXES = (
+    "/api/recipes",
+    "/api/plan",
+    "/api/shopping",
+    "/api/templates",
+    "/api/settings",
+    "/mcp",
+)
+# /api/auth/me is the one exception: it is a read-only identity echo, used by
+# clients as a "is this key still valid, and who am I?" health check. It exposes
+# nothing an API-key holder does not already have, and grants no control.
+API_KEY_EXACT_PATHS = frozenset({"/api/auth/me"})
+
+
+def _api_key_path_allowed(path: str) -> bool:
+    if path in API_KEY_EXACT_PATHS:
+        return True
+    return any(path == p or path.startswith(p + "/") for p in API_KEY_PATH_PREFIXES)
+
 
 def _hash_api_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
@@ -47,6 +72,16 @@ def get_current_user(
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
                 "Ten klucz API ma zakres tylko-do-odczytu.",
+            )
+        root_path = request.scope.get("root_path") or ""
+        path = request.url.path
+        if root_path and path.startswith(root_path):
+            path = path[len(root_path) :] or "/"
+        if not _api_key_path_allowed(path):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Klucz API nie ma dostępu do tej ścieżki — zarządzanie kontem "
+                "i panel administratora wymagają zalogowanej sesji.",
             )
         return user
 
