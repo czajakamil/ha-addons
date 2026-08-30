@@ -33,7 +33,7 @@ from mcp.server.sse import SseServerTransport
 from sqlalchemy.orm import Session
 from starlette.types import Receive, Scope, Send
 
-from .. import models
+from .. import models, oauth
 from ..db import SessionLocal
 from ..mcpserver.server import Principal, current_principal, server
 from ..ratelimit import mcp_auth_limiter, mcp_message_limiter, mcp_session_limiter
@@ -118,6 +118,66 @@ def _require_token(token: str | None) -> str:
     return token.strip()
 
 
+# --------------------------------------------------------------------------- #
+# Credentials: static API key *or* OAuth bearer token
+# --------------------------------------------------------------------------- #
+
+
+def _challenge_headers(request: Request) -> dict[str, str]:
+    """The RFC 9728 challenge that makes a remote MCP client start an OAuth flow.
+
+    This header is the entire reason a connector added on claude.ai can ever
+    discover the authorization server: given a bare 401 it reports the server as
+    having no tools, but given ``resource_metadata`` it fetches that document
+    and walks the flow. Clients that use a static ``X-MealPilot-Token`` ignore it.
+    """
+    metadata = f"{oauth.public_base_url(request)}/.well-known/oauth-protected-resource/mcp"
+    return {"WWW-Authenticate": f'Bearer resource_metadata="{metadata}"'}
+
+
+def _unauthenticated(request: Request, detail: str) -> HTTPException:
+    return HTTPException(status.HTTP_401_UNAUTHORIZED, detail, headers=_challenge_headers(request))
+
+
+def _bearer_token(request: Request) -> str | None:
+    header = request.headers.get("authorization", "")
+    if not header.lower().startswith("bearer "):
+        return None
+    return header[7:].strip() or None
+
+
+def _resolve_bearer(request: Request, token: str, client: str) -> Principal:
+    """Map an OAuth access token to its owner, or raise 401 with a fresh challenge."""
+    db: Session = SessionLocal()
+    try:
+        grant = oauth.verify_access_token(db, token, resource=oauth.canonical_resource(request))
+        user = db.get(models.User, grant.user_id)
+        if not user or not user.is_active:
+            _throttle(mcp_auth_limiter, client, "nieudane uwierzytelnienie")
+            raise _unauthenticated(request, "Konto jest nieaktywne lub nie istnieje.")
+        return Principal(user_id=user.id, scope=grant.scope)
+    except oauth.OAuthError as exc:
+        _throttle(mcp_auth_limiter, client, "nieudane uwierzytelnienie")
+        raise _unauthenticated(request, exc.description) from exc
+    finally:
+        db.close()
+
+
+def _authenticate(request: Request, x_mealpilot_token: str | None) -> Principal:
+    """Resolve whichever of the two supported credentials the caller presented.
+
+    Bearer wins when both are present: it is the more specific, shorter-lived
+    credential, and a client sending both is a client mid-migration.
+    """
+    client = _client_key(request)
+    bearer = _bearer_token(request)
+    if bearer:
+        return _resolve_bearer(request, bearer, client)
+    if x_mealpilot_token and x_mealpilot_token.strip():
+        return _resolve_principal(x_mealpilot_token.strip(), client)
+    raise _unauthenticated(request, "Wymagany token: nagłówek Authorization: Bearer albo X-MealPilot-Token.")
+
+
 @router.post("/mcp/messages")
 async def mcp_post_message(
     request: Request,
@@ -125,7 +185,7 @@ async def mcp_post_message(
 ):
     client = _client_key(request)
     _throttle(mcp_message_limiter, client, "wiadomości MCP")
-    principal = _resolve_principal(_require_token(x_mealpilot_token), client)
+    principal = _authenticate(request, x_mealpilot_token)
 
     session_id = request.query_params.get("session_id") or ""
     owner = _session_owner.get(session_id)
@@ -153,7 +213,7 @@ async def mcp_sse(
 ):
     client = _client_key(request)
     _throttle(mcp_session_limiter, client, "połączeń MCP")
-    principal = _resolve_principal(_require_token(x_mealpilot_token), client)
+    principal = _authenticate(request, x_mealpilot_token)
 
     known_before = set(sse_transport._read_stream_writers)
     ctx_token = current_principal.set(principal)

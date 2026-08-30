@@ -22,7 +22,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 from ..mcpserver.server import current_principal, server
 from ..ratelimit import mcp_message_limiter
-from .mcp_sse import _AlreadySentResponse, _client_key, _require_token, _resolve_principal, _throttle
+from .mcp_sse import _AlreadySentResponse, _authenticate, _client_key, _throttle
 
 router = APIRouter()
 
@@ -52,7 +52,7 @@ async def mcp_streamable_http(
 ):
     client = _client_key(request)
     _throttle(mcp_message_limiter, client, "wiadomości MCP")
-    principal = _resolve_principal(_require_token(x_mealpilot_token), client)
+    principal = _authenticate(request, x_mealpilot_token)
 
     manager = _session_manager
     if manager is None:

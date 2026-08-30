@@ -6,7 +6,16 @@ Aby działało w produkcji ustaw:
 - MEALPILOT_CF_ACCESS_AUD=<application audience tag z dashboardu Cloudflare>
 
 MEALPILOT_CF_ACCESS_BYPASS (comma-separated path prefixes) pomija check —
-domyślnie /healthz i /docs.
+domyślnie /healthz, /docs oraz ścieżki OAuth (/.well-known, /oauth).
+
+Dlaczego OAuth jest domyślnie pominięty: konektor dodany na claude.ai woła
+/oauth/register i /oauth/token *serwer-do-serwera*, więc nie ma jak dołożyć
+asercji CF Access — z włączonym checkiem cały flow kończyłby się 401, a użytkownik
+widziałby tylko „brak narzędzi". Same endpointy nie są bezbronne: /.well-known
+zwraca wyłącznie publiczne metadane, /oauth/authorize wymaga hasła i jest
+limitowany, a /oauth/token wymaga kodu jednorazowego + PKCE. Kto chce trzymać je
+za CF Access mimo to, ustawia MEALPILOT_CF_ACCESS_BYPASS bez tych prefiksów —
+kosztem działania konektora na claude.ai.
 
 Bez tych zmiennych middleware przepuszcza wszystko (local dev).
 """
@@ -60,7 +69,10 @@ class CloudflareAccessMiddleware:
         self.enabled = os.environ.get("MEALPILOT_REQUIRE_CF_ACCESS", "0") == "1"
         self.team_domain = os.environ.get("MEALPILOT_CF_ACCESS_TEAM_DOMAIN", "").strip()
         self.audience = os.environ.get("MEALPILOT_CF_ACCESS_AUD", "").strip()
-        bypass = os.environ.get("MEALPILOT_CF_ACCESS_BYPASS", "/healthz,/docs,/openapi.json,/redoc")
+        bypass = os.environ.get(
+            "MEALPILOT_CF_ACCESS_BYPASS",
+            "/healthz,/docs,/openapi.json,/redoc,/.well-known,/oauth",
+        )
         self.bypass_prefixes = tuple(p.strip() for p in bypass.split(",") if p.strip())
 
         if self.enabled and (not self.team_domain or not self.audience):

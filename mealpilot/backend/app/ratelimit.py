@@ -46,3 +46,11 @@ login_limiter = SlidingWindowLimiter(max_attempts=10, window_seconds=15 * 60)
 mcp_session_limiter = SlidingWindowLimiter(max_attempts=30, window_seconds=5 * 60)
 mcp_message_limiter = SlidingWindowLimiter(max_attempts=600, window_seconds=60)
 mcp_auth_limiter = SlidingWindowLimiter(max_attempts=20, window_seconds=5 * 60)
+
+# Rejestracja klienta OAuth (RFC 7591) jest z definicji nieuwierzytelniona i
+# tworzy wiersz w bazie — bez limitu każdy mógłby zapchać tabelę. 20/h na IP
+# starcza na wielokrotne podpinanie konektora i pomyłki po drodze.
+oauth_register_limiter = SlidingWindowLimiter(max_attempts=20, window_seconds=60 * 60)
+# /oauth/token przyjmuje ruch nieuwierzytelniony i robi zapytanie do bazy per
+# żądanie; limit jest hojny, bo odświeżanie tokenu to normalny ruch klienta.
+oauth_token_limiter = SlidingWindowLimiter(max_attempts=120, window_seconds=5 * 60)

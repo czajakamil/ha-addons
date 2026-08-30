@@ -170,9 +170,29 @@ def test_swieza_instalacja_startuje_na_samych_migracjach():
 
 
 def test_downgrade_ostatniej_rewizji_wykonuje_sie(blank_engine):
+    """Cofnięcie o jeden krok od heada — cokolwiek jest w tej chwili headem.
+
+    Test celowo nie wie, ile jest rewizji: sprawdza, że `-1` faktycznie zmienia
+    wersję i że powrót w przód odtwarza dokładnie schemat z modeli.
+    """
     migrator.upgrade_head(blank_engine)
+    head = migrator.head_revision()
 
     migrator.downgrade(blank_engine, "-1")
+
+    assert _alembic_version(blank_engine) != head
+    assert _schema_diff(blank_engine) != []  # cofnięcie musi być widoczne w schemacie
+
+    migrator.upgrade_head(blank_engine)  # i z powrotem w przód
+    assert _alembic_version(blank_engine) == head
+    assert _schema_diff(blank_engine) == []
+
+
+def test_downgrade_do_bazowej_przywraca_stary_schemat(blank_engine):
+    """Zejście do 0001 musi odtworzyć to, co zdjęła rewizja 0002."""
+    migrator.upgrade_head(blank_engine)
+
+    migrator.downgrade(blank_engine, migrator.base_revision())
 
     assert _alembic_version(blank_engine) == migrator.base_revision()
     cols = {c["name"] for c in inspect(blank_engine).get_columns("agent_settings")}
@@ -181,8 +201,19 @@ def test_downgrade_ostatniej_rewizji_wykonuje_sie(blank_engine):
         "uq_shop_user_week_name_unit"
     }
 
-    migrator.upgrade_head(blank_engine)  # i z powrotem w przód
+    migrator.upgrade_head(blank_engine)
     assert _schema_diff(blank_engine) == []
+
+
+def test_downgrade_kasuje_tabele_oauth(blank_engine):
+    """Rewizja 0003 jest addytywna — po cofnięciu nie może zostać ani jedna jej tabela."""
+    migrator.upgrade_head(blank_engine)
+    oauth_tables = {"oauth_clients", "oauth_auth_codes", "oauth_tokens"}
+    assert oauth_tables <= set(inspect(blank_engine).get_table_names())
+
+    migrator.downgrade(blank_engine, "-1")
+
+    assert oauth_tables & set(inspect(blank_engine).get_table_names()) == set()
 
 
 def test_downgrade_do_zera_kasuje_caly_schemat(blank_engine):

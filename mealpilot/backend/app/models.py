@@ -84,6 +84,81 @@ class ApiKey(Base):
     last_used_at = Column(DateTime, nullable=True)
 
 
+class OAuthClient(Base):
+    """A client registered against MealPilot's authorization server.
+
+    Rows are almost always created by RFC 7591 dynamic registration rather than
+    by hand: a remote MCP client (claude.ai) discovers ``/oauth/register`` and
+    enrols itself. ``client_secret_hash`` is NULL for public clients, which is
+    what every browser-driven MCP client is — they authenticate the exchange
+    with PKCE, not with a secret they would have to ship.
+    """
+
+    __tablename__ = "oauth_clients"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(String, nullable=False, unique=True, index=True)
+    client_secret_hash = Column(String, nullable=True)
+    client_name = Column(String, nullable=False, default="")
+    redirect_uris = Column(JSON, nullable=False, default=list)
+    grant_types = Column(JSON, nullable=False, default=list)
+    scope = Column(String, nullable=False, default="write")
+    token_endpoint_auth_method = Column(String, nullable=False, default="none")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class OAuthAuthCode(Base):
+    """One in-flight authorization code. Single use, seconds-long lifetime.
+
+    The code itself is never stored — only its SHA-256 — so a database leak
+    cannot be replayed against the token endpoint within the code's lifetime.
+    ``code_challenge`` is the PKCE binding: whoever redeems the code must prove
+    it knows the verifier that produced this challenge.
+    """
+
+    __tablename__ = "oauth_auth_codes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code_hash = Column(String, nullable=False, unique=True, index=True)
+    client_id = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    redirect_uri = Column(String, nullable=False)
+    code_challenge = Column(String, nullable=False)
+    code_challenge_method = Column(String, nullable=False, default="S256")
+    scope = Column(String, nullable=False, default="write")
+    resource = Column(String, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class OAuthToken(Base):
+    """An issued access or refresh token, stored as a hash.
+
+    Opaque and database-backed rather than a self-contained JWT: MealPilot is
+    both the authorization server and the resource server, so there is nothing
+    to gain from offline verification — and everything to gain from being able
+    to revoke a token the instant a password changes or an account is deleted.
+
+    ``resource`` records the RFC 8707 audience the token was minted for. It is
+    checked on every call, so a token issued for some other MCP server cannot be
+    replayed here.
+    """
+
+    __tablename__ = "oauth_tokens"
+    __table_args__ = (Index("ix_oauth_tokens_user_kind", "user_id", "kind"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token_hash = Column(String, nullable=False, unique=True, index=True)
+    kind = Column(String, nullable=False)  # "access" | "refresh"
+    client_id = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    scope = Column(String, nullable=False, default="write")
+    resource = Column(String, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+
+
 class Recipe(Base):
     __tablename__ = "recipes"
     __table_args__ = (

@@ -7,7 +7,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, oauth, schemas
 from ..db import get_db
 from ..dependencies import _hash_api_key, get_current_user
 from ..ratelimit import login_limiter
@@ -155,8 +155,11 @@ def change_password(
     # Bump session_version unieważnia wszystkie istniejące sesje.
     user.session_version = (user.session_version or 0) + 1
     # Usuń też wszystkie API keys — po rotacji hasła zakładamy że stare tokeny
-    # mogły wyciec.
+    # mogły wyciec. Z tego samego powodu lecą grantów OAuth: token dostępu żyje
+    # godzinę, a refresh miesiąc, więc bez tego zmiana hasła nie odcięłaby
+    # napastnika, który zdążył podpiąć konektor.
     db.query(models.ApiKey).filter(models.ApiKey.user_id == user.id).delete()
+    oauth.revoke_all_for_user(db, user.id)
     db.commit()
     # Zachowaj bieżącą sesję dla wywołującego.
     _bump_session(request, user)

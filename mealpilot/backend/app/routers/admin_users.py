@@ -5,7 +5,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, oauth, schemas
 from ..db import get_db
 from ..dependencies import get_current_admin
 from ..security import hash_password
@@ -241,6 +241,7 @@ def _purge_user_data(db: Session, user_id: int) -> None:
 
     # --- Credentials -------------------------------------------------------
     db.query(models.ApiKey).filter(models.ApiKey.user_id == user_id).delete(synchronize_session=False)
+    oauth.revoke_all_for_user(db, user_id)
 
     # --- This user's ratings/notes on anybody's recipes --------------------
     db.query(models.RecipeRating).filter(models.RecipeRating.user_id == user_id).delete(synchronize_session=False)

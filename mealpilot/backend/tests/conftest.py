@@ -49,10 +49,14 @@ def _reset_schema() -> None:
 def clean_state():
     """Świeży schemat bazy + wyczyszczone rate limitery przed każdym testem."""
     _reset_schema()
-    from app.ratelimit import login_limiter, mcp_auth_limiter, mcp_message_limiter, mcp_session_limiter
+    # Wszystkie limitery, jakie moduł definiuje — wyliczane, a nie wypisane
+    # z nazwy: dopisany limiter inaczej cicho przecieka między testami i wysypuje
+    # dopiero ten test, który akurat wykona o jedno żądanie za dużo.
+    from app import ratelimit
 
-    for limiter in (login_limiter, mcp_auth_limiter, mcp_message_limiter, mcp_session_limiter):
-        limiter._buckets.clear()
+    for limiter in vars(ratelimit).values():
+        if isinstance(limiter, ratelimit.SlidingWindowLimiter):
+            limiter._buckets.clear()
     # Posprzątaj obrazy między testami.
     images_dir = Path(os.environ["MEALPILOT_IMAGES_DIR"])
     if images_dir.exists():

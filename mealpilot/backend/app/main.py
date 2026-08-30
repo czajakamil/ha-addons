@@ -18,7 +18,7 @@ from . import migrator, models
 from .db import DB_PATH, Base, SessionLocal, engine
 from .images import IMAGES_DIR
 from .middleware import CloudflareAccessMiddleware
-from .routers import admin_households, admin_users, agent, auth, mcp_http, mcp_sse, plan, recipes, shopping
+from .routers import admin_households, admin_users, agent, auth, mcp_http, mcp_sse, oauth, plan, recipes, shopping
 from .routers import settings as settings_router
 from .routers import templates as templates_router
 from .security import hash_password, verify_password
@@ -472,6 +472,9 @@ app.include_router(agent.router)
 app.include_router(templates_router.router)
 app.include_router(mcp_sse.router)
 app.include_router(mcp_http.router)
+# Before the static mount below, which is a catch-all: /.well-known/* and
+# /oauth/* have to reach the router, not the frontend's index.html.
+app.include_router(oauth.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")

@@ -9,6 +9,11 @@ export MEALPILOT_AI_API_URL="$(bashio::config 'ai_api_url')"
 export MEALPILOT_AI_API_KEY="$(bashio::config 'ai_api_key')"
 export MEALPILOT_CORS_ORIGINS="$(bashio::config 'cors_origins')"
 
+# Publiczny adres add-onu — trafia do metadanych OAuth, którymi claude.ai wykrywa
+# serwer autoryzacji. Puste = adres widziany przez samą aplikację, co jest dobre
+# tylko przy bezpośrednim dostępie; za reverse proxy trzeba wpisać ten z przeglądarki.
+export MEALPILOT_PUBLIC_URL="$(bashio::config 'public_url')"
+
 if bashio::config.true 'require_cf_access'; then
     export MEALPILOT_REQUIRE_CF_ACCESS="1"
 else
