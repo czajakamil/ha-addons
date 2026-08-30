@@ -3,5 +3,5 @@
 - Dotychczasowe klucze API działają bez żadnych zmian — istniejące konfiguracje Claude Desktop i Claude Code nie wymagają przepinania
 - Ekran zgody zawsze prosi o hasło, nawet przy aktywnej sesji w przeglądarce: przepływ uruchamia strona trzecia, a wydawany token żyje dłużej niż sesja, więc to moment na świadome potwierdzenie. Widać na nim, kto prosi o dostęp i co dokładnie będzie mógł zrobić
 - Token dostępu żyje godzinę, odświeżający 30 dni i jest wymieniany przy każdym użyciu; zmiana hasła oraz usunięcie konta unieważniają wszystkie wydane granty natychmiast
-- Nowa opcja `MEALPILOT_PUBLIC_URL` — publiczny adres add-onu. Za reverse proxy lub ingressem HA adres widziany przez aplikację nie jest tym, który wpisuje przeglądarka; bez tego ustawienia przekierowanie po zgodzie trafiałoby w próżnię
+- Nowa opcja konfiguracji **`public_url`** — publiczny adres add-onu. Za reverse proxy adres widziany przez aplikację nie jest tym, który wpisuje przeglądarka; bez tego ustawienia przekierowanie po zgodzie trafiałoby w próżnię
 - Przy włączonym Cloudflare Access ścieżki `/.well-known` i `/oauth` są domyślnie pomijane — konektor woła je serwer-do-serwera i nie ma jak dołożyć asercji CF Access
