@@ -21,7 +21,7 @@ export const TAG_COLOR_OPTIONS: TagColorOption[] = [
 const TAG_COLOR_MAP = new Map(TAG_COLOR_OPTIONS.map((option) => [option.id, option]));
 
 /** Neutralny kolor dla tagów bez własnego i bez pokolorowanego przodka. */
-export const NEUTRAL_TAG_COLOR = 'var(--tag-neutral, var(--tblr-secondary, #868e96))';
+export const NEUTRAL_TAG_COLOR = 'var(--tag-neutral)';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 

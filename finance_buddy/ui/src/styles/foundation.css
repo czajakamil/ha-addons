@@ -1,0 +1,99 @@
+/* ==========================================================================
+   Fundament: Tabler/Bootstrap i elementy globalne sprowadzone do tokenów.
+   ========================================================================== */
+
+@layer components {
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: var(--ring) solid var(--accent);
+    outline-offset: var(--focus-offset);
+  }
+
+  .card {
+    border-radius: var(--radius-card);
+    border-color: var(--border);
+    box-shadow: none;
+  }
+
+  /* Przyciski: główny to odwrócone kolory, reszta neutralna */
+  .btn {
+    --tblr-btn-font-weight: var(--weight-medium);
+    --tblr-btn-box-shadow: none;
+    --tblr-btn-border-radius: var(--radius-control);
+    min-height: var(--row-height-compact);
+    font-size: var(--text-14);
+    line-height: var(--leading-14);
+    transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+  }
+
+  .btn-primary {
+    --tblr-btn-bg: var(--text);
+    --tblr-btn-color: var(--bg);
+    --tblr-btn-border-color: var(--text);
+    --tblr-btn-hover-bg: var(--text-muted);
+    --tblr-btn-hover-color: var(--bg);
+    --tblr-btn-hover-border-color: var(--text-muted);
+    --tblr-btn-active-bg: var(--text-muted);
+    --tblr-btn-active-color: var(--bg);
+    --tblr-btn-active-border-color: var(--text-muted);
+    --tblr-btn-disabled-bg: var(--surface-2);
+    --tblr-btn-disabled-color: var(--text-muted);
+    --tblr-btn-disabled-border-color: var(--border);
+  }
+
+  .btn-secondary,
+  .btn-light,
+  .btn-outline-primary,
+  .btn-outline-secondary {
+    --tblr-btn-bg: transparent;
+    --tblr-btn-color: var(--text);
+    --tblr-btn-border-color: var(--border);
+    --tblr-btn-hover-bg: var(--surface-2);
+    --tblr-btn-hover-color: var(--text);
+    --tblr-btn-hover-border-color: var(--border);
+    --tblr-btn-active-bg: var(--surface-2);
+    --tblr-btn-active-color: var(--text);
+    --tblr-btn-active-border-color: var(--border);
+    --tblr-btn-disabled-bg: transparent;
+    --tblr-btn-disabled-color: var(--text-muted);
+    --tblr-btn-disabled-border-color: var(--border);
+  }
+
+  .form-control,
+  .form-select {
+    border-radius: var(--radius-control);
+    border-color: var(--border);
+    background-color: var(--surface);
+    color: var(--text);
+    font-size: var(--text-14);
+    box-shadow: none;
+  }
+
+  .form-control:focus,
+  .form-select:focus {
+    border-color: var(--accent);
+    box-shadow: none;
+  }
+
+  .form-control::placeholder {
+    color: var(--text-muted);
+  }
+
+  /* Nagłówki tabel: 12 px, bez wersalików i rozstrzelenia */
+  .table thead th,
+  .rdg [role="columnheader"],
+  .subheader {
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    font-weight: var(--weight-medium);
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .badge {
+    border-radius: var(--radius-control);
+    font-weight: var(--weight-medium);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+}

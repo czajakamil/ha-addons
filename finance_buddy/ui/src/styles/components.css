@@ -48,8 +48,6 @@
 
   .table thead {
     background: var(--surface-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
     font-size: 0.75rem;
     color: var(--text-soft);
   }
@@ -146,8 +144,6 @@
   .editable-cell__meta {
     margin-block-start: calc(var(--space-1) * 0.8);
     font-size: 0.7rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: var(--muted-strong);
   }
 
@@ -289,8 +285,6 @@
 
   .balance-card__label {
     font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
     color: var(--muted-strong);
   }
 
@@ -402,8 +396,6 @@
 
   .rdg [role="columnheader"] {
     font-size: 0.7rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: var(--muted-strong);
     font-weight: 600;
   }
@@ -573,7 +565,7 @@
     overflow: hidden;
 
     font-size: 0.7rem;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1;
 
     cursor: pointer;
@@ -690,7 +682,6 @@
   .transactions-context-menu__label {
     color: var(--muted);
     font-weight: 600;
-    letter-spacing: 0.2px;
   }
 
   .transactions-context-menu__item[disabled],
@@ -792,7 +783,6 @@
   .tx-detail__meta-label {
     color: var(--muted);
     font-weight: 600;
-    letter-spacing: 0.01em;
   }
 
   .tx-detail__meta-value {
@@ -822,7 +812,7 @@
     flex-direction: column;
     gap: var(--space-2);
     padding: var(--space-2);
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--shadow-sm);
   }
 
   .attachment-card__preview {
@@ -995,8 +985,6 @@
   .brand__eyebrow,
   .sidebar__label,
   .meta__label {
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
     font-weight: 600;
   }
 

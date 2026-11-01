@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 // so our own styles always win without UNLAYERED hacks. Must load first.
 // (react-data-grid's stylesheet is imported into @layer vendor from vendor.css)
 import './styles/vendor.css';
+import '@fontsource-variable/inter/wght.css';
 
 import { routerBasename } from './api/basePath';
 import App from './App';

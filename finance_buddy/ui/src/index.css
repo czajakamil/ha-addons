@@ -1,7 +1,7 @@
 /* ==========================================================================
    index.css — loaded LAST and UNLAYERED, so these rules win over Tabler's
    own unlayered defaults. This is where we bridge Tabler/Bootstrap variables
-   to the Envelope design tokens (fonts, surfaces, colors) for both themes.
+   to the design tokens (fonts, surfaces, colors) for both themes.
    ========================================================================== */
 
 /* NOTE: box-sizing reset lives in styles/base.css (@layer reset); not duplicated here. */
@@ -23,15 +23,15 @@ a {
   color: inherit;
 }
 
-/* --- Bridge Tabler (Bootstrap 5.3) variables to Envelope tokens --- */
+/* --- Bridge Tabler (Bootstrap 5.3) variables to design tokens --- */
 :root {
   --tblr-font-sans-serif: var(--font-sans);
-  --tblr-font-monospace: var(--font-mono);
+  --tblr-font-monospace: var(--font-sans);
 
-  --tblr-body-bg: var(--surface-subtle);
-  --tblr-body-bg-rgb: 246, 247, 252;
+  --tblr-body-bg: var(--bg);
+  --tblr-body-bg-rgb: 250, 250, 249;
   --tblr-body-color: var(--text);
-  --tblr-body-color-rgb: 21, 23, 42;
+  --tblr-body-color-rgb: 24, 24, 27;
   --tblr-emphasis-color: var(--text-strong);
   --tblr-heading-color: var(--text);
   --tblr-secondary-color: var(--muted);
@@ -55,11 +55,11 @@ a {
   --tblr-border-color-translucent: var(--border);
 
   --tblr-primary: var(--primary);
-  --tblr-primary-rgb: 90, 81, 224;
+  --tblr-primary-rgb: 24, 24, 27;
   --tblr-primary-fg: var(--on-brand);
   --tblr-link-color: var(--link);
-  --tblr-link-color-rgb: 90, 81, 224;
-  --tblr-link-hover-color: var(--primary-strong);
+  --tblr-link-color-rgb: 37, 99, 235;
+  --tblr-link-hover-color: var(--accent);
 
   --tblr-secondary: var(--muted);
   --tblr-muted: var(--muted);
@@ -77,14 +77,14 @@ a {
 }
 
 :root[data-theme="dark"] {
-  --tblr-body-bg-rgb: 15, 16, 24;
-  --tblr-body-color-rgb: 236, 237, 247;
-  --tblr-bg-surface-rgb: 25, 27, 39;
-  --tblr-primary-rgb: 137, 127, 255;
-  --tblr-link-color-rgb: 137, 127, 255;
+  --tblr-body-bg-rgb: 11, 11, 12;
+  --tblr-body-color-rgb: 237, 237, 239;
+  --tblr-bg-surface-rgb: 20, 20, 22;
+  --tblr-primary-rgb: 237, 237, 239;
+  --tblr-link-color-rgb: 76, 141, 255;
 }
 
-/* --- Force the global page chrome to follow Envelope tokens ---
+/* --- Force the global page chrome to follow design tokens ---
    This is the single source of truth for <body>. Tabler lives in @layer vendor
    (see styles/vendor.css), so any rule of ours beats it; this block stays
    unlayered only for historical reasons. Properties previously split into
@@ -94,8 +94,9 @@ body {
   background: var(--app-bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: var(--fs-md);
-  line-height: 1.5;
+  font-size: var(--text-14);
+  line-height: var(--leading-14);
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

@@ -84,10 +84,8 @@
   .accounts-summary-card__label {
     margin: 0;
     font-size: 0.64rem;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
     color: var(--muted-strong);
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.1;
   }
 
@@ -102,7 +100,7 @@
   .accounts-summary-card__value {
     margin: 0;
     font-size: clamp(1rem, 1.2vw, 1.22rem);
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
     font-variant-numeric: tabular-nums;
     line-height: 1.15;
@@ -127,7 +125,7 @@
   }
 
   .accounts-summary-card--info {
-    color: #0d89a9;
+    color: var(--text-muted);
   }
 
   .accounts-summary-card--neutral {
@@ -157,17 +155,15 @@
   }
 
   .accounts-section-card__eyebrow {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
     font-size: 0.72rem;
     color: var(--muted-strong);
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .accounts-section-card__title {
     margin: 0.2rem 0 0;
     font-size: 1.03rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
   }
 
@@ -237,9 +233,7 @@
   .accounts-toolbar__label {
     margin: 0;
     font-size: 0.64rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
+    font-weight: 600;
     color: var(--muted-strong);
   }
 
@@ -264,7 +258,7 @@
   }
 
   .accounts-empty-state__title {
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
     margin: 0;
   }
@@ -285,9 +279,7 @@
     background: color-mix(in srgb, currentColor 12%, transparent);
     color: inherit;
     font-size: 0.74rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.2;
     white-space: nowrap;
   }
@@ -301,11 +293,11 @@
   }
 
   .accounts-status-badge--warning {
-    color: #c66a00;
+    color: var(--warning);
   }
 
   .accounts-status-badge--info {
-    color: #0d89a9;
+    color: var(--text-muted);
   }
 
   .accounts-budget-toggle {
@@ -332,7 +324,7 @@
 
   /* Lżejszy nagłówek bez wizualnego ciężaru ramek. */
   .accounts-grid .rdg [role="columnheader"] {
-    font-weight: 700;
+    font-weight: 600;
     padding-inline: 0.85rem;
     border-inline-end: none;
   }
@@ -352,7 +344,6 @@
 
   .accounts-grid .editable-cell__meta {
     font-size: 0.64rem;
-    letter-spacing: 0.04em;
   }
 
   .accounts-grid--archived .rdg-cell {
@@ -400,8 +391,8 @@
 
   /* Strefa trwałego usuwania — mocniejszy, ostrzegawczy akcent niż archiwizacja. */
   .accounts-edit-danger-zone--destructive {
-    border-color: color-mix(in srgb, var(--danger, #d63939) 45%, var(--border-soft));
-    background: color-mix(in srgb, var(--danger, #d63939) 8%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 45%, var(--border-soft));
+    background: color-mix(in srgb, var(--danger) 8%, transparent);
   }
 
   .accounts-edit-danger-zone__copy {
