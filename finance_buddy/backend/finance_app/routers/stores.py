@@ -14,8 +14,19 @@ from ..dependencies import (
     apply_pagination,
     get_current_user,
 )
-from ..models import Store, User
-from ..schemas import StoreCreate, StoreMonthlySpend, StoreRead, StoreStats, StoreUpdate
+from ..models import Store, StoreAlias, User
+from ..schemas import (
+    StoreAliasCreate,
+    StoreAliasPreview,
+    StoreAliasPreviewRequest,
+    StoreAliasRead,
+    StoreCreate,
+    StoreMonthlySpend,
+    StoreRead,
+    StoreStats,
+    StoreUpdate,
+)
+from ..services import store_aliases as aliases_service
 from ..services import store_stats as store_stats_service
 
 router = APIRouter()
@@ -76,6 +87,7 @@ def create_store(
 ):
     store = Store(**payload.model_dump(), user_id=current_user.id)
     db.add(store)
+    aliases_service.register_store_name(db, store)
     db.commit()
     db.refresh(store)
     return store
@@ -96,6 +108,11 @@ def update_store(
         setattr(store, field, value)
 
     db.add(store)
+    if "name" in data:
+        aliases_service.register_store_name(db, store)
+    if "is_deleted" in data:
+        names = aliases_service.exact_names_of(db, store)
+        aliases_service.resolve_names(db, store.user_id, names)
     db.commit()
     db.refresh(store)
     return store
@@ -109,6 +126,52 @@ def delete_store(
 ):
     store = _get_owned_or_404(db, Store, store_id, current_user.id, "Store")
 
+    names = aliases_service.exact_names_of(db, store)
     db.delete(store)
+    aliases_service.resolve_names(db, current_user.id, names)
     db.commit()
     return
+
+
+@router.get("/stores/aliases", response_model=list[StoreAliasRead])
+def list_store_aliases(
+    store_ids: Annotated[list[str] | None, Query()] = None,
+    ambiguous: bool = False,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return aliases_service.list_aliases(db, current_user.id, store_ids, ambiguous_only=ambiguous)
+
+
+@router.post("/stores/aliases/preview", response_model=StoreAliasPreview)
+def preview_store_alias(
+    payload: StoreAliasPreviewRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return aliases_service.preview_alias(db, current_user.id, payload.pattern, payload.store_ids)
+
+
+@router.post(
+    "/stores/{store_id}/aliases",
+    response_model=StoreAliasRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_store_alias(
+    store_id: str,
+    payload: StoreAliasCreate,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    store = _get_owned_or_404(db, Store, store_id, current_user.id, "Store")
+    return aliases_service.add_alias(db, current_user.id, store, payload.pattern)
+
+
+@router.delete("/stores/aliases/{alias_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_store_alias(
+    alias_id: str,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    alias = _get_owned_or_404(db, StoreAlias, alias_id, current_user.id, "Store alias")
+    aliases_service.remove_alias(db, alias)

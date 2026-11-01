@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     TypeDecorator,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import (
@@ -504,6 +505,38 @@ class ProductAlias(Base):
     store: Mapped[Store | None] = relationship()
 
     __table_args__ = (UniqueConstraint("store_id", "alias", name="uq_product_alias_store"),)
+
+
+class StoreAlias(Base):
+    """Nazwa z banku przypisana do sklepu; po niej importer rozpoznaje transakcje."""
+
+    __tablename__ = "store_aliases"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"))
+    store_id: Mapped[str] = mapped_column(
+        String, ForeignKey("stores.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    pattern: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    match_type: Mapped[str] = mapped_column(String, nullable=False)  # 'exact' | 'prefix'
+    # Tę nazwę ma kilka aktywnych sklepów, więc importer jej nie używa.
+    is_ambiguous: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    source: Mapped[str] = mapped_column(String, nullable=False)  # 'store_name' | 'manual'
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "uq_store_aliases_active",
+            "user_id",
+            "normalized",
+            "match_type",
+            unique=True,
+            sqlite_where=text("is_ambiguous = 0"),
+        ),
+    )
 
 
 class Transaction(Base):

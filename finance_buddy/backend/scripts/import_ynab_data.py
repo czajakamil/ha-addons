@@ -25,6 +25,7 @@ from ..finance_app.models import (
     YnabBudgetSnapshot,
 )
 from ..finance_app.services.categories import READY_TO_ASSIGN_TAG_NAME
+from ..finance_app.services.store_aliases import register_store_name
 
 setup_logging(
     log_level=settings.log_level,
@@ -315,6 +316,7 @@ def import_payees_as_stores(
                 comment="Imported from YNAB (payee)",
             )
             s.add(store)
+            register_store_name(s, store)
         elif not store.group_name:
             if store.user_id and store.user_id != user_id:
                 raise ValueError("YNAB import collision on Store ID.")

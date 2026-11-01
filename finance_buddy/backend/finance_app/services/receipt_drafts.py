@@ -61,6 +61,7 @@ from ..schemas import (
 from . import bank_import, product_matching, transaction_matching
 from . import categories as categories_service
 from . import transactions as transactions_service
+from .store_aliases import register_store_name
 
 log = logging.getLogger(__name__)
 
@@ -419,7 +420,7 @@ def _resolve_store(
         return None
     store = Store(user_id=user_id, name=name or "Sklep z paragonu", nip=nip or None)
     db.add(store)
-    db.flush()
+    register_store_name(db, store)
     return store.id
 
 

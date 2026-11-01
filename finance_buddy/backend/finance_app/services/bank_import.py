@@ -29,7 +29,6 @@ from ..models import (
     Account,
     BankImportBatch,
     BankImportProfile,
-    Store,
     Transaction,
     TransactionAttachment,
     TransactionItem,
@@ -55,6 +54,7 @@ from ..schemas import (
 )
 from . import bank_csv
 from . import transaction_matching as matching
+from .store_aliases import StoreMatcher, load_matcher
 
 SAMPLE_COUNT = 5
 _IN_CHUNK = 500
@@ -390,22 +390,6 @@ def preview(db: Session, user_id: str, content: bytes, spec: BankImportSpec) -> 
 # --- Zapis -------------------------------------------------------------------------
 
 
-def _normalize_name(value: str) -> str:
-    return " ".join(value.casefold().split())
-
-
-def _store_lookup(db: Session, user_id: str) -> dict[str, Store]:
-    """Sklepy po znormalizowanej nazwie — dokładne dopasowanie, bez zgadywania.
-
-    Nie zakładamy nowych sklepów z nazw bankowych (§6.2): „BIEDRONKA 1234
-    WARSZAWA" w stu wariantach zaśmieciłaby listę sklepów.
-    """
-    stores = db.scalars(
-        select(Store).where(Store.user_id == user_id, Store.is_deleted.is_(False))
-    ).all()
-    return {_normalize_name(s.name): s for s in stores}
-
-
 def _recorded_at(parsed: bank_csv.ParsedRow) -> dt.datetime:
     # Jak w imporcie YNAB-a i w paragonach: czas lokalny traktujemy jako UTC.
     day, _ = _day_and_cents(parsed)
@@ -417,10 +401,10 @@ def _new_transaction(
     account: Account,
     parsed: bank_csv.ParsedRow,
     batch: BankImportBatch,
-    stores: dict[str, Store],
+    stores: StoreMatcher,
 ) -> Transaction:
     description = parsed.description or None
-    store = stores.get(_normalize_name(parsed.payee)) if parsed.payee else None
+    store = stores.match(parsed.payee)
     category_id = None
     if store and store.automatically_categorize_payee and store.automatic_category_id:
         category_id = store.automatic_category_id
@@ -507,7 +491,7 @@ def commit(
     db.add(batch)
     db.flush()
 
-    stores = _store_lookup(db, user_id)
+    stores = load_matcher(db, user_id)
     created = merged = skipped = 0
     merged_ids: list[str] = []
     dates: list[dt.date] = []

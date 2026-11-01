@@ -20,6 +20,7 @@ const describeHint = (item: CleanupItem, stats: ReadonlyMap<string, StoreStat> |
     case 'duplicate': {
       const other = item.duplicateOf;
       if (!other) return '';
+      if (item.isAmbiguous) return labels.hints.ambiguous(maskAccountNumbers(other.name));
       return labels.hints.duplicate(maskAccountNumbers(other.name), stats ? stats.get(other.id)?.count ?? 0 : null);
     }
     case 'raw':

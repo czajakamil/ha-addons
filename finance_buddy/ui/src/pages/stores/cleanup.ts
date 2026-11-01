@@ -8,6 +8,8 @@ export type CleanupItem = {
   reason: CleanupReason;
   /** Inny sklep o tej samej nazwie (dla duplikatu). */
   duplicateOf?: Store;
+  /** Alias tej nazwy jest niejednoznaczny, więc importer go nie używa. */
+  isAmbiguous?: boolean;
   /** Czytelna nazwa wycięta z surowej (dla surowej nazwy z banku). */
   proposedName?: string;
   rawKind?: 'digits' | 'address' | 'account';
@@ -65,7 +67,11 @@ const rawKindOf = (name: string): CleanupItem['rawKind'] => {
   return undefined;
 };
 
-export const buildCleanupItems = (stores: readonly Store[], ownerName = ''): CleanupItem[] => {
+export const buildCleanupItems = (
+  stores: readonly Store[],
+  ownerName = '',
+  ambiguousStoreIds: ReadonlySet<string> = new Set()
+): CleanupItem[] => {
   const active = stores.filter((store) => !store.is_deleted);
   const byNormalizedName = new Map<string, Store[]>();
   active.forEach((store) => {
@@ -78,8 +84,9 @@ export const buildCleanupItems = (stores: readonly Store[], ownerName = ''): Cle
       return [{ store, reason: 'self' }];
     }
     const namesakes = byNormalizedName.get(normalizeStoreName(store.name)) ?? [];
-    if (namesakes.length > 1) {
-      return [{ store, reason: 'duplicate', duplicateOf: namesakes.find((other) => other.id !== store.id) }];
+    const isAmbiguous = ambiguousStoreIds.has(store.id);
+    if (namesakes.length > 1 || isAmbiguous) {
+      return [{ store, reason: 'duplicate', isAmbiguous, duplicateOf: namesakes.find((other) => other.id !== store.id) }];
     }
     const rawKind = rawKindOf(store.name);
     if (rawKind) {

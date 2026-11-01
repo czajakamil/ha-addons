@@ -2,7 +2,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Store as StoreIcon } from 'lucide-react';
-import { getAllStores, getSession, getStoreStats, type Store } from '../api';
+import { getAllStores, getAmbiguousStoreAliases, getSession, getStoreStats, type Store } from '../api';
 import Button from '../components/Button';
 import ColumnsMenu from '../components/ui/ColumnsMenu';
 import EmptyState from '../components/ui/EmptyState';
@@ -49,6 +49,7 @@ const StoresPage = () => {
     errorMessage: labels.loadFailed
   });
   const session = useApi(getSession);
+  const ambiguous = useApi(getAmbiguousStoreAliases);
   const statsRequest = useApi(() => getStoreStats(), { errorMessage: labels.statsFailed });
   const { categories, categoryMap, ensureCategory } = useStoreCategories();
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,7 +65,11 @@ const StoresPage = () => {
   const stats = useMemo(() => (statsRequest.data ? toStatsMap(statsRequest.data) : null), [statsRequest.data]);
   const groups = useMemo(() => buildStoreGroups(stores, stats ?? new Map()), [stores, stats]);
   const ownerName = session.data?.display_name?.trim() || session.data?.username?.trim() || '';
-  const cleanupItems = useMemo(() => buildCleanupItems(stores, ownerName), [stores, ownerName]);
+  const ambiguousIds = useMemo(() => new Set(ambiguous.data?.map((alias) => alias.store_id)), [ambiguous.data]);
+  const cleanupItems = useMemo(
+    () => buildCleanupItems(stores, ownerName, ambiguousIds),
+    [stores, ownerName, ambiguousIds]
+  );
   const activeGroups = groups.filter((group) => !group.isArchived);
 
   const needle = searchQuery.trim().toLocaleLowerCase('pl-PL');

@@ -102,6 +102,13 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Wykres to CSS, nie Nivo.** Dwanaście słupków z wartościami nie potrzebuje biblioteki; precedens to lista z paskami w Raportach. Poniżej 700 px widać 6 miesięcy, jak na stronie konta.
 - **Filtr po sklepie w Transakcjach** (`?stores=a,b`) idzie przez parametr `store_ids`, także w `/transactions/page`, więc ma stronicowanie i łączną liczbę. Nazwa filtra to chip z „×”.
 - **„Nazwa z banku” to tylko `bank_description`.** Zapisuje go wyłącznie import CSV; YNAB nie zapisuje `import_payee_name_original`. Bez opisu komórka jest pusta, a gdy żadna z ostatnich transakcji go nie ma, kolumny nie ma. Nazwy sklepu nie podstawiamy.
+- **Aliasy są per sklep, nie per grupa.** Nowy alias trafia do głównego sklepu grupy; to przygotowanie pod scalanie.
+- **Kolizja przy dodawaniu jest błędem, a przy powstaniu sklepu daje niejednoznaczność.** Ręczny alias o zajętej nazwie dostaje 409. Nowy sklep o istniejącej nazwie (formularz, paragon, YNAB) oznacza aliasy obu jako niejednoznaczne, tak jak migracja.
+- **Niejednoznaczność jest przeliczana:** po odpięciu aliasu, archiwizacji, przywróceniu i usunięciu sklepu nazwa wraca do jedynego aktywnego właściciela. Sklep zarchiwizowany nie blokuje aktywnego.
+- **Prefiks działa też wtedy, gdy dokładny alias tej samej nazwy jest niejednoznaczny.** To osobny, świadomie dodany alias.
+- **Tylko końcowa gwiazdka jest wieloznaczna,** bo `PayU*Allegro` to prawdziwa nazwa z banku.
+- **Podgląd aliasu porównuje z nazwą sklepu transakcji i nazwą z opisu CSV.** „Z innych sklepów” nie liczy transakcji bez sklepu. Alias działa na przyszłe importy i nie przenosi obecnych transakcji.
+- **Nazwy z banku w rozwinięciu listy to nadal `Store.name`,** a aliasy widać w Ustawieniach sklepu.
 - **Telefon (do 700 px):** lista pokazuje nazwę i Wydano, a porządki nazwę z powodem pod spodem. Sortowanie to pole wyboru jak w Kontach, a nie klik w nagłówek.
 
 ## Raporty

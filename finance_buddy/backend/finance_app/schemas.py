@@ -175,6 +175,31 @@ class StoreMonthlySpend(BaseModel):
     cents: int
 
 
+class StoreAliasRead(BaseModel):
+    id: str
+    store_id: str
+    pattern: str
+    match_type: str
+    is_ambiguous: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StoreAliasCreate(BaseModel):
+    pattern: str = Field(min_length=1, max_length=500)
+
+
+class StoreAliasPreviewRequest(StoreAliasCreate):
+    store_ids: list[str] = Field(default_factory=list)
+
+
+class StoreAliasPreview(BaseModel):
+    match_type: str
+    matches: int
+    matches_other_stores: int
+    conflict: str | None = None
+
+
 class ItemBase(BaseModel):
     name: str
     group_name: str | None = None

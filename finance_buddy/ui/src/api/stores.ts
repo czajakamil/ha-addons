@@ -98,3 +98,36 @@ export const getStoreStats = (storeIds: readonly string[] = []) =>
 
 export const getStoreMonthlySpend = (storeIds: readonly string[]) =>
   request<StoreMonthlySpend[]>(`/stores/stats/monthly?${storeIdsQuery(storeIds)}`);
+
+/** Nazwa z banku, po której importer rozpoznaje sklep. */
+export interface StoreAlias {
+  id: string;
+  store_id: string;
+  pattern: string;
+  match_type: 'exact' | 'prefix';
+  is_ambiguous: boolean;
+}
+
+export interface StoreAliasPreview {
+  match_type: 'exact' | 'prefix';
+  matches: number;
+  matches_other_stores: number;
+  conflict?: string | null;
+}
+
+export const getStoreAliases = (storeIds: readonly string[]) =>
+  request<StoreAlias[]>(`/stores/aliases?${storeIdsQuery(storeIds)}`);
+
+export const getAmbiguousStoreAliases = () => request<StoreAlias[]>('/stores/aliases?ambiguous=true');
+
+export const previewStoreAlias = (pattern: string, storeIds: readonly string[]) =>
+  request<StoreAliasPreview>('/stores/aliases/preview', {
+    method: 'POST',
+    body: JSON.stringify({ pattern, store_ids: storeIds })
+  });
+
+export const addStoreAlias = (storeId: string, pattern: string) =>
+  request<StoreAlias>(`/stores/${storeId}/aliases`, { method: 'POST', body: JSON.stringify({ pattern }) });
+
+export const deleteStoreAlias = (aliasId: string) =>
+  request<void>(`/stores/aliases/${aliasId}`, { method: 'DELETE' });

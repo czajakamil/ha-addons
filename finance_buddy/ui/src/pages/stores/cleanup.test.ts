@@ -79,6 +79,12 @@ describe('buildCleanupItems', () => {
     expect(items.map((item) => item.reason)).toEqual(['uncategorized', 'raw']);
   });
 
+  it('alias niejednoznaczny z serwera daje duplikat także bez drugiej aktywnej nazwy', () => {
+    const lone = store('Lidl');
+    const [item] = buildCleanupItems([lone], '', new Set([lone.id]));
+    expect(item).toMatchObject({ reason: 'duplicate', isAmbiguous: true });
+  });
+
   it('pomija zarchiwizowane', () => {
     expect(buildCleanupItems([store('Adwokat', { automatic_category_id: null, is_deleted: true })])).toEqual([]);
   });

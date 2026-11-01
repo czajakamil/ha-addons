@@ -64,10 +64,6 @@ const StoreDetailsPage = () => {
     () => (group && stats ? buildStoreGroups(group.members, stats)[0] : null),
     [group, stats]
   );
-  const memberCounts = useMemo(
-    () => (stats ? new Map(Array.from(stats, ([id, stat]) => [id, stat.count])) : null),
-    [stats]
-  );
 
   const applyUpdated = useCallback(
     (updated: Store[]) => {
@@ -191,7 +187,6 @@ const StoreDetailsPage = () => {
               <StoreSettings
                 group={summary ?? group}
                 transactionCount={count}
-                memberCounts={memberCounts}
                 categories={categories}
                 categoryPath={(group.categoryId && categoryMap.get(group.categoryId)?.path) || ''}
                 ensureCategory={ensureCategory}

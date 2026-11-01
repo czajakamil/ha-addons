@@ -9,6 +9,7 @@ import { isValidNip } from '../../../utils/nip';
 import { maskAccountNumbers } from '../cleanup';
 import type { StoreGroup } from '../groups';
 import { categoryPayload } from '../useStoreGroupSave';
+import StoreAliases from './StoreAliases';
 
 const labels = copy.stores;
 const text = labels.settings;
@@ -19,7 +20,6 @@ type StoreSettingsProps = {
   group: StoreGroup;
   // null: liczba transakcji nieznana, więc usuwanie zostaje zablokowane
   transactionCount: number | null;
-  memberCounts: ReadonlyMap<string, number> | null;
   categories: Category[];
   categoryPath: string;
   ensureCategory: (path: string) => Promise<string>;
@@ -103,7 +103,6 @@ const TextField = ({
 const StoreSettings = ({
   group,
   transactionCount,
-  memberCounts,
   categories,
   categoryPath,
   ensureCategory,
@@ -162,16 +161,7 @@ const StoreSettings = ({
             {text.aliases}
             <span className="account-hint">{text.aliasesHint}</span>
           </span>
-          <ul className="stores-list">
-            {group.members.map((store) => (
-              <li key={store.id} className="stores-list__row">
-                <span className="stores-list__name">{maskAccountNumbers(store.name)}</span>
-                {memberCounts && (
-                  <span className="stores-list__count">{labels.transactionsCount(memberCounts.get(store.id) ?? 0)}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <StoreAliases storeIds={group.members.map((store) => store.id)} targetStoreId={group.id} />
         </div>
 
         <div className="account-settings__row">

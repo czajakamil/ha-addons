@@ -265,6 +265,49 @@
     white-space: nowrap;
   }
 
+  .stores-aliases {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+    min-width: 0;
+  }
+
+  .stores-aliases__add {
+    display: flex;
+    gap: var(--s-8);
+  }
+
+  .stores-aliases__add .form-control {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .stores-aliases__preview {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+  }
+
+  .stores-aliases__preview.is-error {
+    color: var(--negative);
+  }
+
+  .stores-aliases__remove {
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 var(--s-8);
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-12);
+  }
+
+  .stores-aliases__remove:hover:not(:disabled) {
+    color: var(--text);
+    transform: none;
+  }
+
   .stores-table-foot {
     display: flex;
     flex-wrap: wrap;

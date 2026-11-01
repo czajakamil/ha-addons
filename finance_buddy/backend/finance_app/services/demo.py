@@ -20,6 +20,7 @@ from ..schemas import BudgetAssignmentUpdate, TransactionCreate
 from . import budget as budget_service
 from . import transactions as transactions_service
 from .categories import ensure_path
+from .store_aliases import register_store_name
 
 _ACCOUNTS = [
     ("Konto główne", "cash", True, 482050),
@@ -103,7 +104,7 @@ def load_demo_data(db: Session, user_id: str) -> dict[str, int]:
     for name in _STORES:
         store = Store(name=name, user_id=user_id)
         db.add(store)
-        db.flush()
+        register_store_name(db, store)
         stores[name] = store.id
     db.commit()
 
