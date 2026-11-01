@@ -84,9 +84,9 @@ class BackupConfig:
     @classmethod
     def from_settings(cls, source: Settings = settings) -> BackupConfig:
         return cls(
-            db_path=_resolve(source.db_path),
-            attachments_dir=_resolve(source.attachments_dir),
-            backup_dir=_resolve(source.backup_dir),
+            db_path=resolve_path(source.db_path),
+            attachments_dir=resolve_path(source.attachments_dir),
+            backup_dir=resolve_path(source.backup_dir),
             retention=Retention(
                 daily=source.backup_keep_daily,
                 weekly=source.backup_keep_weekly,
@@ -125,7 +125,7 @@ run_state = BackupRunState()
 _lock = threading.Lock()
 
 
-def _resolve(raw: str) -> Path:
+def resolve_path(raw: str) -> Path:
     path = Path(raw).expanduser()
     return path.resolve() if path.is_absolute() else (PROJECT_ROOT / path).resolve()
 

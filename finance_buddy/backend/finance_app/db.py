@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+PRE_MIGRATION_DIR = "pre-migration"
+
 
 def make_engine(db_path: str | None = None):
     raw_path = db_path or settings.db_path
@@ -176,8 +178,8 @@ def _stamp_if_unmanaged() -> None:
         return
 
     with engine.connect() as conn:
-        current = MigrationContext.configure(conn).get_current_revision()
-    if current is not None:
+        current = MigrationContext.configure(conn).get_current_heads()
+    if current:
         return
 
     # Stamping tells Alembic "every migration is applied". If the DB predates
@@ -209,6 +211,35 @@ def _missing_schema(inspector) -> list[str]:
     return missing
 
 
+def _backup_before_migration() -> None:
+    """Kopia bazy z datą w nazwie, zanim ruszy jakakolwiek migracja.
+
+    Błąd kopii przerywa start: migracja nie ma prawa ruszyć bez punktu powrotu.
+    Pusta baza i baza na bieżącej rewizji nie mają czego zabezpieczać. Kopie leżą
+    w podkatalogu, więc rotacja zwykłych kopii zapasowych ich nie usuwa.
+    """
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import inspect
+
+    from .services import backups
+
+    if not set(inspect(engine).get_table_names()) - {"alembic_version"}:
+        return
+    with engine.connect() as conn:
+        current = MigrationContext.configure(conn).get_current_heads()
+    if set(current) == set(ScriptDirectory.from_config(_alembic_config()).get_heads()):
+        return
+
+    backup_dir = backups.resolve_path(settings.backup_dir) / PRE_MIGRATION_DIR
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = backups.utcnow().strftime(backups.TIMESTAMP_FORMAT)
+    target = backup_dir / f"finance-pre-migration-{stamp}-{'-'.join(current)}.sqlite3"
+    backups.snapshot_database(backups.resolve_path(settings.db_path), target)
+    backups.verify_backup(target)
+    log.info("Kopia przed migracją: %s", target)
+
+
 def init_db():
     """Bring the schema to the latest Alembic revision; return the engine.
 
@@ -223,6 +254,7 @@ def init_db():
 
     with _sqlite_migration_lock():
         _stamp_if_unmanaged()
+        _backup_before_migration()
         command.upgrade(_alembic_config(), "head")
     return engine
 

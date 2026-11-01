@@ -1,6 +1,16 @@
 # Sklepy — ETAP 2 (propozycja, bez implementacji)
 
-Status: czeka na akceptację. Nic z tego dokumentu nie jest wdrożone.
+Status: zaakceptowany ze zmianami, wdrażany krokami. Poniższa lista ma pierwszeństwo przed resztą dokumentu.
+
+## Zmiany z akceptacji
+
+- **Kopia przed migracją:** plik z datą w nazwie, bez niego migracja nie rusza. Testy migracji na kopii prawdziwej bazy.
+- **Opis z banku:** bez opisu kolumna „Nazwa z banku” jest ukryta. Nie podstawiamy nazwy sklepu.
+- **Aliasy:** unikalne po normalizacji (wielkość liter, spacje, formy prawne). Kolizja z migracji daje alias niejednoznaczny: importer go nie używa, a sklepy trafiają do „Do uporządkowania”.
+- **Importer:** dokładny alias po normalizacji, potem prefiks tylko dla aliasów z `*` na końcu (min. 4 znaki, najdłuższy wygrywa), inaczej bez sklepu.
+- **UI aliasów:** podgląd „dopasuje N transakcji, w tym M z innych sklepów”.
+- **Scalanie:** `POST /stores/merge` z `dry_run` zwraca liczby i konflikty, okno pokazuje podgląd, a 409 jest tylko zabezpieczeniem. Łańcuchy `merged_into_id` są spłaszczane. Cofanie przez 30 dni przywraca transakcje, aliasy i domyślną kategorię.
+- **Przelewy własne:** pomijamy kandydatki, które już są przelewami. Różne waluty to wybór ręczny, bez przeliczania kursów.
 
 ## Decyzje do akceptacji
 
