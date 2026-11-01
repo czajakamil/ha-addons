@@ -1,17 +1,12 @@
 // Pure model layer for ReportsPage: types, constants and side-effect-free
 // helpers. Extracted from ReportsPage.tsx to keep the page component focused on
 // state and rendering. Nothing here touches React state or the DOM.
-import {
-  IconArrowsLeftRight,
-  IconChartAreaLine,
-  IconChartLine,
-  IconChartPie,
-  IconChartSankey
-} from '@tabler/icons-react';
+import { ArrowLeftRightIcon, ChartAreaIcon, ChartLineIcon, ChartPieIcon, WorkflowIcon } from 'lucide-react';
 import type { Category, IncomeExpenseCategoryRow, IncomeExpenseMonthRow } from '../../api';
 import { DATA_TABLE_ROW_HEIGHT } from '../../components/DataTable';
 import { formatMoney } from '../../utils/format';
 
+import { readToken } from '../../utils/tokens';
 export type MonthRange = { start: string; end: string };
 export type QuickRangeId = 'this-month' | 'last-3-months' | 'last-6-months' | 'last-year' | 'ytd';
 export type ReportFilters = { accountIds?: string[]; categoryIds?: string[] };
@@ -199,34 +194,21 @@ export const aggregateCategories = (months: IncomeExpenseMonthRow[], type: 'inco
 };
 
 export const REPORT_TABS = [
-  { id: 'spending-breakdown', label: 'Struktura wydatków', icon: IconChartPie },
-  { id: 'account-categories', label: 'Tagi kont', icon: IconChartPie },
-  { id: 'spending-trends', label: 'Trendy wydatków', icon: IconChartLine },
-  { id: 'net-worth', label: 'Majątek netto', icon: IconChartAreaLine },
-  { id: 'snakey', label: 'Przepływy', icon: IconChartSankey },
-  { id: 'income-expense', label: 'Przychody vs wydatki', icon: IconArrowsLeftRight }
+  { id: 'spending-breakdown', label: 'Struktura wydatków', icon: ChartPieIcon },
+  { id: 'account-categories', label: 'Tagi kont', icon: ChartPieIcon },
+  { id: 'spending-trends', label: 'Trendy', icon: ChartLineIcon },
+  { id: 'net-worth', label: 'Majątek netto', icon: ChartAreaIcon },
+  { id: 'snakey', label: 'Przepływy', icon: WorkflowIcon },
+  { id: 'income-expense', label: 'Przychody i wydatki', icon: ArrowLeftRightIcon }
 ] as const;
 
 export type ReportTabId = (typeof REPORT_TABS)[number]['id'];
 
-export const BREAKDOWN_CHART_COLORS = [
-  '#0f9d58',
-  '#d93025',
-  '#fbbc05',
-  '#1a73e8',
-  '#9334e6',
-  '#f28b82',
-  '#34a853',
-  '#a142f4',
-  '#ff6d01',
-  '#46bdc6',
-  '#ea4335',
-  '#34aadc'
-];
 export const MIN_BREAKDOWN_PERCENTAGE = 0.01;
-export const OTHER_CATEGORIES_LABEL = 'Pozostałe tagi';
+export const OTHER_CATEGORIES_LABEL = 'Pozostałe';
+export const BREAKDOWN_TOP_LIMIT = 10;
 export const OTHER_ACCOUNT_KINDS_LABEL = 'Pozostałe typy';
-export const OTHER_CATEGORY_COLOR = '#cbd5e1';
+export const otherCategoryColor = () => readToken('--text-muted');
 export const UNCATEGORIZED_CATEGORY_ID = '__uncategorized__';
 export const UNCATEGORIZED_CATEGORY_NAME = 'Bez tagu';
 export const ACCOUNT_UNCATEGORIZED_ID = '__account_uncategorized__';
@@ -243,8 +225,8 @@ export const SNAKEY_TRANSFER_DIRECTION = 'outflow-to-inflow' as SnakeyTransferDi
 export const SNAKEY_OTHER_CATEGORY_ID = '__snakey_other__';
 export const SNAKEY_OTHER_CATEGORY_LABEL = 'Pozostałe wydatki';
 export const SNAKEY_UNKNOWN_ACCOUNT_LABEL = 'Nieznane konto';
-export const NET_ASSETS_COLOR = '#10b981';
-export const NET_DEBTS_COLOR = '#ef4444';
+export const netAssetsColor = () => readToken('--positive');
+export const netDebtsColor = () => readToken('--negative');
 export const INTERNAL_CATEGORY_NAME = 'internal master category';
 export const INFLOW_READY_TO_ASSIGN = 'inflow: ready to assign';
 export const BREAKDOWN_GRID_MIN_HEIGHT = 240;
@@ -345,7 +327,7 @@ export const groupBreakdownEntries = (
       percentage: otherPercentage,
       total: otherTotal,
       value: otherValue,
-      color: OTHER_CATEGORY_COLOR,
+      color: otherCategoryColor(),
       isOther: true
     });
   }

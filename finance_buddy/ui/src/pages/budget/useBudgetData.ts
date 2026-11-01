@@ -4,6 +4,7 @@
 // dane przez loadBudget.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BudgetMonthResponse, getBudgetMonth } from '../../api';
+import { copy } from '../../copy/pl';
 import { parseMonthKey, shiftMonth, toMonthKey } from './model';
 
 export const useBudgetData = (activeMonth: string) => {
@@ -26,7 +27,7 @@ export const useBudgetData = (activeMonth: string) => {
       setBudget(data);
     } catch (err) {
       console.error(err);
-      setError('Nie udało się pobrać budżetu.');
+      setError(copy.budget.loadFailed);
     } finally {
       setLoading(false);
     }

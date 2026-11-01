@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconAlertCircle, IconChevronDown, IconChevronRight, IconPlus, IconTrash } from '@tabler/icons-react';
+import { ChevronDownIcon, ChevronRightIcon, PlusIcon, TagsIcon, Trash2Icon } from 'lucide-react';
 import {
   type Category,
   type CategoryDeletePreview,
@@ -13,6 +13,10 @@ import Button from '../components/Button';
 import TagPathInput from '../components/tags/TagPathInput';
 import TagColorPicker from '../components/tags/TagColorPicker';
 import { buildCategoryMap, resolveTagColor } from '../components/tags/tagColors';
+import EmptyState from '../components/ui/EmptyState';
+import PageHeader from '../components/ui/PageHeader';
+import SegmentedControl from '../components/ui/SegmentedControl';
+import SkeletonRows from '../components/ui/SkeletonRows';
 import { useApi } from '../hooks/useApi';
 
 type TagTreeNode = {
@@ -195,23 +199,21 @@ const TagRow = ({
 
   return (
     <>
-      <div className="tags-tree__row" style={{ paddingLeft: depth * 20 }}>
+      <div className="tags-row" role="treeitem" aria-expanded={children.length ? isExpanded : undefined} style={{ paddingInlineStart: depth * 24 }}>
         <button
           type="button"
-          className="tags-tree__toggle"
+          className="tags-row__toggle"
           onClick={() => toggleExpanded(category.id)}
           disabled={!children.length}
-          aria-label={isExpanded ? 'Zwiń' : 'Rozwiń'}
+          aria-label={isExpanded ? `Zwiń ${category.name}` : `Rozwiń ${category.name}`}
         >
           {children.length ? (
             isExpanded ? (
-              <IconChevronDown size={14} aria-hidden="true" />
+              <ChevronDownIcon size={14} aria-hidden="true" />
             ) : (
-              <IconChevronRight size={14} aria-hidden="true" />
+              <ChevronRightIcon size={14} aria-hidden="true" />
             )
-          ) : (
-            <span className="tags-tree__toggle-spacer" />
-          )}
+          ) : null}
         </button>
         <TagColorPicker
           resolved={resolvedColor}
@@ -222,7 +224,7 @@ const TagRow = ({
         />
 
         {editing ? (
-          <div className="tags-tree__edit">
+          <div className="tags-row__edit">
             <TagPathInput
               value={editValue}
               categories={categories}
@@ -235,21 +237,28 @@ const TagRow = ({
             />
           </div>
         ) : (
-          <button type="button" className="tags-tree__name" onClick={startEditing} title="Kliknij, aby zmienić nazwę lub przenieść">
+          <button
+            type="button"
+            className={`tags-row__name${children.length ? ' tags-row__name--group' : ''}`}
+            onClick={startEditing}
+            title="Zmień nazwę lub przenieś"
+          >
             {category.name}
           </button>
         )}
 
-        <div className="tags-tree__actions">
-          <button
-            type="button"
-            className="btn btn-outline-danger btn-sm is-focusable"
-            onClick={() => void handleDelete()}
-            disabled={deleting}
-          >
-            <IconTrash size={14} aria-hidden="true" />
-          </button>
-        </div>
+        {children.length > 0 && !editing && <span className="tags-row__count">{children.length}</span>}
+
+        <button
+          type="button"
+          className="tags-row__delete"
+          onClick={() => void handleDelete()}
+          disabled={deleting}
+          aria-label={`Usuń ${category.name}`}
+          title="Usuń"
+        >
+          <Trash2Icon size={14} aria-hidden="true" />
+        </button>
       </div>
 
       {isExpanded &&
@@ -355,115 +364,81 @@ const TagsPage = () => {
   };
 
   return (
-    <div className="page compact-page">
-      <div className="page-shell">
-        <div className="page-header d-print-none">
-          <div className="row align-items-center">
-            <div className="col">
-              <h2 className="page-title">Tagi</h2>
-              <p className="text-secondary mb-0">
-                Zarządzaj hierarchią tagów — zmiana nazwy, przenoszenie i usuwanie gałęzi drzewa.
-              </p>
-            </div>
-          </div>
-        </div>
+    <div className="page-shell page-stack-layout tags-page">
+      <PageHeader title="Tagi" count={hasLoaded ? categories.length : undefined} />
 
-        <div className="page-body page-stack">
-          <div className="btn-group" role="group" aria-label="Zakres tagów">
-            <button
-              type="button"
-              className={`btn btn-sm ${scope === 'spending' ? 'btn-primary' : 'btn-outline-primary'} is-focusable`}
-              onClick={() => setScope('spending')}
-            >
-              Tagi wydatków
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${scope === 'accounts' ? 'btn-primary' : 'btn-outline-primary'} is-focusable`}
-              onClick={() => setScope('accounts')}
-            >
-              Tagi kont
-            </button>
-          </div>
-
-          <section className="card accounts-section-card">
-            <div className="accounts-section-card__header">
-              <div className="accounts-section-card__header-copy">
-                <h3 className="accounts-section-card__title">Drzewo tagów</h3>
-                <p className="accounts-section-card__hint">
-                  Kliknij nazwę, aby zmienić ją lub przenieść (edytuj pełną ścieżkę, np. "dom/remont").
-                </p>
-              </div>
-              <div className="d-flex gap-2 align-items-center">
-                <div style={{ minWidth: 220 }}>
-                  <TagPathInput
-                    value={newTagPath}
-                    categories={categories}
-                    forAccounts={forAccounts}
-                    placeholder="np. dom/remont/lazienka"
-                    disabled={creating}
-                    onChange={setNewTagPath}
-                    onCommit={() => void handleCreateTag()}
-                  />
-                </div>
-                <Button
-                  icon={<IconPlus size={16} aria-hidden="true" />}
-                  onClick={() => void handleCreateTag()}
-                  disabled={creating || !newTagPath.trim()}
-                >
-                  Dodaj tag
-                </Button>
-              </div>
-            </div>
-
-            {(error || rowsError) && (
-              <div className="accounts-section-card__alert">
-                <div className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0" role="alert">
-                  <IconAlertCircle size={18} aria-hidden="true" />
-                  <div>{rowsError ?? error}</div>
-                </div>
-              </div>
-            )}
-
-            {loading && !hasLoaded && (
-              <div className="accounts-section-card__body">
-                <div className="placeholder-glow">
-                  <div className="placeholder col-12 mb-2" />
-                  <div className="placeholder col-10 mb-2" />
-                  <div className="placeholder col-8 mb-0" />
-                </div>
-              </div>
-            )}
-
-            {hasLoaded && !error && (
-              <div className="accounts-section-card__body tags-tree">
-                {tree.length ? (
-                  tree.map((node) => (
-                    <TagRow
-                      key={node.category.id}
-                      node={node}
-                      depth={0}
-                      categories={categories}
-                      categoryMap={categoryMap}
-                      forAccounts={forAccounts}
-                      expanded={expanded}
-                      toggleExpanded={toggleExpanded}
-                      onSaved={handleSaved}
-                      onDeleted={handleDeleted}
-                      setError={setRowsError}
-                    />
-                  ))
-                ) : (
-                  <div className="accounts-empty-state">
-                    <div className="accounts-empty-state__title">Brak tagów</div>
-                    <p className="accounts-empty-state__subtitle">Dodaj pierwszy tag korzystając z pola powyżej.</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-        </div>
+      <div className="tags-toolbar">
+        <SegmentedControl
+          label="Zakres tagów"
+          value={scope}
+          options={[
+            { value: 'spending', label: 'Wydatki' },
+            { value: 'accounts', label: 'Konta' }
+          ]}
+          onChange={setScope}
+        />
+        <form
+          className="tags-toolbar__add"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleCreateTag();
+          }}
+        >
+          <TagPathInput
+            value={newTagPath}
+            categories={categories}
+            forAccounts={forAccounts}
+            placeholder="Nowy tag, np. dom/remont"
+            disabled={creating}
+            onChange={setNewTagPath}
+            onCommit={() => void handleCreateTag()}
+          />
+          <Button
+            type="submit"
+            icon={<PlusIcon size={16} aria-hidden="true" />}
+            disabled={creating || !newTagPath.trim()}
+          >
+            Dodaj
+          </Button>
+        </form>
       </div>
+
+      {(error || rowsError) && (
+        <p className="transactions-error" role="alert">
+          {rowsError ?? error}
+        </p>
+      )}
+
+      <section className="tags-card">
+        {loading && !hasLoaded && <SkeletonRows rows={8} />}
+        {hasLoaded && !error && !tree.length && (
+          <EmptyState icon={TagsIcon} message="Nie masz jeszcze tagów. Dodaj pierwszy powyżej." />
+        )}
+        {hasLoaded && !error && tree.length > 0 && (
+          <>
+            <div className="tags-card__hint">
+              Kliknij nazwę, aby ją zmienić. Pełna ścieżka, np. „dom/remont”, przenosi tag do innej gałęzi.
+            </div>
+            <div role="tree" aria-label="Drzewo tagów">
+              {tree.map((node) => (
+                <TagRow
+                  key={node.category.id}
+                  node={node}
+                  depth={0}
+                  categories={categories}
+                  categoryMap={categoryMap}
+                  forAccounts={forAccounts}
+                  expanded={expanded}
+                  toggleExpanded={toggleExpanded}
+                  onSaved={handleSaved}
+                  onDeleted={handleDeleted}
+                  setError={setRowsError}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 };

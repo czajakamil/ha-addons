@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Ekran Start zajmuje całą szerokość, a na szerokim ekranie układa się w dwie kolumny.
+- Kafelki prowadzą do Raportów, Budżetu i Kont; doszedł kafelek „Do przypisania".
+- „Ostatnie transakcje" pokazują 8 pozycji i pomijają korekty salda.
+
 ## 0.1.1
 
 - Ekran powitalny używa klucza `ynab_api_key` z konfiguracji: sam ładuje budżety i nie prosi

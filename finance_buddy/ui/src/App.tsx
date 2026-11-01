@@ -1,26 +1,11 @@
 // src/App.tsx
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { NavLink, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
-import {
-  IconArrowsExchange,
-  IconBuildingStore,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
-  IconLogout,
-  IconMenu2,
-  IconListDetails,
-  IconMoon,
-  IconFileSpreadsheet,
-  IconHome,
-  IconPhoto,
-  IconPigMoney,
-  IconReportAnalytics,
-  IconSun,
-  IconTag,
-  IconUserCircle,
-  IconX,
-  IconWallet
-} from '@tabler/icons-react';
+import { Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { Menu, X } from 'lucide-react';
+import { Toaster } from 'sonner';
+import AppSidebar from './components/AppSidebar';
+import CommandPalette from './components/CommandPalette';
 import WelcomeScreen from './components/WelcomeScreen';
 import AuthScreen from './components/AuthScreen';
 import {
@@ -37,11 +22,12 @@ import {
 } from './api';
 import { useResponsiveSidebar } from './hooks/useResponsiveSidebar';
 import { useTheme } from './hooks/useTheme';
-import UntaggedNavBadge from './components/UntaggedNavBadge';
+import { copy } from './copy/pl';
 import './App.css';
 
 const HomePage = lazy(() => import('./pages/home/HomePage'));
 const AccountsPage = lazy(() => import('./pages/AccountsPage'));
+const AccountDetailsPage = lazy(() => import('./pages/accounts/AccountDetailsPage'));
 const BudgetPage = lazy(() => import('./pages/BudgetPage'));
 const StoresPage = lazy(() => import('./pages/StoresPage'));
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage'));
@@ -55,19 +41,6 @@ const BankImportPage = lazy(() => import('./pages/bankImport/BankImportPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const UntaggedQueuePage = lazy(() => import('./pages/tagging/UntaggedQueuePage'));
 
-const sidebarLinks = [
-  { to: '/', label: 'Start', icon: IconHome },
-  { to: '/accounts', label: 'Konta', icon: IconWallet },
-  { to: '/budget', label: 'Budżet', icon: IconPigMoney },
-  { to: '/stores', label: 'Sklepy', icon: IconBuildingStore },
-  { to: '/transactions', label: 'Transakcje', icon: IconArrowsExchange },
-  { to: '/receipts', label: 'Paragony', icon: IconPhoto },
-  { to: '/bank-import', label: 'Import z banku', icon: IconFileSpreadsheet },
-  { to: '/items', label: 'Przedmioty', icon: IconListDetails },
-  { to: '/tags', label: 'Tagi', icon: IconTag },
-  { to: '/reports', label: 'Raporty', icon: IconReportAnalytics }
-] as const;
-
 const App = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -79,7 +52,6 @@ const App = () => {
     closeSidebar
   } = useResponsiveSidebar(1024);
 
-  const [isScrolled, setIsScrolled] = useState(false);
   const [shouldShowWelcome, setShouldShowWelcome] = useState<boolean>(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -181,18 +153,6 @@ const App = () => {
     };
   }, [authUser]);
 
-  // Topbar / karta ma lekko reagować na scroll
-  useEffect(() => {
-    if (!authUser || isBootstrapping || shouldShowWelcome !== false) return;
-
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [shouldShowWelcome, isBootstrapping, authUser]);
-
   // Zamknięcie sidebaru klawiszem Escape na mobile
   useEffect(() => {
     if (!authUser || isBootstrapping || shouldShowWelcome !== false || !isSidebarOpen || isDesktop)
@@ -208,34 +168,14 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [shouldShowWelcome, isSidebarOpen, isDesktop, closeSidebar, isBootstrapping, authUser]);
 
-  const mobileMenuLabel = isSidebarOpen ? 'Ukryj menu' : 'Menu';
-  const mobileMenuAriaLabel = `${isSidebarOpen ? 'Zamknij' : 'Otwórz'} nawigację`;
-  const MobileMenuIcon = isSidebarOpen ? IconX : IconMenu2;
-
-  const collapseLabel = isSidebarCollapsed ? 'Rozwiń menu' : 'Zwiń menu';
-  const collapseAriaLabel = `${isSidebarCollapsed ? 'Rozwiń' : 'Zwiń'} nawigację`;
-  const CollapseIcon = isSidebarCollapsed ? IconLayoutSidebarLeftExpand : IconLayoutSidebarLeftCollapse;
+  const mobileMenuLabel = isSidebarOpen ? copy.nav.close : copy.nav.open;
+  const MobileMenuIcon = isSidebarOpen ? X : Menu;
 
   const shellClasses = [
     'app__shell',
     isDesktop ? 'is-desktop' : '',
     isDesktop && isSidebarCollapsed ? 'is-sidebar-collapsed' : '',
     isDesktop && !isSidebarCollapsed ? 'is-sidebar-expanded' : ''
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const sidebarClasses = [
-    'app__sidebar',
-    isSidebarOpen ? 'is-open' : '',
-    isSidebarCollapsed ? 'is-collapsed' : ''
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const mainClasses = [
-    'app__main',
-    isScrolled ? 'app__main--scrolled' : ''
   ]
     .filter(Boolean)
     .join(' ');
@@ -345,6 +285,7 @@ const App = () => {
   };
 
   return (
+    <Tooltip.Provider delayDuration={300}>
     <div className="app">
       {/* Tło pod sidebar na mobile */}
       <div
@@ -354,127 +295,38 @@ const App = () => {
       />
 
       <div className={shellClasses}>
-        <aside id="app-sidebar" className={sidebarClasses}>
-          <div className="sidebar__header">
-            <div className="sidebar__brand">
-              <span className="brand__mark u-inline-center" aria-hidden="true">
-                <IconPigMoney size={26} stroke={1.5} />
-              </span>
-              <div className="brand__copy">
-                <p className="brand__eyebrow">Budget Buddy</p>
-                <div className="brand__title">
-                  <strong>Projekt Sztefan</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <nav className="sidebar__nav" aria-label="Główna nawigacja">
-            {sidebarLinks.map(({ to, label, icon: LinkIcon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  `sidebar__link is-focusable${isActive ? ' is-active' : ''}`
-                }
-                title={isSidebarCollapsed ? label : undefined}
-                onClick={handleNavLinkClick}
-              >
-                <LinkIcon
-                  className="sidebar__icon u-inline-center"
-                  size={18}
-                  stroke={1.6}
-                  aria-hidden="true"
-                />
-                <span className="sidebar__text">{label}</span>
-                {/* Licznik „do otagowania" przy Transakcjach — kolejka jest ich podstroną. */}
-                {to === '/transactions' ? <UntaggedNavBadge /> : null}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="sidebar__footer">
-            <div className="sidebar__user">
-              <button
-                className="sidebar__panel is-focusable"
-                type="button"
-                onClick={handleOpenUserPanel}
-                aria-label={
-                  authUser?.is_admin ? 'Otwórz panel administratora' : 'Otwórz panel użytkownika'
-                }
-              >
-                <span className="sidebar__panel-icon u-inline-center" aria-hidden="true">
-                  <IconUserCircle size={18} stroke={1.6} />
-                </span>
-                <span className="sidebar__panel-label">
-                  {authUser?.is_admin
-                    ? authUser.display_name || authUser.username || 'Użytkownik'
-                    : 'Panel użytkownika'}
-                </span>
-              </button>
-              <button
-                className="sidebar__logout is-focusable"
-                type="button"
-                onClick={handleLogout}
-              >
-                <span className="sidebar__logout-icon u-inline-center" aria-hidden="true">
-                  <IconLogout size={18} stroke={1.6} />
-                </span>
-                <span className="sidebar__logout-label">Wyloguj</span>
-              </button>
-            </div>
-            <button
-              className="sidebar__theme is-focusable"
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Włącz tryb jasny' : 'Włącz tryb ciemny'}
-            >
-              <span className="sidebar__theme-icon u-inline-center" aria-hidden="true">
-                {theme === 'dark' ? <IconSun size={18} stroke={1.6} /> : <IconMoon size={18} stroke={1.6} />}
-              </span>
-              <span className="sidebar__theme-label">
-                {theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
-              </span>
-            </button>
-            <button
-              className="sidebar__collapse is-focusable"
-              type="button"
-              aria-label={collapseAriaLabel}
-              aria-expanded={!isSidebarCollapsed}
-              aria-controls="app-sidebar"
-              onClick={toggleSidebar}
-              disabled={!isDesktop}
-            >
-              <span className="sidebar__collapse-icon u-inline-center" aria-hidden="true">
-                <CollapseIcon size={18} stroke={1.6} />
-              </span>
-              <span className="sidebar__collapse-label">{collapseLabel}</span>
-            </button>
-          </div>
-        </aside>
+        <AppSidebar
+          user={authUser}
+          theme={theme}
+          isOpen={isSidebarOpen}
+          isCollapsed={isSidebarCollapsed}
+          isDesktop={isDesktop}
+          onToggle={toggleSidebar}
+          onToggleTheme={toggleTheme}
+          onNavigate={handleNavLinkClick}
+          onOpenPanel={handleOpenUserPanel}
+          onLogout={() => void handleLogout()}
+        />
 
         <div className="app__workspace">
-          {/* Przycisk „Menu” tylko na mobile */}
+          {/* Pasek z menu tylko na mobile */}
           {!isDesktop && (
             <div className="app__workspace-toolbar">
               <button
-                className="workspace__menu is-focusable"
+                className="sidebar__icon-button"
                 type="button"
-                aria-label={mobileMenuAriaLabel}
+                aria-label={mobileMenuLabel}
                 aria-expanded={isSidebarOpen}
                 aria-controls="app-sidebar"
                 onClick={toggleSidebar}
               >
-                <span className="workspace__menu-icon u-inline-center" aria-hidden="true">
-                  <MobileMenuIcon size={22} stroke={2} />
-                </span>
-                <span className="workspace__menu-label">{mobileMenuLabel}</span>
+                <MobileMenuIcon size={20} aria-hidden="true" />
               </button>
+              <span className="sidebar__brand">Budget Buddy</span>
             </div>
           )}
 
-          <div className={mainClasses}>
+          <div className="app__main">
             <main className="app__content">
               <Suspense
                 fallback={
@@ -498,6 +350,7 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/accounts" element={<AccountsPage />} />
+                  <Route path="/accounts/:accountId" element={<AccountDetailsPage />} />
                   <Route path="/budget" element={<BudgetPage />} />
                   <Route path="/stores" element={<StoresPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
@@ -520,7 +373,10 @@ const App = () => {
           </div>
         </div>
       </div>
+      <CommandPalette />
+      <Toaster position="bottom-right" toastOptions={{ className: 'toast-item', unstyled: true }} />
     </div>
+    </Tooltip.Provider>
   );
 };
 

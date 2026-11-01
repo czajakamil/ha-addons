@@ -1,54 +1,59 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   type CellClickArgs,
   type CellKeyboardEvent,
   type CellKeyDownArgs,
-  type CellMouseEvent
+  type CellMouseEvent,
+  type ColSpanArgs
 } from 'react-data-grid';
-import {
-  IconAlertCircle,
-  IconChevronDown,
-  IconChevronRight,
-  IconCircleDot,
-  IconListDetails,
-  IconPlus,
-  IconTags
-} from '@tabler/icons-react';
-import { Transaction, deleteTransaction } from '../api';
+import { ChevronDown, ChevronRight, ListFilter, PanelRightOpen, Plus, Receipt, Tags } from 'lucide-react';
+import { Transaction, deleteTransaction, updateTransaction } from '../api';
 import { TagChip } from '../components/tags/TagChip';
-import { formatMoney } from '../utils/format';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUntaggedCount } from '../hooks/useUntaggedCount';
 import Button from '../components/Button';
-import TransactionsToolbarRight from '../components/transactions/TransactionsToolbarRight';
 import NewTransactionModal from '../components/transactions/NewTransactionModal';
 import DataTable, { type MoneyColumn } from '../components/DataTable';
-import {
-  TRANSACTION_COLUMN_IDS,
-  getTransactionsGridHeight,
-  type TransactionColumnId
-} from './transactions/model';
+import EmptyState from '../components/ui/EmptyState';
+import Money from '../components/ui/Money';
+import PageHeader from '../components/ui/PageHeader';
+import SkeletonRows from '../components/ui/SkeletonRows';
+import TruncatedText from '../components/ui/TruncatedText';
+import { copy } from '../copy/pl';
+import { formatDayHeading } from '../utils/date';
+import { DEFAULT_COLUMN_WIDTHS, type FilterState } from './transactions/model';
 import {
   buildTransactionGridRows,
   itemLabel,
   splitInfoOf,
   type TransactionGridRow
 } from './transactions/splitRows';
-import {
-  formatLoadMoreLabel,
-  formatOperationsCount,
-  remainingTransactions
-} from './transactions/listQuery';
+import { formatOperationsCount } from './transactions/listQuery';
 import { useTransactionsData } from './transactions/useTransactionsData';
 import { useTransactionsEditing } from './transactions/useTransactionsEditing';
-import { useColumnWidths } from './transactions/useColumnWidths';
+import { runBulkUpdate, type BulkAction, type BulkReport } from './transactions/bulkUpdate';
+import TransactionsBulkBar from './transactions/components/TransactionsBulkBar';
+import TransactionsBulkReport from './transactions/components/TransactionsBulkReport';
 import TransactionsFilters from './transactions/components/TransactionsFilters';
 import TransactionsContextMenu from './transactions/components/TransactionsContextMenu';
 import TransactionStatusCell from './transactions/components/TransactionStatusCell';
 
+const labels = copy.transactions;
+const DAY_ROW_HEIGHT = 32;
+const COMPACT_ROW_HEIGHT = 56;
+const LOAD_MORE_THRESHOLD_PX = 600;
+const COLUMN_WIDTH_TABLE_ID = 'transactions';
+
 const TransactionsPage = () => {
   const navigate = useNavigate();
   const untaggedCount = useUntaggedCount();
+  // Na telefonie wiersz to sklep, konto i kwota; szczegóły otwiera dotknięcie
+  const isCompact = useMediaQuery('(max-width: 700px)');
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkReport, setBulkReport] = useState<BulkReport | null>(null);
   const [showModal, setShowModal] = useState(false);
   // Rozwinięte transakcje trzymamy po id, a nie w danych — zwijanie ma przetrwać
   // przeładowanie listy po edycji.
@@ -79,7 +84,7 @@ const TransactionsPage = () => {
     setTransactions,
     totalCount,
     filters,
-    setFilters,
+    applyFilters,
     searchQuery,
     setSearchQuery,
     loading,
@@ -93,11 +98,8 @@ const TransactionsPage = () => {
     storeMap,
     categoryMap,
     productMap,
-    formatTransferLabel,
     getLookupDisplayValue
   } = useTransactionsData();
-
-  const { getColumnWidth, handleColumnResize } = useColumnWidths();
 
   const openTransactionDetails = useCallback(
     (transactionId: string) => {
@@ -112,7 +114,6 @@ const TransactionsPage = () => {
     statusUpdatingId,
     cycleTransactionStatus,
     renderCommentCell,
-    renderDateCell,
     renderLookupCell,
     renderAmountCell,
     handleGridDoubleClick,
@@ -127,7 +128,6 @@ const TransactionsPage = () => {
     accountMap,
     storeMap,
     categoryMap,
-    formatTransferLabel,
     getLookupDisplayValue,
     openTransactionDetails
   });
@@ -160,14 +160,66 @@ const TransactionsPage = () => {
     };
   }, [contextMenu, closeContextMenu]);
 
-  const handleApplyFilters = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await loadTransactions(filters);
+  const handleFiltersChange = (next: FilterState) => {
+    setSelectedIds(new Set());
+    applyFilters(next);
   };
+
+  const toggleSelected = useCallback((transactionId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (!next.delete(transactionId)) next.add(transactionId);
+      return next;
+    });
+  }, []);
+
+  // Zaznaczenie obejmuje tylko wczytane wiersze; po wyszukaniu lub odświeżeniu listy
+  // ukryte transakcje wypadają, inaczej licznik obiecywałby więcej, niż akcja zmieni.
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const loaded = new Set(transactions.map((tx) => tx.id));
+      const next = new Set([...current].filter((id) => loaded.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [transactions]);
+
+  const runBulkAction = async (targets: readonly Transaction[], action: BulkAction) => {
+    setBulkReport(null);
+    setInlineError(null);
+    setBulkProgress({ done: 0, total: targets.length });
+    const report = await runBulkUpdate(targets, action, {
+      update: updateTransaction,
+      onProgress: (done, updated) => {
+        setBulkProgress({ done, total: targets.length });
+        const byId = new Map(updated.map((tx) => [tx.id, tx]));
+        setTransactions((prev) => prev.map((tx) => byId.get(tx.id) ?? tx));
+      }
+    });
+    setBulkProgress(null);
+    setBulkReport(report);
+    // Zaznaczone zostają tylko nieudane, żeby można było też użyć na nich innej akcji
+    setSelectedIds(new Set(report.failures.map((failure) => failure.transaction.id)));
+  };
+
+  const applyToSelected = (action: BulkAction) =>
+    runBulkAction(transactions.filter((tx) => selectedIds.has(tx.id)), action);
+
+  const retryFailed = () => {
+    if (!bulkReport) return;
+    const loaded = new Map(transactions.map((tx) => [tx.id, tx]));
+    // Nieudana transakcja mogła zniknąć z listy po zmianie filtrów; id wciąż wystarczy do zapisu
+    const targets = bulkReport.failures.map((failure) => loaded.get(failure.transaction.id) ?? failure.transaction);
+    void runBulkAction(targets, bulkReport.action);
+  };
+
+  const failedIds = useMemo(
+    () => new Set(bulkReport?.failures.map((failure) => failure.transaction.id)),
+    [bulkReport]
+  );
 
   const handleDelete = async (transaction: Transaction) => {
     setContextMenu(null);
-    if (!window.confirm('Usunąć tę transakcję?')) {
+    if (!window.confirm(labels.deleteConfirm)) {
       return;
     }
     try {
@@ -175,7 +227,7 @@ const TransactionsPage = () => {
       await loadTransactions(filters);
     } catch (err) {
       console.error(err);
-      setInlineError('Nie udało się usunąć transakcji.');
+      setInlineError(labels.deleteFailed);
     }
   };
 
@@ -240,11 +292,7 @@ const TransactionsPage = () => {
             toggleExpanded(transaction.id);
           }}
         >
-          {expanded ? (
-            <IconChevronDown size={14} aria-hidden="true" />
-          ) : (
-            <IconChevronRight size={14} aria-hidden="true" />
-          )}
+          {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
         </button>
         {tagCount > 1 ? (
           <span className="transactions-split__badge" title="Pozycje mają różne tagi">
@@ -255,133 +303,198 @@ const TransactionsPage = () => {
     );
   };
 
-  const transactionsGridColumns: readonly MoneyColumn<TransactionGridRow>[] = [
+  const renderDayRow = (row: Extract<TransactionGridRow, { kind: 'day' }>) => (
+    <div className="transactions-day">
+      <span>{row.date ? formatDayHeading(row.date) : '—'}</span>
+      {row.totalCents !== null && <Money cents={row.totalCents} currency={row.currency} tone="neutral" />}
+    </div>
+  );
+
+  // Wiersz dnia sięga do kolumny kwoty, żeby suma stała pod kwotami
+  const dayRowSpan = (columnCount: number) => (args: ColSpanArgs<TransactionGridRow, unknown>) =>
+    args.type === 'ROW' && args.row.kind === 'day' ? columnCount : undefined;
+
+  const compactColumns: readonly MoneyColumn<TransactionGridRow>[] = [
     {
-      key: 'open',
-      name: '',
-      width: getColumnWidth('open'),
+      key: 'store',
+      name: labels.columns.store,
+      colSpan: dayRowSpan(2),
+      renderCell: ({ row }) => {
+        if (row.kind === 'day') return renderDayRow(row);
+        if (row.kind === 'item') return <TruncatedText text={itemLabel(row.productName, row.item)} />;
+        return (
+          <div className="transactions-compact">
+            {renderLookupCell(row.transaction, 'store')}
+            <span className="transactions-compact__meta">{accountMap.get(row.transaction.account_id)?.name}</span>
+          </div>
+        );
+      }
+    },
+    {
+      key: 'amount',
+      name: labels.columns.amount,
+      width: 112,
       resizable: false,
-      cellClass: 'transactions-grid__cell transactions-grid__cell--actions',
+      cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
+      headerCellClass: 'transactions-grid__cell--numeric',
       renderCell: ({ row }) =>
-        row.kind === 'item' ? null : (
-          <button
-            type="button"
-            className="btn btn-light btn-sm d-inline-flex align-items-center gap-1 is-focusable"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              openTransactionDetails(row.transaction.id);
-            }}
-            aria-label="Pokaż szczegóły transakcji"
-            title="Pokaż szczegóły"
-          >
-            <IconListDetails size={14} aria-hidden="true" />
-          </button>
-        )
-    },
+        row.kind === 'transaction' ? (
+          <Money cents={row.transaction.total_cents} currency={row.transaction.currency} />
+        ) : null
+    }
+  ];
+
+  const fullColumns: readonly MoneyColumn<TransactionGridRow>[] = [
     {
-      key: 'date',
-      name: 'Data',
-      width: getColumnWidth('date'),
-      renderCell: ({ row }) => (row.kind === 'item' ? null : renderDateCell(row.transaction))
-    },
-    {
-      key: 'account',
-      name: 'Konto',
-      width: getColumnWidth('account'),
-      renderCell: ({ row }) =>
-        row.kind === 'item' ? null : renderLookupCell(row.transaction, 'account')
+      key: 'select',
+      name: '',
+      width: DEFAULT_COLUMN_WIDTHS.select,
+      resizable: false,
+      colSpan: dayRowSpan(6),
+      renderHeaderCell: () => {
+        const allSelected = transactions.length > 0 && transactions.every((tx) => selectedIds.has(tx.id));
+        return (
+          <input
+            type="checkbox"
+            className="form-check-input"
+            aria-label={labels.selectAll}
+            checked={allSelected}
+            onChange={() =>
+              setSelectedIds(allSelected ? new Set() : new Set(transactions.map((tx) => tx.id)))
+            }
+          />
+        );
+      },
+      renderCell: ({ row }) => {
+        if (row.kind === 'day') return renderDayRow(row);
+        if (row.kind === 'item') return null;
+        return (
+          <input
+            type="checkbox"
+            className="form-check-input"
+            aria-label={labels.selectRow}
+            checked={selectedIds.has(row.transaction.id)}
+            onChange={() => toggleSelected(row.transaction.id)}
+            onClick={(event) => event.stopPropagation()}
+          />
+        );
+      }
     },
     {
       key: 'store',
-      name: 'Sklep / grupa',
-      width: getColumnWidth('store'),
+      name: labels.columns.store,
+      width: DEFAULT_COLUMN_WIDTHS.store,
       renderCell: ({ row }) =>
-        row.kind === 'item' ? null : renderLookupCell(row.transaction, 'store')
+        row.kind === 'transaction' ? renderLookupCell(row.transaction, 'store') : null
+    },
+    {
+      key: 'account',
+      name: labels.columns.account,
+      width: DEFAULT_COLUMN_WIDTHS.account,
+      renderCell: ({ row }) =>
+        row.kind === 'transaction' ? renderLookupCell(row.transaction, 'account') : null
     },
     {
       key: 'category',
-      name: 'Tag',
-      width: getColumnWidth('category'),
-      renderCell: ({ row }) =>
-        row.kind === 'item' ? (
-          <span className="transactions-split__item-tag">
-            {row.category ? <TagChip category={row.category} byId={categoryMap} /> : '—'}
-          </span>
-        ) : (
+      name: labels.columns.category,
+      width: DEFAULT_COLUMN_WIDTHS.category,
+      renderCell: ({ row }) => {
+        if (row.kind === 'day') return null;
+        if (row.kind === 'item') {
+          return row.category ? <TagChip category={row.category} byId={categoryMap} /> : null;
+        }
+        return (
           <div className="transactions-split__cell">
             {renderSplitToggle(row.transaction)}
             {renderLookupCell(row.transaction, 'category')}
           </div>
-        )
+        );
+      }
     },
     {
       key: 'comment',
-      name: 'Komentarz',
-      width: getColumnWidth('comment'),
-      renderCell: ({ row }) =>
-        row.kind === 'item' ? (
-          <span className="transactions-table__truncate" title={row.productName}>
-            {itemLabel(row.productName, row.item)}
-          </span>
-        ) : (
-          renderCommentCell(row.transaction)
-        )
+      name: labels.columns.comment,
+      width: DEFAULT_COLUMN_WIDTHS.comment,
+      renderCell: ({ row }) => {
+        if (row.kind === 'day') return null;
+        if (row.kind === 'item') return <TruncatedText text={itemLabel(row.productName, row.item)} />;
+        return renderCommentCell(row.transaction);
+      }
     },
     {
-      key: 'outflow',
-      name: 'Outflow',
-      width: getColumnWidth('outflow'),
+      key: 'amount',
+      name: labels.columns.amount,
+      width: DEFAULT_COLUMN_WIDTHS.amount,
       cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
-      isMoney: true,
-      renderCell: ({ row }) =>
-        row.kind === 'item'
-          ? row.transaction.total_cents < 0
-            ? formatMoney(row.totalCents, row.transaction.currency)
-            : null
-          : renderAmountCell(row.transaction, 'outflow')
-    },
-    {
-      key: 'inflow',
-      name: 'Inflow',
-      width: getColumnWidth('inflow'),
-      cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
-      isMoney: true,
-      renderCell: ({ row }) =>
-        row.kind === 'item'
-          ? row.transaction.total_cents > 0
-            ? formatMoney(row.totalCents, row.transaction.currency)
-            : null
-          : renderAmountCell(row.transaction, 'inflow')
+      headerCellClass: 'transactions-grid__cell--numeric',
+      renderCell: ({ row }) => {
+        if (row.kind === 'day') return null;
+        if (row.kind === 'item') {
+          const sign = row.transaction.total_cents < 0 ? -1 : 1;
+          return <Money cents={sign * row.totalCents} currency={row.transaction.currency} tone="neutral" />;
+        }
+        return renderAmountCell(row.transaction);
+      }
     },
     {
       key: 'status',
-      name: (
-        <span className="transactions-status__header-icon" role="img" aria-label="Status transakcji">
-          <IconCircleDot size={14} aria-hidden="true" />
-        </span>
-      ),
-      width: getColumnWidth('status'),
+      name: '',
+      width: DEFAULT_COLUMN_WIDTHS.status,
       resizable: false,
       cellClass: 'transactions-grid__cell transactions-grid__cell--status',
-      headerCellClass: 'transactions-grid__header--status',
       renderCell: ({ row }) =>
-        row.kind === 'item' ? null : (
+        row.kind === 'transaction' ? (
           <TransactionStatusCell
             transaction={row.transaction}
             updating={statusUpdatingId === row.transaction.id}
             onCycle={(transaction) => void cycleTransactionStatus(transaction)}
           />
-        )
+        ) : null
+    },
+    {
+      key: 'open',
+      name: '',
+      width: DEFAULT_COLUMN_WIDTHS.open,
+      resizable: false,
+      cellClass: 'transactions-grid__cell transactions-grid__cell--actions',
+      renderCell: ({ row }) =>
+        row.kind === 'transaction' ? (
+          <button
+            type="button"
+            className="transactions-row-action"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openTransactionDetails(row.transaction.id);
+            }}
+            aria-label={labels.details}
+            title={labels.details}
+          >
+            <PanelRightOpen size={14} aria-hidden="true" />
+          </button>
+        ) : null
     }
   ];
+
+  const transactionsGridColumns = isCompact ? compactColumns : fullColumns;
 
   const transactionRowKeyGetter = useCallback((row: TransactionGridRow) => row.id, []);
 
   const transactionRowClass = useCallback(
-    (row: TransactionGridRow) =>
-      row.kind === 'item' ? 'transactions-grid__row--item' : undefined,
-    []
+    (row: TransactionGridRow) => {
+      if (row.kind === 'day') return 'transactions-grid__row--day';
+      if (row.kind === 'item') return 'transactions-grid__row--item';
+      return failedIds.has(row.transaction.id) ? 'transactions-grid__row--failed' : undefined;
+    },
+    [failedIds]
+  );
+
+  const transactionRowHeight = useCallback(
+    (row: TransactionGridRow) => {
+      if (row.kind === 'day') return DAY_ROW_HEIGHT;
+      return isCompact && row.kind === 'transaction' ? COMPACT_ROW_HEIGHT : 40;
+    },
+    [isCompact]
   );
 
   const openTransactionContextMenu = useCallback(
@@ -397,8 +510,8 @@ const TransactionsPage = () => {
 
   const handleGridContextMenu = useCallback(
     (args: CellClickArgs<TransactionGridRow>, event: CellMouseEvent) => {
-      // Menu dotyczy transakcji — wiersz pozycji nie ma czego usuwać ani otwierać.
-      if (args.row.kind === 'item') return;
+      // Menu dotyczy transakcji — wiersze dnia i pozycji nie mają czego usuwać ani otwierać.
+      if (args.row.kind !== 'transaction') return;
       event.preventDefault();
       event.stopPropagation();
       event.preventGridDefault?.();
@@ -411,6 +524,7 @@ const TransactionsPage = () => {
 
   const handleGridCellKeyDown = useCallback(
     (args: CellKeyDownArgs<TransactionGridRow>, event: CellKeyboardEvent) => {
+      if (args.row.kind === 'day') return;
       const isContextMenuKey =
         event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
 
@@ -460,161 +574,141 @@ const TransactionsPage = () => {
 
   const handleGridDoubleClickRow = useCallback(
     (args: CellClickArgs<TransactionGridRow>) => {
-      if (args.row.kind === 'item') return;
+      if (args.row.kind !== 'transaction') return;
       handleGridDoubleClick({ column: args.column, row: args.row.transaction });
     },
     [handleGridDoubleClick]
   );
 
-  const transactionsGridHeight = getTransactionsGridHeight(gridRows.length);
+  const hasMore = totalCount === null || transactions.length < totalCount;
   const noResults = !loading && !error && transactions.length === 0;
-  const hasMore = remainingTransactions(transactions.length, totalCount) > 0;
+  const hasActiveFilters =
+    Boolean(searchQuery.trim()) || Object.values(filters).some((value) => Boolean(value));
+
+  // Kolejne strony doładowują się same, zanim użytkownik dojedzie do końca listy
+  const handleGridScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = event.currentTarget;
+    if (hasMore && !loadingMore && !refreshing && scrollHeight - scrollTop - clientHeight < LOAD_MORE_THRESHOLD_PX) {
+      void loadMoreTransactions();
+    }
+  };
+
+  const countLabel = totalCount === null ? `${transactions.length}+` : String(totalCount);
 
   return (
-    <div className="page accounts-page compact-page">
-      <div className="page-shell">
-        <div className="d-print-none accounts-page__header">
-          <div className="accounts-page__title-wrap">
-            <h2 className="page-title accounts-page__title">Transakcje</h2>
-            <p className="accounts-page__subtitle" aria-live="polite">
-              {loading ? 'Wczytywanie…' : formatOperationsCount(totalCount)}
-              {refreshing && !loading && (
-                <span className="spinner-border spinner-border-sm ms-2" role="status" aria-label="Wyszukiwanie" />
-              )}
-            </p>
-          </div>
-          <div className="accounts-page__actions">
+    <div className="page-shell transactions-page">
+      <PageHeader
+        title={labels.title}
+        actions={
+          <>
             {untaggedCount ? (
-              <Button
-                variant="outline-secondary"
-                icon={<IconTags size={16} aria-hidden="true" />}
-                onClick={() => navigate('/transactions/untagged')}
-              >
-                Do otagowania ({untaggedCount})
-              </Button>
+              <button type="button" className="text-button" onClick={() => navigate('/transactions/untagged')}>
+                <Tags size={14} aria-hidden="true" />
+                {labels.toTag(untaggedCount)}
+              </button>
             ) : null}
-            <Button icon={<IconPlus size={16} aria-hidden="true" />} onClick={() => setShowModal(true)}>
-              Nowa transakcja
+            <Button icon={<Plus size={16} aria-hidden="true" />} onClick={() => setShowModal(true)}>
+              {labels.newTransaction}
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
+      <p className="sr-only" aria-live="polite">
+        {loading ? '' : formatOperationsCount(transactions.length)}
+      </p>
 
-        <div className="page-body page-stack accounts-page__body">
-          <section className="card accounts-section-card">
-            <div className="accounts-section-card__header">
-              <div className="accounts-section-card__header-copy">
-                <div className="accounts-section-card__eyebrow">Widok: lista</div>
-                <h3 className="accounts-section-card__title">Historia operacji</h3>
-                <p className="accounts-section-card__hint">
-                  Wyszukiwarka przeszukuje całą historię: sklep, komentarz, tag, produkt i kwotę.
-                </p>
-              </div>
-              <TransactionsToolbarRight searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-            </div>
+      <TransactionsFilters
+        filters={filters}
+        onChange={handleFiltersChange}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        activeAccounts={activeAccounts}
+        categories={categories}
+      />
 
-            <TransactionsFilters
-              filters={filters}
-              setFilters={setFilters}
-              activeAccounts={activeAccounts}
-              onSubmit={handleApplyFilters}
-            />
+      {selectedIds.size > 0 && (
+        <TransactionsBulkBar
+          count={selectedIds.size}
+          categories={categories}
+          busy={bulkProgress !== null}
+          progress={bulkProgress && labels.bulkSaving(bulkProgress.done, bulkProgress.total)}
+          onCategoryChange={(categoryId) => {
+            const category = categoryMap.get(categoryId);
+            void applyToSelected({
+              label: labels.bulk.categoryAction(category?.path || category?.name || ''),
+              skippedLabel: labels.bulk.skippedTransfers,
+              payload: (tx) => (tx.transfer_account_id ? null : { category_id: categoryId })
+            });
+          }}
+          onApprove={() =>
+            void applyToSelected({
+              label: labels.bulk.approveAction,
+              skippedLabel: labels.bulk.skippedApproved,
+              payload: (tx) => (tx.cleared ? null : { cleared: true })
+            })
+          }
+          onClear={() => setSelectedIds(new Set())}
+        />
+      )}
 
-            {inlineError && (
-              <div className="accounts-section-card__alert">
-                <div
-                  className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0"
-                  role="alert"
-                >
-                  <IconAlertCircle size={18} aria-hidden="true" />
-                  <div>{inlineError}</div>
-                </div>
-              </div>
-            )}
+      {bulkReport && (
+        <TransactionsBulkReport
+          report={bulkReport}
+          busy={bulkProgress !== null}
+          transactionName={(tx) => {
+            const store = tx.store_id ? storeMap.get(tx.store_id) : undefined;
+            return store?.group_name?.trim() || store?.name || tx.comment || '—';
+          }}
+          onRetry={retryFailed}
+          onDismiss={() => setBulkReport(null)}
+        />
+      )}
 
-            {loading && (
-              <div className="accounts-section-card__body">
-                <div className="placeholder-glow">
-                  <div className="placeholder col-12 mb-2" />
-                  <div className="placeholder col-10 mb-2" />
-                  <div className="placeholder col-12 mb-2" />
-                  <div className="placeholder col-8 mb-0" />
-                </div>
-              </div>
-            )}
+      {inlineError && (
+        <p className="transactions-error" role="alert">
+          {inlineError}
+        </p>
+      )}
+      {error && !loading && (
+        <p className="transactions-error" role="alert">
+          {error}
+        </p>
+      )}
 
-            {error && !loading && (
-              <div className="accounts-section-card__body">
-                <div className="alert alert-danger mb-0" role="alert">
-                  {error}
-                </div>
-              </div>
-            )}
+      <section className="transactions-card" aria-busy={refreshing || loadingMore}>
+        {loading && <SkeletonRows rows={12} />}
+        {noResults && (
+          <EmptyState
+            icon={hasActiveFilters ? ListFilter : Receipt}
+            message={hasActiveFilters ? labels.empty : labels.emptyAll}
+          />
+        )}
+        {!loading && !error && !noResults && (
+          <DataTable
+            aria-label={labels.gridLabel}
+            tableId={COLUMN_WIDTH_TABLE_ID}
+            className="transactions-grid"
+            columns={transactionsGridColumns}
+            rows={gridRows}
+            rowKeyGetter={transactionRowKeyGetter}
+            rowClass={transactionRowClass}
+            rowHeight={transactionRowHeight}
+            onScroll={handleGridScroll}
+            onCellClick={
+              isCompact
+                ? (args) => {
+                    if (args.row.kind === 'transaction') openTransactionDetails(args.row.transaction.id);
+                  }
+                : undefined
+            }
+            onCellDoubleClick={isCompact ? undefined : handleGridDoubleClickRow}
+            onCellKeyDown={handleGridCellKeyDown}
+            onCellContextMenu={handleGridContextMenu}
+          />
+        )}
+      </section>
 
-            {!loading && !error && (
-              <div className="accounts-section-card__table">
-                {!noResults ? (
-                  <DataTable
-                    aria-label="Lista transakcji"
-                    className="transactions-grid"
-                    columns={transactionsGridColumns}
-                    rows={gridRows}
-                    rowKeyGetter={transactionRowKeyGetter}
-                    rowClass={transactionRowClass}
-                    onColumnResize={(idx: number, width: number) => {
-                      const column = transactionsGridColumns[idx];
-                      if (!column || !('key' in column)) {
-                        return;
-                      }
-
-                      const columnId = column.key as TransactionColumnId;
-
-                      if (!TRANSACTION_COLUMN_IDS.has(columnId)) {
-                        return;
-                      }
-
-                      handleColumnResize(columnId, width);
-                    }}
-                    height={transactionsGridHeight}
-                    onCellDoubleClick={handleGridDoubleClickRow}
-                    onCellKeyDown={handleGridCellKeyDown}
-                    onCellContextMenu={handleGridContextMenu}
-                    noRowsFallback={
-                      <div className="data-grid__empty text-secondary text-center">
-                        Brak transakcji w wynikach filtrowania.
-                      </div>
-                    }
-                  />
-                ) : (
-                  <div className="accounts-empty-state">
-                    <div className="accounts-empty-state__title">Brak wyników</div>
-                    <p className="accounts-empty-state__subtitle">
-                      Spróbuj innego filtra lub innego zapytania wyszukiwania.
-                    </p>
-                  </div>
-                )}
-                {hasMore && (
-                  <div className="transactions-load-more">
-                    <span className="text-secondary">
-                      Wczytano {transactions.length} z {formatOperationsCount(totalCount)}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm is-focusable"
-                      onClick={() => void loadMoreTransactions()}
-                      disabled={loadingMore || refreshing}
-                    >
-                      {loadingMore && (
-                        <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
-                      )}
-                      {formatLoadMoreLabel(transactions.length, totalCount)}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
+      <p className="transactions-count">{loading ? '' : formatOperationsCount(transactions.length)} {totalCount !== null && !loading && transactions.length < totalCount ? `z ${countLabel}` : ''}</p>
 
       <NewTransactionModal
         open={showModal}

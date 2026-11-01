@@ -7,8 +7,8 @@ import { formatMoney } from '../../utils/format';
 // Kapitał zieleni, odsetki czerwienią — ta sama konwencja co w Raportach
 // (aktywa/długi). Nivo nie czyta zmiennych CSS, więc kolory serii są wartościami;
 // tekst, siatka i tooltip idą z `useChartTheme`.
-export const DEBT_PRINCIPAL_COLOR = '#10b981';
-export const DEBT_INTEREST_COLOR = '#ef4444';
+export const DEBT_PRINCIPAL_COLOR = 'var(--positive)';
+export const DEBT_INTEREST_COLOR = 'var(--negative)';
 
 /** Powyżej tylu rat wykres miesięczny robi się nieczytelny i agregujemy do lat. */
 export const MONTHLY_CHART_LIMIT = 36;

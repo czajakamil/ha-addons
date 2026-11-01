@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ChangeEvent } from 'react';
-import { IconCalendar } from '@tabler/icons-react';
+import { CalendarIcon } from 'lucide-react';
 import Litepicker from '@tabler/core/dist/libs/litepicker/dist/litepicker.umd.js';
 
 const DATE_FORMAT = 'YYYY-MM-DD';
@@ -111,7 +111,7 @@ const DatePickerField = ({
       </label>
       <div className="input-icon">
         <span className="input-icon-addon">
-          <IconCalendar size={16} aria-hidden="true" />
+          <CalendarIcon size={16} aria-hidden="true" />
         </span>
         <input
           id={id}

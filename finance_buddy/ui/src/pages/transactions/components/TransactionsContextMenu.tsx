@@ -2,7 +2,7 @@
 // Fokus wchodzi do menu po otwarciu; strzałki/Home/End przełączają pozycje,
 // Enter/Spacja aktywują, Esc (obsługiwany na poziomie strony) zamyka.
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { IconListDetails, IconTrash } from '@tabler/icons-react';
+import { ListIcon, Trash2Icon } from 'lucide-react';
 
 type TransactionsContextMenuProps = {
   x: number;
@@ -67,7 +67,7 @@ const TransactionsContextMenu = ({ x, y, onOpenDetails, onDelete }: Transactions
           aria-label="Otwórz szczegóły"
           onClick={onOpenDetails}
         >
-          <IconListDetails
+          <ListIcon
             className="transactions-context-menu__icon u-inline-center"
             size={18}
             aria-hidden="true"
@@ -81,7 +81,7 @@ const TransactionsContextMenu = ({ x, y, onOpenDetails, onDelete }: Transactions
           aria-label="Usuń"
           onClick={onDelete}
         >
-          <IconTrash
+          <Trash2Icon
             className="transactions-context-menu__icon u-inline-center"
             size={18}
             aria-hidden="true"

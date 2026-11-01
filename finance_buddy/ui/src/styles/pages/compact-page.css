@@ -11,7 +11,7 @@
     min-height: 0;
     padding-inline: 0;
     padding-block: 0 0.55rem;
-    border-bottom: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border);
   }
 
   .compact-page .page-header .row {
@@ -28,7 +28,6 @@
     margin: 0;
     padding-top: 0;
     font-size: 0.66rem;
-    letter-spacing: 0.07em;
   }
 
   .compact-page .page-title {
@@ -62,7 +61,7 @@
   }
 
   .compact-page .card {
-    border-radius: var(--r);
+    border-radius: var(--radius-control);
   }
 
   .compact-page .card-body.border-bottom.u-pad-0 {
@@ -82,9 +81,7 @@
   .compact-page .form-label {
     margin-bottom: 0.2rem;
     font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--muted-strong);
+    color: var(--text-muted);
   }
 
   .compact-page .form-control,
@@ -93,12 +90,12 @@
   }
 
   .compact-page.budget-page .budget-metrics {
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
+    gap: var(--s-12);
+    margin-bottom: var(--s-12);
   }
 
   .compact-page.budget-page .budget-metric {
-    padding: var(--space-3);
+    padding: var(--s-16);
   }
 
   .compact-page.page-wrapper {

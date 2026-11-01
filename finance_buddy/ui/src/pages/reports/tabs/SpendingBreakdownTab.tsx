@@ -1,23 +1,20 @@
 import { CSSProperties, useMemo, useState } from 'react';
-import { ResponsivePie } from '@nivo/pie';
 import Button from '../../../components/Button';
 import DataTable from '../../../components/DataTable';
 import {
-  BREAKDOWN_CHART_COLORS,
   UNCATEGORIZED_CATEGORY_ID,
   UNCATEGORIZED_CATEGORY_NAME,
   formatDate,
-  groupBreakdownEntries,
+  OTHER_CATEGORIES_LABEL,
+  BREAKDOWN_TOP_LIMIT,
+  otherCategoryColor,
   moneyLabel,
   normalizeCategoryName,
   percentLabel,
-  type BreakdownChartEntry,
-  type BreakdownPieDatum
+  type BreakdownChartEntry
 } from '../model';
-import { BreakdownArcLinkLabel } from '../BreakdownArcLinkLabel';
-import { BreakdownPieTooltip } from '../tooltips';
 import { useBreakdownEditing } from '../useBreakdownEditing';
-import { useChartTheme } from '../useChartTheme';
+import { chartColor } from '../../../utils/tokens';
 import type { ReportsController } from '../useReports';
 
 type SpendingBreakdownTabProps = {
@@ -41,7 +38,6 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
 
   const [breakdownView, setBreakdownView] = useState<'categories' | 'groups'>('categories');
   const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
-  const chartTheme = useChartTheme();
 
   const {
     selectedBreakdownCategory,
@@ -115,7 +111,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
           percentage,
           total: absoluteValue,
           value: absoluteValue,
-          color: BREAKDOWN_CHART_COLORS[index % BREAKDOWN_CHART_COLORS.length]
+          color: chartColor(index)
         };
       }),
     [filteredBreakdownEntries, breakdownPercentBase]
@@ -133,11 +129,11 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
       .sort((a, b) => b[1] - a[1])
       .map(([name, total], index) => ({
         key: `group-${name || 'uncategorized'}-${index}`,
-        name: name || 'Uncategorized',
+        name: !name || name === 'Uncategorized' ? UNCATEGORIZED_CATEGORY_NAME : name,
         percentage: breakdownPercentBase > 0 ? total / breakdownPercentBase : 0,
         total,
         value: total,
-        color: BREAKDOWN_CHART_COLORS[index % BREAKDOWN_CHART_COLORS.length]
+        color: chartColor(index)
       }));
   }, [filteredBreakdownEntries, breakdownPercentBase]);
 
@@ -147,55 +143,30 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
   const breakdownChartData =
     effectiveBreakdownView === 'groups' ? breakdownGroupData : breakdownCategoriesData;
 
-  const groupedBreakdownChartData = useMemo<BreakdownChartEntry[]>(
-    () => groupBreakdownEntries(breakdownChartData, breakdownPercentBase),
-    [breakdownChartData, breakdownPercentBase]
-  );
-
-  const breakdownPieData = useMemo<BreakdownPieDatum[]>(
-    () =>
-      groupedBreakdownChartData.map((entry) => ({
-        ...entry,
-        id: entry.key,
-        label: entry.name
-      })),
-    [groupedBreakdownChartData]
-  );
+  // Pierwsza dziesiątka malejąco, reszta zbiorczo jako „Pozostałe"
+  const topBreakdownEntries = useMemo<BreakdownChartEntry[]>(() => {
+    const sorted = breakdownChartData.slice().sort((a, b) => b.total - a.total);
+    const rest = sorted.slice(BREAKDOWN_TOP_LIMIT);
+    if (!rest.length) return sorted;
+    const restTotal = rest.reduce((sum, entry) => sum + entry.total, 0);
+    return [
+      ...sorted.slice(0, BREAKDOWN_TOP_LIMIT),
+      {
+        key: 'other-categories',
+        name: OTHER_CATEGORIES_LABEL,
+        percentage: breakdownPercentBase > 0 ? restTotal / breakdownPercentBase : 0,
+        total: restTotal,
+        value: restTotal,
+        color: otherCategoryColor(),
+        isOther: true
+      }
+    ];
+  }, [breakdownChartData, breakdownPercentBase]);
   const breakdownPieTotal = useMemo(
-    () => breakdownPieData.reduce((sum, entry) => sum + entry.value, 0),
-    [breakdownPieData]
+    () => topBreakdownEntries.reduce((sum, entry) => sum + entry.value, 0),
+    [topBreakdownEntries]
   );
   const breakdownToggleIndex = effectiveBreakdownView === 'categories' ? 0 : 1;
-  const breakdownCenterLayer = useMemo(
-    () =>
-      ({ centerX, centerY }: { centerX: number; centerY: number }) => (
-        <>
-          <text
-            x={centerX}
-            y={centerY - 8}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill={chartTheme.text}
-            fontSize={20}
-            fontWeight={700}
-          >
-            {moneyLabel(breakdownPieTotal)}
-          </text>
-          <text
-            x={centerX}
-            y={centerY + 14}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill={chartTheme.muted}
-            fontSize={12}
-            fontWeight={600}
-          >
-            Suma wydatków
-          </text>
-        </>
-      ),
-    [breakdownPieTotal, chartTheme]
-  );
 
   const monthsInRange = data?.spending_trends?.months?.length ?? 0;
   const averagePerMonth = monthsInRange > 0 ? Math.round(breakdownPieTotal / monthsInRange) : 0;
@@ -251,7 +222,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
               <div className="breakdown-transactions__title">
                 <span
                   className="breakdown-transactions__dot"
-                  style={{ backgroundColor: selectedBreakdownCategory.color ?? '#94a3b8' }}
+                  style={{ backgroundColor: selectedBreakdownCategory.color ?? otherCategoryColor() }}
                   aria-hidden
                 />
                 <span>Transakcje: {selectedBreakdownCategory.name}</span>
@@ -276,6 +247,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
             <p className="report-empty">Brak transakcji w tej kategorii.</p>
           ) : (
             <DataTable
+              tableId="report-breakdown"
               aria-label="Transakcje z wybranej kategorii"
               className="transactions-grid breakdown-transactions__grid"
               columns={breakdownGridColumns}
@@ -299,45 +271,6 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
       </section>
     ) : (
       <div className="breakdown-columns">
-        <section className="card report-card breakdown-chart-card">
-          <div
-            className="breakdown-chart"
-            aria-label={`Udział wydatków w ${
-              effectiveBreakdownView === 'groups' ? 'grupach' : 'kategoriach'
-            }`}
-          >
-            <div className="breakdown-chart__pie">
-              <div className="report-chart-canvas report-chart-canvas--labeled">
-                <ResponsivePie
-                  data={breakdownPieData}
-                  margin={{ top: 36, right: 155, bottom: 36, left: 155 }}
-                  innerRadius={0.62}
-                  padAngle={0.8}
-                  cornerRadius={5}
-                  activeOuterRadiusOffset={8}
-                  colors={{ datum: 'data.color' }}
-                  arcLinkLabel={(datum) => String(datum.label)}
-                  arcLinkLabelsSkipAngle={9}
-                  arcLinkLabelsTextColor={chartTheme.text}
-                  arcLinkLabelsThickness={1.5}
-                  arcLinkLabelsColor={{ from: 'color' }}
-                  arcLinkLabelsDiagonalLength={16}
-                  arcLinkLabelsStraightLength={12}
-                  arcLinkLabelsTextOffset={6}
-                  arcLinkLabelComponent={BreakdownArcLinkLabel}
-                  theme={chartTheme.nivoTheme}
-                  valueFormat={(value) => moneyLabel(Number(value))}
-                  tooltip={(props) => <BreakdownPieTooltip {...props} />}
-                  onClick={(datum) => handleBreakdownEntryClick(datum.data)}
-                  layers={['arcs', 'arcLinkLabels', breakdownCenterLayer]}
-                />
-              </div>
-            </div>
-            <p className="breakdown-chart__hint">
-              Kliknij wycinek lub pozycję na liście, aby zobaczyć transakcje.
-            </p>
-          </div>
-        </section>
         <section className="card report-card breakdown-categories-card">
           <aside
             className="breakdown-layout__categories breakdown-layout__categories--spending"
@@ -349,7 +282,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
           >
             <div className="breakdown-layout__header breakdown-layout__header--stacked">
               <h4 className="breakdown-layout__title">
-                {effectiveBreakdownView === 'groups' ? 'Grupy' : 'Tagi'}
+                {effectiveBreakdownView === 'groups' ? 'Grupy' : 'Kategorie'}
               </h4>
               <div
                 className="breakdown-toggle"
@@ -365,7 +298,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
                   }`}
                   onClick={() => setBreakdownView('categories')}
                 >
-                  Tagi
+                  Kategorie
                 </button>
                 <button
                   type="button"
@@ -397,14 +330,14 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
             )}
             <div className="breakdown-list">
               <div className="breakdown-list__header">
-                <span>{effectiveBreakdownView === 'groups' ? 'Grupy' : 'Tagi'}</span>
+                <span>{effectiveBreakdownView === 'groups' ? 'Grupy' : 'Kategorie'}</span>
                 <span>Łączne wydatki</span>
               </div>
               <ul className="breakdown-list__items">
-                {breakdownChartData.map((entry) => {
+                {topBreakdownEntries.map((entry) => {
                   const isGroupMode = effectiveBreakdownView === 'groups';
                   const isCategoryMode = effectiveBreakdownView === 'categories';
-                  const isClickable = isGroupMode || isCategoryMode;
+                  const isClickable = (isGroupMode || isCategoryMode) && !entry.isOther;
                   const barPercent = Math.min(Math.max(entry.percentage * 100, 0), 100);
                   const barWidth = barPercent > 0 ? Math.max(barPercent, 2) : 0;
                   return (
@@ -433,7 +366,6 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
                     >
                       <div className="breakdown-list__row">
                         <div className="breakdown-list__name-row">
-                          <span className="breakdown-list__dot" aria-hidden />
                           <span className="breakdown-list__name">{entry.name}</span>
                         </div>
                         <div className="breakdown-list__amount">{moneyLabel(entry.total)}</div>
@@ -458,17 +390,17 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
       </div>
     )}
     {hasBreakdownEntries && (
-      <section className="card report-card">
+      <section className="report-kpi-row">
         <div className="report-kpis">
           <div className="report-kpi">
-            <span className="report-kpi__label">Średnie wydatki / mies.</span>
+            <span className="report-kpi__label">Średnio miesięcznie</span>
             <strong className="report-kpi__value">{moneyLabel(averagePerMonth)}</strong>
             <span className="report-kpi__hint">
               {monthsInRange > 0 ? `${monthsInRange} mies. w zakresie` : 'Brak danych'}
             </span>
           </div>
           <div className="report-kpi">
-            <span className="report-kpi__label">Średnie wydatki / dzień</span>
+            <span className="report-kpi__label">Średnio dziennie</span>
             <strong className="report-kpi__value">{moneyLabel(averagePerDay)}</strong>
             <span className="report-kpi__hint">
               {daysInRange > 0 ? `${daysInRange} dni w zakresie` : 'Brak danych'}
@@ -476,7 +408,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
           </div>
           {mostFrequentEntry && (
             <div className="report-kpi">
-              <span className="report-kpi__label">Najczęstszy tag</span>
+              <span className="report-kpi__label">Najczęstsza kategoria</span>
               <strong className="report-kpi__value">{mostFrequentEntry.name}</strong>
               <span className="report-kpi__hint">
                 {mostFrequentEntry.count}{' '}

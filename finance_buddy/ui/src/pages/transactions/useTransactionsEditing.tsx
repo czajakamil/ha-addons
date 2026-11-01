@@ -1,4 +1,4 @@
-// Edycja inline wierszy transakcji: komentarz, data, kwoty, pola słownikowe
+// Edycja inline wierszy transakcji: komentarz, kwota, pola słownikowe
 // (konto/sklep/kategoria) oraz cykliczna zmiana statusu. Zwraca funkcje renderujące
 // komórki i handlery zdarzeń siatki, z których korzysta TransactionsPage.
 import { useCallback, useState } from 'react';
@@ -8,14 +8,13 @@ import { Account, Category, Store, Transaction, updateTransaction } from '../../
 import LookupAutocompleteInput from '../../components/transactions/LookupAutocompleteInput';
 import CommentEditCell from '../../components/transactions/CommentEditCell';
 import AmountEditCell from '../../components/transactions/AmountEditCell';
-import DateEditCell from '../../components/transactions/DateEditCell';
 import { TagChip } from '../../components/tags/TagChip';
-import { formatMoney, parseAmountToCents } from '../../utils/format';
-import {
-  getNextStatusPayload,
-  type EditableAmountField,
-  type EditableLookupField
-} from './model';
+import { ArrowLeftRight } from 'lucide-react';
+import Money from '../../components/ui/Money';
+import TruncatedText from '../../components/ui/TruncatedText';
+import { parseAmountToCents } from '../../utils/format';
+import { BALANCE_ADJUSTMENT_LABEL, isBalanceAdjustment, userComment } from '../../utils/transactionLabels';
+import { getNextStatusPayload, type EditableLookupField } from './model';
 
 type UseTransactionsEditingParams = {
   transactions: Transaction[];
@@ -27,7 +26,6 @@ type UseTransactionsEditingParams = {
   accountMap: Map<string, Account>;
   storeMap: Map<string, Store>;
   categoryMap: Map<string, Category>;
-  formatTransferLabel: (tx: Transaction) => string | null;
   getLookupDisplayValue: (tx: Transaction, field: EditableLookupField) => string;
   openTransactionDetails: (transactionId: string) => void;
 };
@@ -52,7 +50,6 @@ export const useTransactionsEditing = ({
   accountMap,
   storeMap,
   categoryMap,
-  formatTransferLabel,
   getLookupDisplayValue,
   openTransactionDetails
 }: UseTransactionsEditingParams) => {
@@ -66,16 +63,8 @@ export const useTransactionsEditing = ({
     field: EditableLookupField;
     inputValue: string;
   } | null>(null);
-  const [editingAmount, setEditingAmount] = useState<{
-    transactionId: string;
-    field: EditableAmountField;
-    value: string;
-  } | null>(null);
+  const [editingAmount, setEditingAmount] = useState<{ transactionId: string; value: string } | null>(null);
   const [savingAmountId, setSavingAmountId] = useState<string | null>(null);
-  const [editingDate, setEditingDate] = useState<{ transactionId: string; value: string } | null>(
-    null
-  );
-  const [savingDateId, setSavingDateId] = useState<string | null>(null);
 
   const handleTransactionFieldChange = async (
     transaction: Transaction,
@@ -105,7 +94,7 @@ export const useTransactionsEditing = ({
   };
 
   const startEditingComment = useCallback((transaction: Transaction) => {
-    setEditingComment({ transactionId: transaction.id, value: transaction.comment ?? '' });
+    setEditingComment({ transactionId: transaction.id, value: userComment(transaction.comment) ?? '' });
   }, []);
 
   const cancelEditingComment = () => {
@@ -123,7 +112,7 @@ export const useTransactionsEditing = ({
     }
 
     const nextValue = editingComment.value.trim();
-    const normalizedCurrent = (transaction.comment ?? '').trim();
+    const normalizedCurrent = userComment(transaction.comment) ?? '';
 
     if (normalizedCurrent === nextValue) {
       setEditingComment(null);
@@ -193,8 +182,7 @@ export const useTransactionsEditing = ({
         newId = (foundExact ?? foundFuzzy)?.id ?? null;
         if (!newId) {
           const cleaned = normalized
-            .replace(/^transfer\s*:?\s*/i, '')
-            .replace(/^przelew\s*/i, '')
+            .replace(/^(transfer|przelew)\s*:?\s*/i, '')
             .replace(/^(do|na|to)\s*/i, '')
             .replace(/^[→<-]+\s*/, '')
             .replace(/\(.*\)\s*$/i, '')
@@ -252,19 +240,11 @@ export const useTransactionsEditing = ({
     setEditingLookup(null);
   };
 
-  const startEditingAmount = useCallback((transaction: Transaction, field: EditableAmountField) => {
-    const current = transaction.total_cents;
-    const initialValue =
-      field === 'outflow' && current < 0
-        ? (Math.abs(current) / 100).toFixed(2)
-        : field === 'inflow' && current > 0
-          ? (current / 100).toFixed(2)
-          : '';
-
+  // Jedna kolumna kwoty: wydatek edytujemy ze znakiem minus, wpływ bez znaku.
+  const startEditingAmount = useCallback((transaction: Transaction) => {
     setEditingAmount({
       transactionId: transaction.id,
-      field,
-      value: initialValue
+      value: (transaction.total_cents / 100).toFixed(2).replace('.', ',')
     });
   }, []);
 
@@ -272,7 +252,7 @@ export const useTransactionsEditing = ({
     if (!editingAmount) return;
     if (savingAmountId) return;
 
-    const { transactionId, field, value } = editingAmount;
+    const { transactionId, value } = editingAmount;
 
     const tx = transactions.find((t) => t.id === transactionId);
     if (!tx) {
@@ -285,20 +265,11 @@ export const useTransactionsEditing = ({
       return;
     }
 
-    const cents = parseAmountToCents(value);
-    if (cents === null || cents < 0) {
-      setInlineError('Kwota musi być nieujemną liczbą.');
+    const newTotalCents = parseAmountToCents(value.replace('\u2212', '-'));
+    if (newTotalCents === null) {
+      setInlineError('Podaj poprawną kwotę, np. -123,45.');
       return;
     }
-
-    const newTotalCents =
-      field === 'outflow'
-        ? cents === 0
-          ? 0
-          : -Math.abs(cents)
-        : cents === 0
-          ? 0
-          : Math.abs(cents);
 
     if (newTotalCents === tx.total_cents) {
       setEditingAmount(null);
@@ -316,51 +287,6 @@ export const useTransactionsEditing = ({
       setInlineError('Nie udało się zaktualizować kwoty transakcji.');
     } finally {
       setSavingAmountId(null);
-    }
-  };
-
-  const startEditingDate = useCallback((transaction: Transaction) => {
-    setEditingDate({ transactionId: transaction.id, value: transaction.date ?? '' });
-  }, []);
-
-  const cancelEditingDate = () => {
-    setEditingDate(null);
-  };
-
-  const commitDateEdit = async () => {
-    if (!editingDate) return;
-    if (savingDateId) return;
-
-    const transaction = transactions.find((tx) => tx.id === editingDate.transactionId);
-    if (!transaction) {
-      setEditingDate(null);
-      return;
-    }
-
-    const nextValue = editingDate.value.trim();
-    const normalizedCurrent = (transaction.date ?? '').trim();
-
-    if (normalizedCurrent === nextValue) {
-      setEditingDate(null);
-      return;
-    }
-
-    if (nextValue && !/^\d{4}-\d{2}-\d{2}$/.test(nextValue)) {
-      setInlineError('Nieprawidłowy format daty. Użyj YYYY-MM-DD.');
-      return;
-    }
-
-    setSavingDateId(transaction.id);
-    try {
-      const updated = await updateTransaction(transaction.id, { date: nextValue || null });
-      setTransactions((prev) => prev.map((tx) => (tx.id === updated.id ? updated : tx)));
-      setInlineError(null);
-      setEditingDate(null);
-    } catch (err) {
-      console.error(err);
-      setInlineError('Nie udało się zaktualizować daty transakcji.');
-    } finally {
-      setSavingDateId(null);
     }
   };
 
@@ -384,8 +310,7 @@ export const useTransactionsEditing = ({
   );
 
   const renderCommentCell = (transaction: Transaction) => {
-    const commentText =
-      transaction.comment && transaction.comment.trim().length > 0 ? transaction.comment : '—';
+    const commentText = userComment(transaction.comment);
     const isEditing = editingComment?.transactionId === transaction.id;
     const isSaving = savingCommentId === transaction.id;
     const className = ['editable-cell', 'align-middle', isEditing ? 'is-editing' : '']
@@ -410,41 +335,7 @@ export const useTransactionsEditing = ({
     }
 
     return (
-      <div className={className} title={commentText === '—' ? undefined : commentText}>
-        <span className="transactions-table__truncate">{commentText}</span>
-      </div>
-    );
-  };
-
-  const renderDateCell = (transaction: Transaction) => {
-    const isEditing = editingDate?.transactionId === transaction.id;
-    const isSaving = savingDateId === transaction.id;
-    const className = ['editable-cell', 'align-middle', isEditing ? 'is-editing' : '']
-      .filter(Boolean)
-      .join(' ');
-
-    if (isEditing) {
-      return (
-        <div className={className}>
-          <DateEditCell
-            value={editingDate?.value ?? ''}
-            disabled={isSaving}
-            isSaving={isSaving}
-            onChange={(value) => setEditingDate((prev) => (prev ? { ...prev, value } : prev))}
-            onCommit={commitDateEdit}
-            onCancel={cancelEditingDate}
-          />
-          <div className="editable-cell__meta">
-            {isSaving ? 'Zapisywanie…' : 'Enter – zapisz, Esc – anuluj'}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className={className} title="Dwuklik, aby edytować">
-        <span className="editable-cell__value">{transaction.date ?? '—'}</span>
-      </div>
+      <div className={className}>{commentText && <TruncatedText text={commentText} />}</div>
     );
   };
 
@@ -458,7 +349,7 @@ export const useTransactionsEditing = ({
         field === 'store'
           ? [
               ...accounts.map(
-                (a) => `Transfer: ${a.name}${a.currency ? ` (${a.currency})` : ''}`
+                (a) => `Przelew: ${a.name}${a.currency ? ` (${a.currency})` : ''}`
               ),
               ...stores.map((s) => (s.group_name?.trim() || s.name || '').trim())
             ]
@@ -495,56 +386,48 @@ export const useTransactionsEditing = ({
     }
 
     if (field === 'account') {
-      return accountMap.get(transaction.account_id)?.name ?? '—';
+      return <TruncatedText text={accountMap.get(transaction.account_id)?.name ?? '—'} />;
     }
 
     if (field === 'store') {
-      const transferLabel = formatTransferLabel(transaction);
-      if (transferLabel) {
-        return <span className="transactions-table__truncate">{transferLabel}</span>;
+      if (transaction.transfer_account_id) {
+        const own = accountMap.get(transaction.account_id)?.name ?? '—';
+        const other = accountMap.get(transaction.transfer_account_id)?.name ?? '—';
+        const [from, to] = transaction.total_cents < 0 ? [own, other] : [other, own];
+        return (
+          <span className="transactions-transfer">
+            <ArrowLeftRight size={14} aria-hidden="true" />
+            <TruncatedText text={`${from} → ${to}`} />
+          </span>
+        );
       }
       const store = transaction.store_id ? storeMap.get(transaction.store_id) : undefined;
       const storeGroupName = (store?.group_name ?? '').trim();
       const storeActualName = (store?.name ?? '').trim();
-      const storeDisplayName =
-        storeGroupName.length > 0
-          ? storeGroupName
-          : storeActualName.length > 0
-          ? storeActualName
-          : '—';
-      const showStoreActualName =
-        !!store &&
-        storeGroupName.length > 0 &&
-        storeActualName.length > 0 &&
-        storeGroupName !== storeActualName;
-      const storeTitle =
-        storeDisplayName === '—' ? undefined : storeActualName || storeGroupName || undefined;
-
-      return (
-        <div className="transactions-grid__store">
-          <span className="transactions-table__truncate" title={storeTitle}>
-            {storeDisplayName}
-          </span>
-          {showStoreActualName && (
-            <small className="text-secondary d-block">{storeActualName}</small>
-          )}
-        </div>
+      const storeDisplayName = storeGroupName || storeActualName;
+      if (isBalanceAdjustment(storeDisplayName)) {
+        return <span className="transactions-muted">{BALANCE_ADJUSTMENT_LABEL}</span>;
+      }
+      return storeDisplayName ? (
+        <TruncatedText text={storeDisplayName} />
+      ) : (
+        <span className="transactions-muted">Bez sklepu</span>
       );
     }
 
+    // Przelew nie ma kategorii, a brak kategorii to pusta komórka, nie kreska
     if (!transaction.category_id) {
-      return '—';
+      return null;
     }
     const category = categoryMap.get(transaction.category_id);
     if (!category) {
-      return '—';
+      return null;
     }
     return <TagChip category={category} byId={categoryMap} />;
   };
 
-  const renderAmountCell = (transaction: Transaction, field: EditableAmountField) => {
-    const isEditing =
-      editingAmount?.transactionId === transaction.id && editingAmount.field === field;
+  const renderAmountCell = (transaction: Transaction) => {
+    const isEditing = editingAmount?.transactionId === transaction.id;
     const isSaving = savingAmountId === transaction.id;
 
     if (isEditing) {
@@ -554,9 +437,7 @@ export const useTransactionsEditing = ({
             value={editingAmount?.value ?? ''}
             disabled={isSaving}
             isSaving={isSaving}
-            onChange={(value) =>
-              setEditingAmount((prev) => (prev ? { ...prev, value } : prev))
-            }
+            onChange={(value) => setEditingAmount((prev) => (prev ? { ...prev, value } : prev))}
             onCommit={commitAmountEdit}
             onCancel={() => setEditingAmount(null)}
           />
@@ -564,26 +445,12 @@ export const useTransactionsEditing = ({
       );
     }
 
-    if (field === 'outflow') {
-      return transaction.total_cents < 0
-        ? formatMoney(Math.abs(transaction.total_cents), transaction.currency)
-        : '—';
-    }
-
-    return transaction.total_cents > 0
-      ? formatMoney(transaction.total_cents, transaction.currency)
-      : '—';
+    return <Money cents={transaction.total_cents} currency={transaction.currency} />;
   };
 
   const handleGridDoubleClick = useCallback(
     (args: TransactionCellArgs) => {
       const { column, row } = args;
-
-      if (column.key === 'date') {
-        if (savingDateId === row.id) return;
-        startEditingDate(row);
-        return;
-      }
 
       if (column.key === 'comment') {
         const isEditing = editingComment?.transactionId === row.id;
@@ -600,8 +467,8 @@ export const useTransactionsEditing = ({
         return;
       }
 
-      if (column.key === 'outflow' || column.key === 'inflow') {
-        startEditingAmount(row, column.key as EditableAmountField);
+      if (column.key === 'amount') {
+        startEditingAmount(row);
         return;
       }
 
@@ -612,11 +479,9 @@ export const useTransactionsEditing = ({
     [
       editingComment,
       savingCommentId,
-      savingDateId,
       savingFieldTransactionId,
       openTransactionDetails,
       startEditingComment,
-      startEditingDate,
       startEditingLookup,
       startEditingAmount
     ]
@@ -646,7 +511,6 @@ export const useTransactionsEditing = ({
     statusUpdatingId,
     cycleTransactionStatus,
     renderCommentCell,
-    renderDateCell,
     renderLookupCell,
     renderAmountCell,
     handleGridDoubleClick,

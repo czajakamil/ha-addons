@@ -1,339 +1,279 @@
-/* Ekran startowy (pages/home/HomePage.tsx).
- *
- * Jedna kolumna o ograniczonej szerokości: to lista spraw do załatwienia,
- * czytana z góry na dół — tak samo na telefonie jak na monitorze.
- */
+/* ==========================================================================
+   Ekran Start.
+   ========================================================================== */
 
-.home-page {
-  max-width: 760px;
-}
-
-.home-page__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.home-page__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.home-page__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-}
-
-.home-page__section-title {
-  margin: 0 0 var(--space-1);
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.home-page__section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.home-page__more {
-  font-size: var(--fs-sm);
-}
-
-.home-page__done {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-block: var(--space-2);
-  color: var(--success);
-  font-weight: 500;
-}
-
-/* --- Listy (do zrobienia, koperty, ostatnie) ----------------------------- */
-
-.home-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.home-list__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 44px;
-  padding-block: var(--space-1);
-  border-top: 1px solid var(--border-soft);
-  color: var(--text);
-  text-decoration: none;
-}
-
-.home-list li:first-child > .home-list__row,
-.home-list > .home-list__row:first-child {
-  border-top: 0;
-}
-
-a.home-list__row:hover {
-  color: var(--text-strong);
-  background: var(--surface-subtle);
-}
-
-.home-list__icon {
-  flex-shrink: 0;
-}
-
-.home-list__icon.is-danger {
-  color: var(--danger);
-}
-
-.home-list__icon.is-warning {
-  color: var(--warning);
-}
-
-.home-list__icon.is-info {
-  color: var(--primary);
-}
-
-.home-list__label {
-  /* Bez min-width: 0 — etykieta ma się zawijać między słowami, a nie łamać
-   * słowa, gdy obok stoi długa kwota. */
-  flex: 1;
-}
-
-.home-list__value {
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-list__chevron {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-
-/* --- Liczby miesiąca ---------------------------------------------------- */
-
-.home-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: var(--space-3);
-}
-
-.home-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-3);
-  border-radius: var(--r);
-  background: var(--surface-muted);
-}
-
-.home-metric__label {
-  font-size: var(--fs-sm);
-  color: var(--muted);
-}
-
-.home-metric__value {
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  color: var(--text-strong);
-  font-variant-numeric: tabular-nums;
-}
-
-.home-metric__note {
-  font-size: var(--fs-xs);
-}
-
-.home-metric__note.is-danger,
-.home-envelope__note.is-danger {
-  color: var(--danger);
-}
-
-.home-metric__note.is-success {
-  color: var(--success);
-}
-
-/* --- Koperty ------------------------------------------------------------ */
-
-.home-envelope__name {
-  flex: 0 0 34%;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-envelope__bar {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background:
-    linear-gradient(var(--bar-color), var(--bar-color)) no-repeat left / var(--fill) 100%,
-    var(--surface-muted);
-}
-
-.home-envelope__bar.is-danger {
-  --bar-color: var(--danger);
-}
-
-.home-envelope__bar.is-warning {
-  --bar-color: var(--warning);
-}
-
-.home-envelope__note {
-  flex: 0 0 auto;
-  min-width: 120px;
-  text-align: right;
-  font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-/* --- Ostatnie transakcje ------------------------------------------------ */
-
-.home-recent__date {
-  flex: 0 0 3rem;
-  font-size: var(--fs-sm);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.home-recent__payee {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.home-recent__payee > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-recent__payee:hover {
-  color: var(--text-strong);
-}
-
-.home-recent__account {
-  font-size: var(--fs-xs);
-  color: var(--muted);
-}
-
-.home-recent__tag {
-  display: flex;
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 40%;
-}
-
-.home-recent__tag .tag-chip {
-  max-width: 100%;
-}
-
-.home-recent__tag .tag-chip__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-recent__add-tag {
-  padding: 1px 8px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--pill);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--fs-xs);
-}
-
-.home-recent__add-tag:hover {
-  color: var(--text-strong);
-  border-color: var(--text-soft);
-}
-
-.home-recent__amount {
-  flex: 0 0 auto;
-  min-width: 6.5rem;
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-recent__amount.is-income {
-  color: var(--success);
-}
-
-@media (max-width: 575px) {
-  .home-page__actions {
-    width: 100%;
+@layer components {
+  .home-add {
+    gap: var(--s-8);
   }
 
-  .home-page__actions > * {
-    flex: 1;
+  .home-error {
+    margin: 0 0 var(--s-16);
+    color: var(--negative);
+    font-size: var(--text-13);
   }
 
-  .home-envelope {
+  .home-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-16);
+  }
+
+  .home-skeleton__hero { height: 120px; border-radius: var(--radius-card); }
+  .home-skeleton__row { height: var(--row-height); }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: var(--s-24);
+  }
+
+  .home-hero,
+  .home-figures {
+    grid-column: 1 / -1;
+  }
+
+  .home-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--s-24);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  .home-hero__label,
+  .home-figure__label {
+    color: var(--text-muted);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+    font-weight: var(--weight-medium);
+  }
+
+  .home-hero__value {
+    text-align: start;
+    font-size: var(--text-32);
+    line-height: var(--leading-32);
+    font-weight: var(--weight-semibold);
+  }
+
+  .home-hero__note,
+  .home-figure__note {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+  }
+
+  .home-figures {
+    display: flex;
     flex-wrap: wrap;
-    row-gap: 2px;
+    gap: var(--s-48);
+    padding-inline: var(--s-24);
   }
 
-  .home-envelope__name {
-    flex: 1 1 auto;
+  .home-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-decoration: none;
   }
 
-  .home-envelope__bar {
-    order: 3;
-    flex-basis: 100%;
+  .home-figure__value {
+    text-align: start;
+    font-size: var(--text-20);
+    line-height: var(--leading-20);
+    font-weight: var(--weight-semibold);
   }
 
-  /* Kafelki jako zwarte wiersze: etykieta po lewej, kwota po prawej. */
-  .home-metrics {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
+  .home-figure:hover .home-figure__label {
+    color: var(--text);
   }
 
-  .home-metric {
-    flex-flow: row wrap;
-    align-items: baseline;
+  .home-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-24);
+    min-width: 0;
+  }
+
+  .home-block {
+    min-width: 0;
+  }
+
+  .home-block + .home-block {
+    margin-block-start: 0;
+  }
+
+  .home-block__head {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    column-gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
   }
 
-  .home-metric__label {
-    flex: 1 1 0;
+  .home-block__title {
+    margin: 0 0 var(--s-8);
+    font-size: var(--text-16);
+    line-height: var(--leading-16);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0;
   }
 
-  .home-metric__value {
-    font-size: var(--fs-lg);
+  .home-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    overflow: hidden;
   }
 
-  .home-metric__note {
-    flex-basis: 100%;
-    text-align: right;
+  .home-list > li + li {
+    border-block-start: 1px solid var(--border);
   }
 
-  /* Data, opis i kwota w pierwszej linii, tag pod opisem. */
+  .home-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: var(--row-height);
+    padding: var(--s-8) var(--s-16);
+    font-size: var(--text-14);
+    line-height: var(--leading-14);
+    text-decoration: none;
+    transition: background var(--motion-fast);
+  }
+
+  .home-alert:hover {
+    background: var(--surface-2);
+  }
+
+  .home-alert__icon { flex-shrink: 0; color: var(--text-muted); }
+  .home-alert__icon.is-danger { color: var(--negative); }
+  .home-alert__icon.is-warning { color: var(--warning); }
+
+  .home-alert__label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .home-alert__value {
+    font-weight: var(--weight-medium);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .home-alert__chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
   .home-recent {
-    flex-wrap: wrap;
-    row-gap: 2px;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) minmax(0, 160px) 104px;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: var(--row-height);
+    padding: var(--s-8) var(--s-16);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+  }
+
+  .home-recent .money {
+    justify-self: end;
+  }
+
+  .home-recent__date {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .home-recent__payee {
+    min-width: 0;
+    text-decoration: none;
+  }
+
+  .home-recent__payee:hover .truncate:first-child {
+    color: var(--accent);
+  }
+
+  .home-recent__payee.is-muted {
+    color: var(--text-muted);
+  }
+
+  .home-recent__account {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
   }
 
   .home-recent__tag {
-    order: 4;
-    flex-basis: 100%;
-    max-width: 100%;
-    padding-left: calc(3rem + var(--space-2));
+    min-width: 0;
+    display: flex;
   }
 
-  .home-recent__amount {
-    min-width: 0;
+  .home-envelope {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    padding: var(--s-8) var(--s-16);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+    text-decoration: none;
+    transition: background var(--motion-fast);
+  }
+
+  .home-envelope:hover {
+    background: var(--surface-2);
+  }
+
+  .home-envelope__head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-12);
+  }
+
+  .home-envelope__note {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-envelope__note.is-over {
+    color: var(--negative);
+  }
+
+  @media (max-width: 1099px) {
+    .home-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home-side {
+      order: 1;
+    }
+
+    .home-main {
+      order: 2;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .home-hero { padding: var(--s-16); }
+    .home-figures { gap: var(--s-24); padding-inline: var(--s-16); }
+
+    /* Telefon: kategoria schodzi pod sklep, data i kwota zostają w rzędzie */
+    .home-recent {
+      grid-template-columns: 44px minmax(0, 1fr) 96px;
+    }
+
+    .home-recent__tag {
+      grid-column: 2 / -1;
+      grid-row: 2;
+    }
   }
 }

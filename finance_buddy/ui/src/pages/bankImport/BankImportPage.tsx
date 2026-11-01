@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { IconArrowBackUp, IconFileSpreadsheet, IconSettings } from '@tabler/icons-react';
+import { FileSpreadsheetIcon, SettingsIcon, Undo2Icon } from 'lucide-react';
 import Button from '../../components/Button';
+import { copy } from '../../copy/pl';
 import {
   ApiError,
   commitBankFile,
@@ -27,6 +28,7 @@ import {
   type Mapping,
   type RowOverride
 } from './mapping';
+import ResizableTable from '../../components/ui/ResizableTable';
 
 const EMPTY_MAPPING: Mapping = { columns: {}, amount_mode: 'signed', status_accepted: [] };
 const PREVIEW_DEBOUNCE_MS = 300;
@@ -54,6 +56,7 @@ const errorText = (err: unknown, fallback: string) => {
  * do jednej linii i od razu widać podgląd — import to wtedy jedno kliknięcie.
  */
 const BankImportPage = () => {
+  const [step, setStep] = useState(1);
   const [searchParams] = useSearchParams();
   const { data: accountsData } = useApi(getAccounts, {
     errorMessage: 'Nie udało się wczytać kont.'
@@ -239,6 +242,9 @@ const BankImportPage = () => {
 
   const mappedSummary = inspected?.profile && !mappingOpen;
 
+  // Bez wczytanego pliku zawsze wracamy na pierwszy krok, np. po udanym imporcie
+  const activeStep = inspected ? step : 1;
+
   return (
     <div className="page-wrapper compact-page">
       <div className="page-shell">
@@ -251,6 +257,22 @@ const BankImportPage = () => {
         </div>
 
         <div className="page-body">
+          <ol className="wizard-steps" aria-label={copy.bankImport.stepsLabel}>
+            {copy.bankImport.steps.map((label, index) => (
+              <li
+                key={label}
+                className={`wizard-steps__step${activeStep === index + 1 ? ' is-active' : ''}${
+                  activeStep > index + 1 ? ' is-done' : ''
+                }`}
+                aria-current={activeStep === index + 1 ? 'step' : undefined}
+              >
+                <span className="wizard-steps__number">{index + 1}</span>
+                {label}
+              </li>
+            ))}
+          </ol>
+
+          {activeStep === 1 ? (
           <div className="card">
             <div className="card-body bank-import__file">
               <label className="form-label">
@@ -291,9 +313,15 @@ const BankImportPage = () => {
                 {error}
               </div>
             ) : null}
+            <div className="card-footer wizard-steps__actions">
+              <Button disabled={!inspected || !accountId} onClick={() => setStep(2)}>
+                {copy.bankImport.next}
+              </Button>
+            </div>
           </div>
+          ) : null}
 
-          {inspected ? (
+          {inspected && activeStep === 2 ? (
             <div className="card mt-3">
               <div className="card-header">
                 <h3 className="card-title">Mapowanie kolumn</h3>
@@ -302,7 +330,7 @@ const BankImportPage = () => {
                     <Button
                       variant="outline-secondary"
                       size="sm"
-                      icon={<IconSettings size={16} />}
+                      icon={<SettingsIcon size={16} />}
                       onClick={() => setMappingOpen(true)}
                     >
                       Zmień mapowanie
@@ -345,19 +373,24 @@ const BankImportPage = () => {
                   </>
                 )}
               </div>
+              <div className="card-footer wizard-steps__actions">
+                <Button variant="outline-secondary" onClick={() => setStep(1)}>
+                  {copy.bankImport.back}
+                </Button>
+                <Button disabled={!previewReady} onClick={() => setStep(3)}>
+                  {copy.bankImport.next}
+                </Button>
+              </div>
             </div>
           ) : null}
 
-          {inspected && !accountId ? (
-            <div className="alert alert-info mt-3">Wybierz konto, żeby zobaczyć podgląd.</div>
-          ) : null}
-          {previewError ? (
+          {previewError && activeStep > 1 ? (
             <div className="alert alert-danger mt-3" role="alert">
               {previewError}
             </div>
           ) : null}
 
-          {previewReady && preview && account ? (
+          {activeStep === 3 && previewReady && preview && account ? (
             <div className="card mt-3">
               <div className="card-header">
                 <h3 className="card-title">
@@ -402,11 +435,14 @@ const BankImportPage = () => {
                     />
                   ) : null}
                   <span className="flex-grow-1" />
+                  <Button variant="outline-secondary" onClick={() => setStep(2)}>
+                    {copy.bankImport.back}
+                  </Button>
                   {missingTransferAccount ? (
                     <span className="text-warning small">Wskaż konto drugiej strony przelewu.</span>
                   ) : null}
                   <Button
-                    icon={<IconFileSpreadsheet size={16} />}
+                    icon={<FileSpreadsheetIcon size={16} />}
                     onClick={() => void handleCommit()}
                     disabled={
                       committing ||
@@ -435,7 +471,7 @@ const BankImportPage = () => {
               <h3 className="card-title">Historia importów</h3>
             </summary>
             <div className="table-responsive">
-              <table className="table table-sm table-vcenter card-table">
+              <ResizableTable tableId="bank-import-history" className="table table-sm table-vcenter card-table">
                 <thead>
                   <tr>
                     <th>Kiedy</th>
@@ -462,7 +498,7 @@ const BankImportPage = () => {
                         <Button
                           variant="link"
                           size="sm"
-                          icon={<IconArrowBackUp size={16} />}
+                          icon={<Undo2Icon size={16} />}
                           onClick={() => void handleUndo(batch)}
                         >
                           Cofnij
@@ -478,7 +514,7 @@ const BankImportPage = () => {
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
+              </ResizableTable>
             </div>
           </details>
         </div>

@@ -1,5 +1,6 @@
 import type { BankParseOptions } from '../../../api';
 import type { AmountMode, Column, ColumnRole, Mapping } from '../mapping';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 const ROLE_LABELS: Record<ColumnRole, string> = {
   ignore: '— pomiń —',
@@ -215,7 +216,7 @@ const MappingSection = ({
       </details>
 
       <div className="table-responsive mt-2">
-        <table className="table table-sm table-vcenter bank-import__columns">
+        <ResizableTable tableId="bank-import-mapping" className="table table-sm table-vcenter bank-import__columns">
           <thead>
             <tr>
               <th>Kolumna w pliku</th>
@@ -266,7 +267,7 @@ const MappingSection = ({
               );
             })}
           </tbody>
-        </table>
+        </ResizableTable>
       </div>
 
       {errors.length ? (

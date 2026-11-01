@@ -1,0 +1,49 @@
+# Lokalne testy UI bez Home Assistanta i bez logowania:
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Aplikacja: http://localhost:5173. Zmiany w ui/src odświeżają się od razu, zmiany
+# w backend/ restartują API. Baza leży w ./data; żeby zacząć od zera, usuń ten katalog.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: finance-buddy-dev
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+    environment:
+      # Każdy, kto dosięgnie API, dostaje sesję admina, dlatego backend nie ma
+      # opublikowanego portu, a UI nasłuchuje tylko na 127.0.0.1.
+      FINANCE_DEV_LOGIN: "1"
+      FINANCE_BACKUP_ENABLED: "false"
+      # OpenSSL z pakietu cryptography pada z SIGILL przy wykrywaniu CPU na Apple M4
+      # w Dockerze. To wyłącza tylko to wykrywanie.
+      OPENSSL_armcap: "0"
+      # OpenCV, od którego zależy rapidocr, pada tam tak samo i nie ma takiego
+      # obejścia, więc paragony czyta tu Tesseract.
+      RECEIPT_EXTRACTOR: tesseract
+      XDG_DATA_HOME: /app/data/.keyring
+      PYTHON_KEYRING_BACKEND: keyrings.alt.file.PlaintextKeyring
+      # Opcjonalnie, dla ekranu powitalnego z importem z YNAB.
+      YNAB_API_KEY: ${YNAB_API_KEY:-}
+
+  ui:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./ui:/app
+      # node_modules z Linuksa, osobno od tych na hoście.
+      - ui_node_modules:/app/node_modules
+    environment:
+      VITE_API_BASE_URL: /__api
+      API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  ui_node_modules:

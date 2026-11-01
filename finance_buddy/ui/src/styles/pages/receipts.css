@@ -7,23 +7,107 @@
 
 /* --- Skrzynka ----------------------------------------------------------- */
 
-.receipt-inbox__file {
-  max-width: 26rem;
-}
-
 .receipt-inbox__toolbar {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-8);
 }
 
-.receipt-inbox__row {
-  cursor: pointer;
+.receipt-inbox__progress { font-size: var(--text-12); color: var(--text-muted); }
+
+.receipt-inbox__progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-block-end: var(--s-4);
+  font-variant-numeric: tabular-nums;
 }
 
-.receipt-inbox__row:hover {
-  background: var(--surface-muted);
+.receipt-inbox__card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.receipt-inbox__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-13);
+  line-height: var(--leading-13);
+}
+
+.receipt-inbox__table th {
+  height: var(--row-height-compact);
+  padding: 0 var(--s-16);
+  border-block-end: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.receipt-inbox__table td {
+  height: 48px;
+  max-width: 0;
+  padding: var(--s-4) var(--s-16);
+  border-block-end: 1px solid var(--border);
+}
+
+.receipt-inbox__table tr:last-child td { border-block-end: 0; }
+
+.receipt-inbox__table .receipt-inbox__amount {
+  width: 136px;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.receipt-inbox__date { width: 96px; color: var(--text-muted); white-space: nowrap; }
+.receipt-inbox__status { width: 320px; }
+.receipt-inbox__status .receipt-badge { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.receipt-inbox__actions { width: 56px; text-align: end; }
+
+.receipt-inbox__meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  line-height: var(--leading-12);
+}
+
+.receipt-inbox__row { cursor: pointer; }
+.receipt-inbox__row:hover { background: var(--surface-2); }
+
+@media (max-width: 700px) {
+  .receipt-inbox .segmented { flex-wrap: wrap; }
+  .receipt-inbox__table thead { display: none; }
+
+  .receipt-inbox__table,
+  .receipt-inbox__table tbody { display: block; }
+
+  .receipt-inbox__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    padding: var(--s-8) var(--s-12);
+    gap: var(--s-4) var(--s-8);
+    border-block-end: 1px solid var(--border);
+  }
+
+  .receipt-inbox__table td {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .receipt-inbox__table td.receipt-inbox__date { display: none; }
+  .receipt-inbox__table td.receipt-inbox__status { grid-column: 1 / -1; grid-row: 2; }
 }
 
 /* --- Odznaki werdyktów --------------------------------------------------- */
@@ -33,30 +117,30 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.1rem 0.45rem;
-  border-radius: var(--r-xs);
-  font-size: var(--fs-xs);
+  border-radius: var(--radius-control);
+  font-size: var(--text-12);
   font-weight: 600;
-  background: var(--surface-muted);
-  color: var(--muted-strong);
+  background: var(--surface-2);
+  color: var(--text-muted);
   border: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .receipt-badge--ok {
-  background: var(--success-bg);
-  color: var(--success);
+  background: var(--positive-tint);
+  color: var(--positive);
   border-color: transparent;
 }
 
 .receipt-badge--warn {
-  background: var(--warning-bg);
+  background: var(--warning-tint);
   color: var(--warning);
   border-color: transparent;
 }
 
 .receipt-badge--bad {
-  background: var(--danger-bg);
-  color: var(--danger);
+  background: var(--negative-tint);
+  color: var(--negative);
   border-color: transparent;
 }
 
@@ -91,10 +175,10 @@
 .receipt-editor__actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--s-8);
   flex-wrap: wrap;
-  padding: var(--space-1) var(--space-2);
-  background: var(--panel);
+  padding: var(--s-8) var(--s-12);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 
@@ -133,10 +217,10 @@
 
 .receipt-editor__form {
   overflow: auto;
-  padding: var(--space-2);
+  padding: var(--s-12);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-12);
 }
 
 /* --- Panel z obrazem ----------------------------------------------------- */
@@ -146,16 +230,16 @@
   grid-template-rows: auto minmax(0, 1fr);
   border-right: 1px solid var(--border);
   min-height: 0;
-  background: var(--surface-subtle);
+  background: var(--surface-2);
 }
 
 .receipt-pane__toolbar {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: var(--space-0) var(--space-1);
+  padding: var(--s-4) var(--s-8);
   border-bottom: 1px solid var(--border);
-  font-size: var(--fs-xs);
+  font-size: var(--text-12);
 }
 
 /* Nazwa pliku ustępuje przyciskom zoomu — bez tego przy wąskim panelu
@@ -173,13 +257,13 @@
 .receipt-pane__zoom {
   min-width: 4.5rem;
   text-align: center;
-  color: var(--muted);
-  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-size: var(--text-12);
 }
 
 .receipt-pane__viewport {
   overflow: auto;
-  padding: var(--space-1);
+  padding: var(--s-8);
 }
 
 .receipt-pane__viewport img {
@@ -208,7 +292,7 @@
 .receipt-field-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-1) var(--space-2);
+  gap: var(--s-8) var(--s-12);
 }
 
 .receipt-field {
@@ -220,7 +304,7 @@
 .receipt-field--split {
   display: grid;
   grid-template-columns: 1fr 6rem;
-  gap: var(--space-1);
+  gap: var(--s-8);
   align-items: start;
 }
 
@@ -234,8 +318,8 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding-top: var(--space-1);
-  font-size: var(--fs-sm);
+  padding-top: var(--s-8);
+  font-size: var(--text-13);
   cursor: pointer;
 }
 
@@ -244,7 +328,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem;
-  font-size: var(--fs-xs);
+  font-size: var(--text-12);
   min-height: 1.4rem;
 }
 
@@ -257,8 +341,8 @@
 }
 
 .receipt-items__table th {
-  font-size: var(--fs-xs);
-  color: var(--muted);
+  font-size: var(--text-12);
+  color: var(--text-muted);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -289,7 +373,7 @@
 
 .receipt-items__drag {
   cursor: grab;
-  color: var(--muted);
+  color: var(--text-muted);
   user-select: none;
   padding-top: 0.6rem;
 }
@@ -302,8 +386,8 @@
 }
 
 .receipt-items__new-product-hint {
-  color: var(--success);
-  font-size: var(--fs-xs);
+  color: var(--positive);
+  font-size: var(--text-12);
 }
 
 .receipt-items__row--skipped {
@@ -313,25 +397,25 @@
 .receipt-items__footer {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--s-8);
   flex-wrap: wrap;
-  padding-top: var(--space-1);
-  font-size: var(--fs-sm);
+  padding-top: var(--s-8);
+  font-size: var(--text-13);
 }
 
 .receipt-advanced summary {
   cursor: pointer;
-  font-size: var(--fs-sm);
+  font-size: var(--text-13);
 }
 
 .receipt-raw-text {
-  background: var(--surface-muted);
-  border-radius: var(--r-sm);
-  padding: var(--space-1);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: var(--s-8);
   max-height: 18rem;
   overflow: auto;
   white-space: pre-wrap;
-  font-size: var(--fs-xs);
+  font-size: var(--text-12);
   margin-bottom: 0;
 }
 
@@ -343,11 +427,11 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   width: 100%;
-  padding: var(--space-1);
-  border-radius: var(--r-sm);
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-size: var(--fs-sm);
+  padding: var(--s-8);
+  border-radius: var(--radius-control);
+  background: var(--negative-tint);
+  color: var(--negative);
+  font-size: var(--text-13);
 }
 
 .receipt-blockers ul {
@@ -375,7 +459,7 @@
   gap: 0.25rem;
   flex-basis: 100%;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--r-xs);
-  background: var(--warning-bg);
-  font-size: var(--fs-sm);
+  border-radius: var(--radius-control);
+  background: var(--warning-tint);
+  font-size: var(--text-13);
 }

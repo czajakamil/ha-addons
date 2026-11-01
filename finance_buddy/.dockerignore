@@ -6,4 +6,6 @@
 *.log
 .git
 .claude
+data
 *.md
+redesign-screens

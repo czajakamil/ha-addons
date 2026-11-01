@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  IconArrowRight,
-  IconFingerprint,
-  IconId,
-  IconKey,
-  IconShieldLock,
-  IconSparkles,
-  IconUser,
-} from '@tabler/icons-react';
+import { ChevronDownIcon, FingerprintIcon, KeyIcon } from 'lucide-react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import {
   beginPasskeyAuthentication,
@@ -49,6 +41,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [setup, setSetup] = useState<SetupStatus | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
 
   const passkeySupported = useMemo(
     () => typeof window !== 'undefined' && 'PublicKeyCredential' in window,
@@ -118,7 +111,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
     if (needsFirstAccount) {
       setStatus(null);
       setError(
-        'Brak zapisanych passkeys. Najpierw utwórz konto (panel „Dodaj passkey” po prawej).'
+        'Brak zapisanych passkeys. Najpierw utwórz konto.'
       );
       return;
     }
@@ -166,193 +159,138 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
   const devLoginEnabled = setup?.dev_login ?? false;
 
   return (
-    <div className="welcome">
-      <div className="welcome__halo" aria-hidden="true" />
-      <div className="welcome__panel" style={{ width: 'min(980px, 100%)' }}>
-        <div className="welcome__header">
-          <div className="welcome__eyebrow">Budget Buddy</div>
-          <h1>Zaloguj się passkey</h1>
-          <p className="welcome__lead">
-            Bez haseł, bez SMS-ów. Wystarczy potwierdzenie na urządzeniu — odcisk palca, Face ID
-            albo PIN.
-          </p>
-        </div>
+    <main className="auth">
+      <div className="auth__panel">
+        <p className="auth__brand">Budget Buddy</p>
+        <h1 className="auth__title">{needsFirstAccount ? (isFirstAdmin ? 'Utwórz konto admina' : 'Dodaj passkey') : 'Zaloguj się'}</h1>
+        <p className="auth__lead">
+          {needsFirstAccount
+            ? isFirstAdmin
+              ? 'To pierwsze uruchomienie, więc nie ma jeszcze żadnego użytkownika.'
+              : 'Na tym urządzeniu nie ma passkey. Potrzebny będzie kod zaproszenia od admina.'
+            : 'Bez hasła. Wystarczy odcisk palca, Face ID albo PIN.'}
+        </p>
 
         {!passkeySupported && (
-          <div className="welcome__alert welcome__alert--error" role="alert">
+          <p className="auth__message auth__message--error" role="alert">
             Ta przeglądarka nie obsługuje passkeys. Użyj nowszego Chrome, Safari lub Edge.
-          </div>
+          </p>
         )}
 
-        {passkeySupported && needsFirstAccount && (
-          <div className="welcome__card welcome__card--accent" style={{ margin: 0 }}>
-            <header className="welcome__card-header">
-              <div className="welcome__icon welcome__icon--accent">
-                <IconSparkles size={22} stroke={1.6} />
-              </div>
-              <div>
-                <p className="welcome__card-eyebrow">
-                  {isFirstAdmin ? 'Pierwsze uruchomienie' : 'Brak passkey na tym urządzeniu'}
-                </p>
-                <h2>
-                  {isFirstAdmin
-                    ? 'Utwórz konto admina'
-                    : 'Najpierw dodaj passkey'}
-                </h2>
-              </div>
-            </header>
-            <p className="welcome__text">
-              {isFirstAdmin
-                ? 'Nie ma jeszcze żadnego użytkownika, więc logowanie nie ma czego sprawdzić. Wpisz login admina w panelu „Dodaj passkey” i utwórz pierwszy passkey.'
-                : 'Logowanie nie zadziała, dopóki na tym urządzeniu nie utworzysz passkey. Skorzystaj z panelu „Dodaj passkey” (potrzebny kod zaproszenia od admina).'}
-            </p>
-          </div>
+        {!needsFirstAccount && (
+          <button
+            type="button"
+            className="btn btn-primary auth__submit"
+            onClick={handleLogin}
+            disabled={busy || !passkeySupported}
+          >
+            <FingerprintIcon size={18} aria-hidden="true" />
+            {busy ? 'Otwieram…' : 'Zaloguj się passkey'}
+          </button>
         )}
 
-        <div className="welcome__grid">
-          <section className="welcome__card welcome__card--primary">
-            <header className="welcome__card-header">
-              <div className="welcome__icon">
-                <IconShieldLock size={22} stroke={1.6} />
-              </div>
+        {devLoginEnabled && (
+          <button
+            type="button"
+            className="btn btn-outline-secondary auth__submit"
+            onClick={handleDevLogin}
+            disabled={busy}
+            title="Pomija passkey, tylko środowisko deweloperskie"
+          >
+            <KeyIcon size={18} aria-hidden="true" />
+            {busy ? 'Loguję…' : 'Logowanie deweloperskie'}
+          </button>
+        )}
+
+        {!needsFirstAccount && (
+          <button
+            type="button"
+            className="text-button auth__disclosure"
+            aria-expanded={showSetup}
+            aria-controls="auth-setup"
+            onClick={() => setShowSetup((current) => !current)}
+          >
+            <ChevronDownIcon size={14} aria-hidden="true" className={showSetup ? 'is-open' : undefined} />
+            Mam zaproszenie, dodaj passkey
+          </button>
+        )}
+
+        {(needsFirstAccount || showSetup) && (
+          <form
+            id="auth-setup"
+            className="auth__form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleRegister();
+            }}
+          >
+            {!isFirstAdmin && (
               <div>
-                <p className="welcome__card-eyebrow">Mam już passkey</p>
-                <h2>Logowanie</h2>
-              </div>
-            </header>
-
-            <p className="welcome__text">
-              {needsFirstAccount
-                ? 'Brak zapisanych passkeys — najpierw utwórz konto w panelu obok.'
-                : 'Wybierz zapisany passkey i potwierdź logowanie na swoim urządzeniu.'}
-            </p>
-
-            <div className="welcome__actions" style={{ marginTop: 'auto' }}>
-              <button
-                type="button"
-                className="btn btn-primary d-inline-flex align-items-center gap-2"
-                onClick={handleLogin}
-                disabled={busy || !passkeySupported || needsFirstAccount}
-              >
-                <IconFingerprint size={18} aria-hidden="true" />
-                {busy ? 'Otwieram…' : 'Zaloguj się passkey'}
-              </button>
-
-              {devLoginEnabled && (
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                  onClick={handleDevLogin}
+                <label className="form-label" htmlFor="auth-invite">
+                  Kod zaproszenia
+                </label>
+                <input
+                  id="auth-invite"
+                  className="form-control"
+                  value={inviteToken}
+                  onChange={(event) => setInviteToken(event.target.value)}
+                  placeholder="np. INVITE-123"
+                  autoComplete="off"
                   disabled={busy}
-                  title="Logowanie deweloperskie — pomija passkey (tylko środowisko dev)"
-                >
-                  <IconKey size={18} aria-hidden="true" />
-                  {busy ? 'Loguję…' : 'Logowanie deweloperskie'}
-                </button>
-              )}
-            </div>
-          </section>
-
-          <section className="welcome__card welcome__card--accent">
-            <header className="welcome__card-header">
-              <div className="welcome__icon welcome__icon--accent">
-                <IconKey size={22} stroke={1.6} />
+                />
               </div>
+            )}
+            {isFirstAdmin && (
               <div>
-                <p className="welcome__card-eyebrow">Pierwsza konfiguracja</p>
-                <h2>Dodaj passkey</h2>
+                <label className="form-label" htmlFor="auth-username">
+                  Login
+                </label>
+                <input
+                  id="auth-username"
+                  className="form-control"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="np. admin"
+                  autoComplete="username webauthn"
+                  disabled={busy}
+                />
               </div>
-            </header>
-
-            <p className="welcome__text">
-              Użyj zaproszenia od admina lub skonfiguruj pierwsze konto admina.
-            </p>
-
-            <label className="welcome__label" htmlFor="auth-invite">
-              Kod zaproszenia (opcjonalnie)
-            </label>
-            <div className="welcome__control">
-              <div className="welcome__input-icon" aria-hidden="true">
-                <IconSparkles size={16} stroke={1.6} />
-              </div>
-              <input
-                id="auth-invite"
-                value={inviteToken}
-                onChange={(event) => setInviteToken(event.target.value)}
-                placeholder="np. INVITE-123"
-                disabled={busy}
-              />
-            </div>
-
-            <label className="welcome__label" htmlFor="auth-username">
-              Login / username (dla pierwszego admina)
-            </label>
-            <div className="welcome__control">
-              <div className="welcome__input-icon" aria-hidden="true">
-                <IconUser size={16} stroke={1.6} />
-              </div>
-              <input
-                id="auth-username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="np. admin"
-                disabled={busy}
-              />
-            </div>
-
-            <label className="welcome__label" htmlFor="auth-displayname">
-              {isFirstAdmin ? 'Nazwa wyświetlana (wymagana)' : 'Nazwa wyświetlana (opcjonalnie)'}
-            </label>
-            <div className="welcome__control">
-              <div className="welcome__input-icon" aria-hidden="true">
-                <IconId size={16} stroke={1.6} />
-              </div>
+            )}
+            <div>
+              <label className="form-label" htmlFor="auth-displayname">
+                {isFirstAdmin ? 'Nazwa wyświetlana' : 'Nazwa wyświetlana (opcjonalnie)'}
+              </label>
               <input
                 id="auth-displayname"
+                className="form-control"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="np. Kamil"
+                autoComplete="name"
                 disabled={busy}
                 required={isFirstAdmin}
-                aria-required={isFirstAdmin}
               />
             </div>
-
-            <div className="welcome__actions" style={{ marginTop: 'auto' }}>
-              <button
-                type="button"
-                className="btn btn-primary d-inline-flex align-items-center gap-2"
-                onClick={handleRegister}
-                disabled={busy || !passkeySupported || (isFirstAdmin && !displayName.trim())}
-              >
-                {busy ? 'Tworzę…' : 'Utwórz passkey'}
-                <IconArrowRight size={18} aria-hidden="true" />
-              </button>
-            </div>
-          </section>
-        </div>
-
-        {(status || error) && (
-          <div
-            className={`welcome__alert ${error ? 'welcome__alert--error' : 'welcome__alert--success'}`}
-            role={error ? 'alert' : 'status'}
-            aria-live="polite"
-          >
-            {error ?? status}
-          </div>
+            <button
+              type="submit"
+              className={`btn ${needsFirstAccount ? 'btn-primary' : 'btn-outline-secondary'} auth__submit`}
+              disabled={busy || !passkeySupported || (isFirstAdmin && !displayName.trim())}
+            >
+              {busy ? 'Tworzę…' : 'Utwórz passkey'}
+            </button>
+          </form>
         )}
 
-        <div className="welcome__footer">
-          <div className="welcome__trust">
-            <IconShieldLock size={16} aria-hidden="true" />
-            <span>
-              Passkeys są przechowywane bezpiecznie na Twoim urządzeniu. Nie wysyłamy ani nie
-              zapisujemy żadnych haseł.
-            </span>
-          </div>
-        </div>
+        {(status || error) && (
+          <p
+            className={`auth__message ${error ? 'auth__message--error' : ''}`}
+            role={error ? 'alert' : 'status'}
+          >
+            {error ?? status}
+          </p>
+        )}
       </div>
-    </div>
+    </main>
   );
 };
 

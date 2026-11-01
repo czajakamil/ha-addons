@@ -16,10 +16,12 @@ import DataGrid, {
   type DataGridHandle,
   type DataGridProps
 } from 'react-data-grid';
+import { PHONE_QUERY, useColumnWidths } from '../hooks/useColumnWidths';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTheme } from '../hooks/useTheme';
 
-export const DATA_TABLE_ROW_HEIGHT = 30;
-export const DATA_TABLE_HEADER_ROW_HEIGHT = 25;
+export const DATA_TABLE_ROW_HEIGHT = 40;
+export const DATA_TABLE_HEADER_ROW_HEIGHT = 32;
 
 const currencyFormatter = new Intl.NumberFormat('pl-PL', {
   minimumFractionDigits: 2,
@@ -40,6 +42,8 @@ export type MoneyColumn<R> = ColumnOrColumnGroup<R> & {
 };
 
 type DataTableProps<R> = {
+  // Włącza zapamiętywanie szerokości kolumn; na telefonie układ kolumn jest osobny, więc się nie stosuje
+  tableId?: string;
   height?: number;
   noRowsFallback?: ReactNode;
 } & Omit<DataGridProps<R>, 'className' | 'style' | 'defaultColumnOptions' | 'renderers' | 'columns'> & {
@@ -51,6 +55,7 @@ type DataTableProps<R> = {
 };
 
 const DataTable = <R,>({
+  tableId,
   height,
   className,
   noRowsFallback,
@@ -64,11 +69,14 @@ const DataTable = <R,>({
   onCellDoubleClick,
   onCellKeyDown,
   onSelectedCellChange,
+  onColumnResize,
   ...props
 }: DataTableProps<R>) => {
   const gridRef = useRef<DataGridHandle>(null);
   const hasSelectedCellRef = useRef(false);
   const { theme } = useTheme();
+  const isPhone = useMediaQuery(PHONE_QUERY);
+  const { widths, loadedVersion, setWidth } = useColumnWidths(isPhone ? undefined : tableId);
   const mergedRenderers = useMemo(
     () => (noRowsFallback ? { ...renderers, noRowsFallback } : renderers),
     [noRowsFallback, renderers]
@@ -108,6 +116,7 @@ const DataTable = <R,>({
 
       return {
         ...column,
+        width: (column.resizable !== false && widths[column.key]) || column.width,
         renderCell: renderCell
           ? (args) => formatCellValue(renderCell(args), isMoney)
           : ({ row }) => formatCellValue((row as any)[column.key], isMoney)
@@ -115,7 +124,18 @@ const DataTable = <R,>({
     };
 
     return columns.map(addFormatting);
-  }, [columns]);
+  }, [columns, widths]);
+
+  const mergedOnColumnResize = useCallback(
+    (idx: number, width: number) => {
+      // Grid numeruje kolumny płasko, także te wewnątrz grup
+      const leaves = columns.flatMap((column) => ('children' in column ? column.children : [column]));
+      const column = leaves[idx];
+      if (column && 'key' in column) setWidth(column.key, width);
+      onColumnResize?.(idx, width);
+    },
+    [columns, onColumnResize, setWidth]
+  );
 
   const mergedOnSelectedCellChange = useCallback(
     (args: Parameters<NonNullable<DataGridProps<R>['onSelectedCellChange']>>[0]) => {
@@ -168,6 +188,9 @@ const DataTable = <R,>({
     <div className="data-grid-wrapper" onFocusCapture={handleGridFocusCapture}>
       <DataGrid
         {...props}
+        // Siatka zapamiętuje zmierzoną szerokość kolumn elastycznych i ignoruje późniejszą zmianę;
+        // szerokości z serwera przychodzą po pierwszym renderze, więc wtedy montujemy ją od nowa.
+        key={loadedVersion}
         ref={gridRef}
         columns={columnsWithCurrencyFormatting}
         rows={rows}
@@ -182,6 +205,7 @@ const DataTable = <R,>({
         onCellDoubleClick={onCellDoubleClick}
         onCellKeyDown={mergedOnCellKeyDown}
         onSelectedCellChange={mergedOnSelectedCellChange}
+        onColumnResize={mergedOnColumnResize}
       />
     </div>
   );

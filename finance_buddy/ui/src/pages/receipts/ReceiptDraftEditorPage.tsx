@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  IconArrowLeft,
-  IconArrowNarrowLeft,
-  IconArrowNarrowRight,
-  IconCheck,
-  IconDeviceFloppy,
-  IconPlayerSkipForward
-} from '@tabler/icons-react';
+import { ArrowLeftIcon, CheckIcon, MoveLeftIcon, MoveRightIcon, SaveIcon, SkipForwardIcon } from 'lucide-react';
 import Button from '../../components/Button';
 import { formatMoney } from '../../utils/format';
 import TagPathInput from '../../components/tags/TagPathInput';
@@ -403,7 +396,7 @@ const ReceiptDraftEditorPage = () => {
     setError(null);
     try {
       await persistDraft();
-      setStatus('Zapisano szkic ✓');
+      setStatus('Zapisano szkic');
     } catch (err) {
       console.error(err);
       setError('Nie udało się zapisać szkicu.');
@@ -476,7 +469,7 @@ const ReceiptDraftEditorPage = () => {
           }
         }
         await refreshQueue();
-        setStatus(`Zapisano transakcję ✓`);
+        setStatus(`Zapisano transakcję`);
         const next = neighbour(1);
         if (next) navigate(`/receipts/${next}?filter=${filter}`);
         else navigate(`/transactions/${result.transaction_id}`);
@@ -559,7 +552,7 @@ const ReceiptDraftEditorPage = () => {
         <Button
           variant="link"
           size="sm"
-          icon={<IconArrowLeft size={16} />}
+          icon={<ArrowLeftIcon size={16} />}
           onClick={() => void leaveTo('/receipts')}
         >
           Skrzynka
@@ -569,7 +562,7 @@ const ReceiptDraftEditorPage = () => {
         </span>
         {reviewCount ? (
           <span className="receipt-badge receipt-badge--warn">
-            ⚠ do przejrzenia: {reviewCount}
+            Do przejrzenia: {reviewCount}
           </span>
         ) : null}
         {isCommitted ? (
@@ -595,7 +588,7 @@ const ReceiptDraftEditorPage = () => {
         <Button
           variant="outline-secondary"
           size="sm"
-          icon={<IconArrowNarrowLeft size={16} />}
+          icon={<MoveLeftIcon size={16} />}
           disabled={!neighbour(-1)}
           onClick={() => goTo(neighbour(-1))}
         >
@@ -616,7 +609,7 @@ const ReceiptDraftEditorPage = () => {
         <Button
           variant="outline-secondary"
           size="sm"
-          icon={<IconArrowNarrowRight size={16} />}
+          icon={<MoveRightIcon size={16} />}
           iconPosition="right"
           disabled={!neighbour(1)}
           onClick={() => goTo(neighbour(1))}
@@ -917,7 +910,7 @@ const ReceiptDraftEditorPage = () => {
         <span className="flex-grow-1" />
         <Button
           variant="outline-secondary"
-          icon={<IconPlayerSkipForward size={16} />}
+          icon={<SkipForwardIcon size={16} />}
           onClick={() => void handleSkip()}
           disabled={busy || isCommitted}
         >
@@ -925,7 +918,7 @@ const ReceiptDraftEditorPage = () => {
         </Button>
         <Button
           variant="outline-primary"
-          icon={<IconDeviceFloppy size={16} />}
+          icon={<SaveIcon size={16} />}
           onClick={() => void handleSaveDraft()}
           disabled={busy || isCommitted}
         >
@@ -933,7 +926,7 @@ const ReceiptDraftEditorPage = () => {
         </Button>
         <Button
           variant="primary"
-          icon={<IconCheck size={16} />}
+          icon={<CheckIcon size={16} />}
           onClick={() => void handleCommit()}
           disabled={busy || isCommitted}
           title="Cmd/Ctrl + Enter"

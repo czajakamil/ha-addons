@@ -1,3 +1,4 @@
+import { useTheme } from '../hooks/useTheme';
 import ReportsTopbar from './reports/components/ReportsTopbar';
 import AccountCategoriesTab from './reports/tabs/AccountCategoriesTab';
 import FlowsTab from './reports/tabs/FlowsTab';
@@ -33,6 +34,8 @@ const renderActiveTab = (controller: ReportsController) => {
 
 const ReportsPage = () => {
   const controller = useReports();
+  // Kolory serii czytamy z tokenów przy budowaniu danych, więc zmiana motywu przebudowuje zakładkę
+  const { theme } = useTheme();
   const { activeTab, data, loading, error } = controller;
 
   return (
@@ -43,7 +46,7 @@ const ReportsPage = () => {
           {loading && <div className="loading">Ładuję raporty...</div>}
           {error && <div className="error">{error}</div>}
           {(data || activeTab === 'snakey') && !loading && !error && (
-            <div className="reports-tab-panel">{renderActiveTab(controller)}</div>
+            <div key={theme} className="reports-tab-panel">{renderActiveTab(controller)}</div>
           )}
           {!data && activeTab !== 'snakey' && !loading && !error && (
             <p className="report-empty">Brak danych do wyświetlenia.</p>

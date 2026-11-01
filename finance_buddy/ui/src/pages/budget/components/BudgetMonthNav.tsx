@@ -1,7 +1,9 @@
 // Nawigacja miesięczna budżetu: strzałki ‹ › i popover z siatką miesięcy roku.
 // Stan popovera (otwarcie, przeglądany rok) żyje tutaj — strona zna tylko wybrany miesiąc.
 import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PopoverFilter from '../../../components/PopoverFilter';
+import { copy } from '../../../copy/pl';
 import { MONTH_SHORT_LABELS, buildMonthKey, capitalizeLabel, parseMonthKey, shiftMonth, toMonthKey } from '../model';
 
 type BudgetMonthNavProps = {
@@ -37,7 +39,7 @@ const BudgetMonthNav = ({ activeMonth, activeMonthDate, onMonthChange }: BudgetM
 
   const calendarSelectionLabel = capitalizeLabel(
     new Date(activeMonthYear, activeMonthIndex, 1).toLocaleDateString('pl-PL', {
-      month: 'short',
+      month: 'long',
       year: 'numeric'
     })
   );
@@ -47,18 +49,18 @@ const BudgetMonthNav = ({ activeMonth, activeMonthDate, onMonthChange }: BudgetM
   };
 
   return (
-    <div className="budget-month-nav" role="group" aria-label="Nawigacja miesięczna">
+    <div className="budget-month-nav" role="group" aria-label={copy.budget.month.navigation}>
       <button
         type="button"
         className="budget-month-nav__arrow"
         onClick={() => handleShiftActiveMonth(-1)}
-        aria-label="Poprzedni miesiąc"
+        aria-label={copy.budget.month.previous}
       >
-        <span aria-hidden="true">‹</span>
+        <ChevronLeft size={16} aria-hidden="true" />
       </button>
       <PopoverFilter
         id="budget-month-calendar"
-        label="Wybór miesiąca budżetu"
+        label={copy.budget.month.picker}
         className="budget-month-calendar"
         panelClassName="budget-month-calendar__menu"
         isOpen={calendarMenuOpen}
@@ -73,8 +75,7 @@ const BudgetMonthNav = ({ activeMonth, activeMonthDate, onMonthChange }: BudgetM
             aria-controls={panelId}
             onClick={onToggle}
           >
-            <span className="budget-month-calendar__trigger-label">Miesiąc</span>
-            <span className="budget-month-calendar__trigger-value">{calendarSelectionLabel}</span>
+            {calendarSelectionLabel}
           </button>
         )}
       >
@@ -82,19 +83,19 @@ const BudgetMonthNav = ({ activeMonth, activeMonthDate, onMonthChange }: BudgetM
           <button
             type="button"
             className="budget-month-calendar__arrow"
-            aria-label="Poprzedni rok w podglądzie"
+            aria-label={copy.budget.month.previousYear}
             onClick={() => setCalendarViewYear((prev) => prev - 1)}
           >
-            <span aria-hidden="true">‹</span>
+            <ChevronLeft size={16} aria-hidden="true" />
           </button>
           <span className="budget-month-calendar__year">{calendarViewYear}</span>
           <button
             type="button"
             className="budget-month-calendar__arrow"
-            aria-label="Następny rok w podglądzie"
+            aria-label={copy.budget.month.nextYear}
             onClick={() => setCalendarViewYear((prev) => prev + 1)}
           >
-            <span aria-hidden="true">›</span>
+            <ChevronRight size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -120,9 +121,9 @@ const BudgetMonthNav = ({ activeMonth, activeMonthDate, onMonthChange }: BudgetM
         type="button"
         className="budget-month-nav__arrow"
         onClick={() => handleShiftActiveMonth(1)}
-        aria-label="Następny miesiąc"
+        aria-label={copy.budget.month.next}
       >
-        <span aria-hidden="true">›</span>
+        <ChevronRight size={16} aria-hidden="true" />
       </button>
     </div>
   );

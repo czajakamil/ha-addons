@@ -1,55 +1,64 @@
-// Wiersz tabeli budżetu: grupa (depth 0, sumy dzieci, przełącznik zwijania) albo
-// kategoria (depth 1, pasek postępu, edytowalne „Przypisane").
-import type { CSSProperties } from 'react';
+// Wiersz tabeli budżetu: grupa (sumy dzieci, przełącznik zwijania) albo kategoria
+// (pasek koperty, edytowalne „Przypisane").
+import { useEffect, useRef } from 'react';
+import { ChevronRight } from 'lucide-react';
 import type { BudgetCategoryRow } from '../../../api';
-import {
-  buildCategoryHint,
-  buildCategoryProgress,
-  formatCategoryName,
-  moneyLabel,
-  resolveAmountClass,
-  resolveAvailableTone
-} from '../model';
-import type { BudgetEditing } from '../useBudgetEditing';
+import EnvelopeProgress from '../../../components/ui/EnvelopeProgress';
+import Money from '../../../components/ui/Money';
+import TruncatedText from '../../../components/ui/TruncatedText';
+import { copy } from '../../../copy/pl';
+import { buildEnvelopeUsage, formatCategoryName, resolveAvailableTone } from '../model';
+import type { AdjacentRows, BudgetEditing } from '../useBudgetEditing';
 
 type AssignedCellProps = {
   row: BudgetCategoryRow;
+  adjacent: AdjacentRows;
   editing: BudgetEditing;
   loading: boolean;
 };
 
-const AssignedCell = ({ row, editing, loading }: AssignedCellProps) => {
+const AssignedCell = ({ row, adjacent, editing, loading }: AssignedCellProps) => {
   const isEditing = editing.editingCategoryId === row.category_id;
   const isSaving = editing.savingCategoryId === row.category_id;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+
+  // Po Enter lub Esc fokus wraca na komórkę; Tab przenosi go sam na następne pole
+  useEffect(() => {
+    if (wasEditing.current && !isEditing && document.activeElement === document.body) {
+      buttonRef.current?.focus();
+    }
+    wasEditing.current = isEditing;
+  }, [isEditing]);
 
   if (isEditing) {
     return (
-      <div className="budget-cell budget-cell--editing">
-        <input
-          type="text"
-          className="form-control form-control-sm text-end"
-          value={editing.editValue}
-          autoFocus
-          onChange={(event) => editing.setEditValue(event.target.value)}
-          onBlur={() => void editing.commitEdit()}
-          onKeyDown={editing.handleEditKeyDown}
-          disabled={isSaving}
-          inputMode="decimal"
-        />
-        <div className="budget-cell__meta text-end">{isSaving ? 'Zapisywanie…' : 'Enter aby zapisać'}</div>
-      </div>
+      <input
+        type="text"
+        className="budget-assign-input"
+        aria-label={copy.budget.editAssigned(row.category_name)}
+        value={editing.editValue}
+        autoFocus
+        onChange={(event) => editing.setEditValue(event.target.value)}
+        onFocus={editing.handleEditFocus}
+        onBlur={editing.handleEditBlur}
+        onKeyDown={(event) => editing.handleEditKeyDown(event, adjacent)}
+        disabled={isSaving}
+        inputMode="decimal"
+      />
     );
   }
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       className="budget-assign-button"
+      aria-label={copy.budget.editAssigned(row.category_name)}
       onClick={() => editing.startEditing(row)}
-      title="Kliknij, aby ustawić przypisanie"
       disabled={loading}
     >
-      {moneyLabel(row.assigned_cents)}
+      <Money cents={row.assigned_cents} tone="neutral" />
     </button>
   );
 };
@@ -62,6 +71,7 @@ type BudgetRowProps = {
   hasChildren?: boolean;
   isCollapsed?: boolean;
   onToggle?: () => void;
+  adjacent: AdjacentRows;
   editing: BudgetEditing;
   loading: boolean;
 };
@@ -73,73 +83,50 @@ const BudgetRow = ({
   hasChildren = false,
   isCollapsed = false,
   onToggle,
+  adjacent,
   editing,
   loading
 }: BudgetRowProps) => {
   const dataRow = totalsOverride ?? row;
-  const hint = depth > 0 ? buildCategoryHint(dataRow) : null;
-  const progress = depth > 0 ? buildCategoryProgress(dataRow) : null;
-  const rowClass = ['budget-row', depth > 0 ? 'budget-row--child' : 'budget-row--group'].join(' ');
-  const toggleLabel = isCollapsed ? 'Rozwiń grupę' : 'Zwiń grupę';
-  const progressStyle =
-    progress && depth > 0
-      ? ({
-          ['--budget-progress-available' as const]: `${progress.availablePercent}%`,
-          ['--budget-progress-overspent' as const]: `${progress.overspentPercent}%`
-        } as CSSProperties)
-      : undefined;
+  const usage = hasChildren ? null : buildEnvelopeUsage(dataRow);
+  const toggleLabel = isCollapsed ? copy.budget.expandGroup : copy.budget.collapseGroup;
 
   return (
-    <tr className={rowClass}>
-      <td className="budget-cell budget-cell--category">
-        <span className={depth > 0 ? 'budget-category-name budget-category-name--child' : 'budget-category-name'}>
-          {!hasChildren && <span className="budget-row-select" aria-hidden="true" />}
+    <tr className={hasChildren ? 'budget-row budget-row--group' : 'budget-row'}>
+      <td>
+        <div className={depth > 0 ? 'budget-category budget-category--child' : 'budget-category'}>
           {hasChildren && (
             <button
               type="button"
-              className="budget-group-toggle"
+              className={`budget-toggle${isCollapsed ? '' : ' is-open'}`}
               onClick={onToggle}
               aria-label={toggleLabel}
               aria-expanded={!isCollapsed}
             >
-              <span className="budget-group-toggle__icon" aria-hidden="true">
-                {isCollapsed ? '>' : 'v'}
-              </span>
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
-          {hasChildren && <span className="budget-row-select" aria-hidden="true" />}
-          <span className="budget-category-copy">
-            <span className="budget-category-label">{formatCategoryName(row.category_name, depth)}</span>
-            {depth > 0 && (hint || progress) && (
-              <span className="budget-category-detail">
-                {hint && <span className={`budget-category-hint is-${hint.tone}`}>{hint.text}</span>}
-                {progress && <span className="budget-progress budget-progress--inline" style={progressStyle} aria-hidden="true" />}
-              </span>
-            )}
-          </span>
-        </span>
+          <div className="budget-category__copy">
+            <TruncatedText text={formatCategoryName(row.category_name, depth)} />
+            {usage !== null && <EnvelopeProgress percent={usage} />}
+          </div>
+        </div>
       </td>
-      <td className="budget-cell budget-cell--assigned text-end">
+      <td className="budget-table__amount">
         {hasChildren ? (
-          moneyLabel(dataRow.assigned_cents)
+          <Money cents={dataRow.assigned_cents} tone="neutral" />
         ) : (
-          <AssignedCell row={row} editing={editing} loading={loading} />
+          <AssignedCell row={row} adjacent={adjacent} editing={editing} loading={loading} />
         )}
       </td>
-      <td className="budget-cell text-end">
-        <span className={resolveAmountClass(dataRow, dataRow.activity_cents)}>
-          {moneyLabel(dataRow.activity_cents)}
-        </span>
+      <td className="budget-table__amount budget-table__activity">
+        <Money cents={dataRow.activity_cents} />
       </td>
-      <td className="budget-cell text-end">
+      <td className="budget-table__amount">
         {hasChildren ? (
-          <span className={['budget-group-total', resolveAmountClass(dataRow, dataRow.available_cents)].join(' ')}>
-            {moneyLabel(dataRow.available_cents)}
-          </span>
+          <Money cents={dataRow.available_cents} tone={dataRow.available_cents < 0 ? 'negative' : 'neutral'} />
         ) : (
-          <span className={['budget-amount-pill', `is-${resolveAvailableTone(dataRow)}`].join(' ')}>
-            {moneyLabel(dataRow.available_cents)}
-          </span>
+          <Money cents={dataRow.available_cents} tone={resolveAvailableTone(dataRow)} chip />
         )}
       </td>
     </tr>

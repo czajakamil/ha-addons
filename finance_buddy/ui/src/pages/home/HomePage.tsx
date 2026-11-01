@@ -1,68 +1,74 @@
 import { useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
-  IconAlertTriangle,
-  IconBuildingBank,
-  IconCamera,
-  IconChecks,
-  IconChevronRight,
-  IconCoins,
-  IconDatabaseExclamation,
-  IconFileSpreadsheet,
-  IconPlus,
-  IconReceipt,
-  IconTag
-} from '@tabler/icons-react';
-import type { Icon } from '@tabler/icons-react';
-import Button from '../../components/Button';
+  ChevronDown,
+  ChevronRight,
+  Coins,
+  DatabaseBackup,
+  Landmark,
+  Plus,
+  Receipt,
+  FileUp,
+  Tag as TagIcon,
+  TriangleAlert,
+  type LucideIcon
+} from 'lucide-react';
 import NewTransactionModal from '../../components/transactions/NewTransactionModal';
 import { TagChip } from '../../components/tags/TagChip';
 import { buildCategoryMap } from '../../components/tags/tagColors';
+import EnvelopeProgress from '../../components/ui/EnvelopeProgress';
+import Money from '../../components/ui/Money';
+import PageHeader from '../../components/ui/PageHeader';
+import TruncatedText from '../../components/ui/TruncatedText';
+import { copy } from '../../copy/pl';
 import {
   getAccounts,
   getAllCategories,
   getAllStores,
   getBackupStatus,
+  getBudgetMonth,
   getHomeSummary,
   type Account,
   type Store
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { refreshUntaggedCount } from '../../hooks/useUntaggedCount';
-import { formatMoney } from '../../utils/format';
+import { formatShortDate } from '../../utils/date';
+import { BALANCE_ADJUSTMENT_LABEL, isBalanceAdjustment, userComment } from '../../utils/transactionLabels';
+import { toMonthKey } from '../budget/model';
 import { backupHealth } from '../panel/backupStatus';
 import {
-  HOME_CURRENCY,
   buildTodoItems,
-  describeMonth,
-  envelopeFill,
+  describeDaysLeft,
   envelopeNote,
+  envelopeUsage,
   formatChangePct,
-  shortDate,
   spendingChangePct,
   type TodoKind
 } from './model';
 
-const TODO_ICON: Record<TodoKind, Icon> = {
-  backup: IconDatabaseExclamation,
-  overspent: IconAlertTriangle,
-  stale: IconBuildingBank,
-  untagged: IconTag,
-  receipts: IconReceipt,
-  assign: IconCoins
+const TODO_ICON: Record<TodoKind, LucideIcon> = {
+  backup: DatabaseBackup,
+  overspent: TriangleAlert,
+  stale: Landmark,
+  untagged: TagIcon,
+  receipts: Receipt,
+  assign: Coins
 };
 
 type Lookups = { accounts: Account[]; stores: Store[] };
 
 /**
  * Ekran startowy: „co mam dziś zrobić", a nie „jak mi idzie w tym roku" —
- * wykresy są w Raportach. Każdy wiersz „Do zrobienia" prowadzi tam, gdzie się
- * go załatwia, i znika, gdy spadnie do zera.
+ * wykresy są w Raportach. Każdy alert prowadzi tam, gdzie się go załatwia,
+ * i znika, gdy spadnie do zera.
  */
 const HomePage = () => {
   const navigate = useNavigate();
-  const summary = useApi(getHomeSummary, { errorMessage: 'Nie udało się wczytać podsumowania.' });
+  const labels = copy.home;
+  const summary = useApi(getHomeSummary, { errorMessage: labels.loadFailed });
+  const budget = useApi(() => getBudgetMonth(toMonthKey(new Date())));
   const categories = useApi(() => getAllCategories());
   // Stan kopii to dodatek: błąd (np. brak uprawnień) nie może zasłonić reszty.
   const backup = useApi(() => getBackupStatus().catch(() => null));
@@ -70,10 +76,7 @@ const HomePage = () => {
   const [lookups, setLookups] = useState<Lookups | null>(null);
   const [showNewTransaction, setShowNewTransaction] = useState(false);
 
-  const categoryById = useMemo(
-    () => buildCategoryMap(categories.data ?? []),
-    [categories.data]
-  );
+  const categoryById = useMemo(() => buildCategoryMap(categories.data ?? []), [categories.data]);
 
   const openNewTransaction = async () => {
     if (!lookups) {
@@ -85,188 +88,180 @@ const HomePage = () => {
 
   const data = summary.data;
   const todo = data ? buildTodoItems(data, backup.data ? backupHealth(backup.data) : null) : [];
-  const month = data ? describeMonth(data.today) : null;
   const change = data ? spendingChangePct(data.spent_month_cents, data.spent_previous_month_cents) : null;
+  const canSpend = budget.data?.summary.available_cents ?? 0;
 
   return (
-    <div className="page-wrapper compact-page">
-      <div className="page-shell home-page">
-        <div className="page-header d-print-none">
-          <div className="home-page__header">
-            <div>
-              <h2 className="page-title">{month?.title ?? 'Start'}</h2>
-              {month ? <div className="text-secondary mt-1">{month.progress}</div> : null}
-            </div>
-            <div className="home-page__actions">
-              <Button
-                size="sm"
-                icon={<IconPlus size={16} aria-hidden="true" />}
-                onClick={() => void openNewTransaction()}
-              >
-                Wydatek
-              </Button>
-              <Link to="/receipts" className="btn btn-outline-secondary btn-sm">
-                <IconCamera size={16} className="me-1" aria-hidden="true" />
-                Paragon
-              </Link>
-              <Link to="/bank-import" className="btn btn-outline-secondary btn-sm">
-                <IconFileSpreadsheet size={16} className="me-1" aria-hidden="true" />
-                CSV z banku
-              </Link>
-            </div>
+    <div className="page-shell home-page">
+      <PageHeader
+        title={labels.title}
+        actions={
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger className="btn btn-primary home-add">
+              <Plus size={16} aria-hidden="true" />
+              {labels.add}
+              <ChevronDown size={14} aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+                <DropdownMenu.Item className="menu__item" onSelect={() => void openNewTransaction()}>
+                  <Plus size={16} aria-hidden="true" />
+                  {labels.addExpense}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className="menu__item" onSelect={() => navigate('/receipts')}>
+                  <Receipt size={16} aria-hidden="true" />
+                  {labels.addReceipt}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className="menu__item" onSelect={() => navigate('/bank-import')}>
+                  <FileUp size={16} aria-hidden="true" />
+                  {labels.addBankCsv}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        }
+      />
+
+      {summary.error && (
+        <p className="home-error" role="alert">
+          {summary.error}
+        </p>
+      )}
+
+      {!data ? (
+        summary.loading && (
+          <div className="home-skeleton" aria-hidden="true">
+            <span className="skeleton home-skeleton__hero" />
+            <span className="skeleton home-skeleton__row" />
+            <span className="skeleton home-skeleton__row" />
           </div>
-        </div>
+        )
+      ) : (
+        <div className="home-grid">
+          <section className="home-hero">
+            <span className="home-hero__label">{labels.canSpend}</span>
+            <Money
+              cents={canSpend}
+              tone={canSpend < 0 ? 'negative' : 'neutral'}
+              className="home-hero__value"
+            />
+            <span className="home-hero__note">{describeDaysLeft(data.today)}</span>
+          </section>
 
-        <div className="page-body home-page__body">
-          {summary.error ? (
-            <div className="alert alert-danger" role="alert">
-              {summary.error}
-            </div>
-          ) : null}
+          <div className="home-figures">
+            <Link to="/reports" className="home-figure">
+              <span className="home-figure__label">{labels.spent}</span>
+              <Money cents={data.spent_month_cents} tone="neutral" className="home-figure__value" />
+              {change !== null && (
+                <span className="home-figure__note">
+                  {formatChangePct(change)} {labels.comparedToPrevious}
+                </span>
+              )}
+            </Link>
+            <Link to="/accounts" className="home-figure">
+              <span className="home-figure__label">{labels.onBudgetBalance}</span>
+              <Money cents={data.on_budget_balance_cents} tone="neutral" className="home-figure__value" />
+            </Link>
+          </div>
 
-          {!data ? (
-            summary.loading ? <p className="text-secondary">Ładuję…</p> : null
-          ) : (
-            <>
-              <section className="card" aria-labelledby="home-todo-title">
-                <div className="card-body">
-                  <h3 id="home-todo-title" className="home-page__section-title">
-                    Do zrobienia
-                  </h3>
-                  {todo.length ? (
-                    <ul className="home-list">
-                      {todo.map((item) => {
-                        const ItemIcon = TODO_ICON[item.kind];
-                        return (
-                          <li key={item.key}>
-                            <Link to={item.to} className="home-list__row">
-                              <ItemIcon
-                                size={18}
-                                className={`home-list__icon is-${item.tone}`}
-                                aria-hidden="true"
-                              />
-                              <span className="home-list__label">{item.label}</span>
-                              {item.value ? <strong className="home-list__value">{item.value}</strong> : null}
-                              <IconChevronRight size={16} className="home-list__chevron" aria-hidden="true" />
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="home-page__done">
-                      <IconChecks size={24} aria-hidden="true" />
-                      <span>Wszystko ogarnięte.</span>
-                    </div>
-                  )}
-                </div>
+          <div className="home-main">
+            {todo.length > 0 && (
+              <section aria-labelledby="home-todo-title" className="home-block">
+                <h2 id="home-todo-title" className="home-block__title">
+                  {labels.todo}
+                </h2>
+                <ul className="home-list">
+                  {todo.map((item) => {
+                    const ItemIcon = TODO_ICON[item.kind];
+                    return (
+                      <li key={item.key}>
+                        <Link to={item.to} className="home-alert">
+                          <ItemIcon size={16} className={`home-alert__icon is-${item.tone}`} aria-hidden="true" />
+                          <span className="home-alert__label">{item.label}</span>
+                          {item.value && <span className="home-alert__value">{item.value}</span>}
+                          <ChevronRight size={16} className="home-alert__chevron" aria-hidden="true" />
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
               </section>
+            )}
 
-              <div className="home-metrics">
-                <div className="home-metric">
-                  <span className="home-metric__label">Wydane w tym miesiącu</span>
-                  <span className="home-metric__value">
-                    {formatMoney(data.spent_month_cents, HOME_CURRENCY)}
-                  </span>
+            {data.recent.length > 0 && (
+              <section aria-labelledby="home-recent-title" className="home-block">
+                <div className="home-block__head">
+                  <h2 id="home-recent-title" className="home-block__title">
+                    {labels.recent}
+                  </h2>
+                  <Link to="/transactions" className="text-button">
+                    {labels.allTransactions}
+                  </Link>
                 </div>
-                <div className="home-metric">
-                  <span className="home-metric__label">Poprzedni miesiąc do tego dnia</span>
-                  <span className="home-metric__value">
-                    {formatMoney(data.spent_previous_month_cents, HOME_CURRENCY)}
-                  </span>
-                  {change !== null ? (
-                    <span className={`home-metric__note ${change > 0 ? 'is-danger' : 'is-success'}`}>
-                      {formatChangePct(change)} w tym miesiącu
-                    </span>
-                  ) : null}
-                </div>
-                <div className="home-metric">
-                  <span className="home-metric__label">Saldo kont budżetowych</span>
-                  <span className="home-metric__value">
-                    {formatMoney(data.on_budget_balance_cents, HOME_CURRENCY)}
-                  </span>
-                </div>
-              </div>
-
-              {data.envelopes.length ? (
-                <section className="card" aria-labelledby="home-envelopes-title">
-                  <div className="card-body">
-                    <h3 id="home-envelopes-title" className="home-page__section-title">
-                      Koperty blisko limitu
-                    </h3>
-                    <ul className="home-list">
-                      {data.envelopes.map((envelope) => {
-                        const overspent = envelope.available_cents < 0;
-                        return (
-                          <li key={envelope.category_id}>
-                            <Link to="/budget" className="home-list__row home-envelope">
-                              <span className="home-envelope__name">{envelope.category_name}</span>
-                              <span
-                                className={`home-envelope__bar ${overspent ? 'is-danger' : 'is-warning'}`}
-                                style={{ '--fill': `${envelopeFill(envelope)}%` } as CSSProperties}
-                                aria-hidden="true"
-                              />
-                              <span className={`home-envelope__note${overspent ? ' is-danger' : ''}`}>
-                                {envelopeNote(envelope)}
-                              </span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </section>
-              ) : null}
-
-              {data.recent.length ? (
-                <section className="card" aria-labelledby="home-recent-title">
-                  <div className="card-body">
-                    <div className="home-page__section-head">
-                      <h3 id="home-recent-title" className="home-page__section-title">
-                        Ostatnie transakcje
-                      </h3>
-                      <Link to="/transactions" className="home-page__more">
-                        Wszystkie
-                      </Link>
-                    </div>
-                    <ul className="home-list">
-                      {data.recent.map((tx) => (
-                        <li key={tx.id} className="home-list__row home-recent">
-                          <span className="home-recent__date">{shortDate(tx.date)}</span>
-                          <Link to={`/transactions/${tx.id}`} className="home-recent__payee">
-                            <span>{tx.store_name || tx.comment || (tx.is_transfer ? 'Przelew' : 'Bez opisu')}</span>
-                            <span className="home-recent__account">{tx.account_name}</span>
-                          </Link>
+                <ul className="home-list">
+                  {data.recent.map((tx) => {
+                    const adjustment = isBalanceAdjustment(tx.store_name);
+                    const payee = adjustment
+                      ? BALANCE_ADJUSTMENT_LABEL
+                      : tx.store_name ||
+                        userComment(tx.comment) ||
+                        (tx.is_transfer ? labels.transfer : labels.noDescription);
+                    return (
+                      <li key={tx.id} className="home-recent">
+                        <span className="home-recent__date">{formatShortDate(tx.date)}</span>
+                        <Link
+                          to={`/transactions/${tx.id}`}
+                          className={`home-recent__payee${adjustment ? ' is-muted' : ''}`}
+                        >
+                          <TruncatedText text={payee} />
+                          <TruncatedText text={tx.account_name} className="home-recent__account" />
+                        </Link>
+                        <span className="home-recent__tag">
                           {tx.category_id ? (
-                            <span className="home-recent__tag">
-                              <TagChip category={categoryById.get(tx.category_id)} byId={categoryById} />
-                            </span>
+                            <TagChip category={categoryById.get(tx.category_id)} byId={categoryById} />
                           ) : tx.needs_tag ? (
-                            <span className="home-recent__tag">
-                              <button
-                                type="button"
-                                className="home-recent__add-tag"
-                                onClick={() => navigate('/transactions/untagged')}
-                              >
-                                + tag
-                              </button>
-                            </span>
+                            <Link to="/transactions/untagged" className="text-button">
+                              {labels.addTag}
+                            </Link>
                           ) : null}
-                          <span className={`home-recent__amount${tx.total_cents > 0 ? ' is-income' : ''}`}>
-                            {formatMoney(tx.total_cents, tx.currency)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </section>
-              ) : null}
-            </>
+                        </span>
+                        <Money cents={tx.total_cents} currency={tx.currency} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+          </div>
+
+          {data.envelopes.length > 0 && (
+            <aside aria-labelledby="home-envelopes-title" className="home-block home-side">
+              <h2 id="home-envelopes-title" className="home-block__title">
+                {labels.nearLimit}
+              </h2>
+              <ul className="home-list">
+                {data.envelopes.slice(0, 5).map((envelope) => (
+                  <li key={envelope.category_id}>
+                    <Link to="/budget" className="home-envelope">
+                      <span className="home-envelope__head">
+                        <TruncatedText text={envelope.category_name} />
+                        <span
+                          className={`home-envelope__note${envelope.available_cents < 0 ? ' is-over' : ''}`}
+                        >
+                          {envelopeNote(envelope)}
+                        </span>
+                      </span>
+                      <EnvelopeProgress percent={envelopeUsage(envelope)} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </aside>
           )}
         </div>
-      </div>
+      )}
 
-      {lookups ? (
+      {lookups && (
         <NewTransactionModal
           open={showNewTransaction}
           accounts={lookups.accounts}
@@ -274,10 +269,10 @@ const HomePage = () => {
           categories={categories.data ?? []}
           onClose={() => setShowNewTransaction(false)}
           onCreated={async () => {
-            await Promise.all([summary.refetch(), refreshUntaggedCount()]);
+            await Promise.all([summary.refetch(), budget.refetch(), refreshUntaggedCount()]);
           }}
         />
-      ) : null}
+      )}
     </div>
   );
 };

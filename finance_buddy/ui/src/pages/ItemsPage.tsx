@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type CellClickArgs, type Column } from 'react-data-grid';
-import { IconAlertCircle, IconPencil, IconPlus } from '@tabler/icons-react';
+import { CircleAlertIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import {
   type Category,
   Item,
@@ -10,7 +10,10 @@ import {
 } from '../api';
 import DataTable from '../components/DataTable';
 import Button from '../components/Button';
+import ColumnsMenu from '../components/ui/ColumnsMenu';
 import { useApi } from '../hooks/useApi';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { isAutoComment, userComment } from '../utils/transactionLabels';
 import {
   GROUP_NAME_DATALIST_ID,
   getGridHeight,
@@ -23,6 +26,14 @@ import { useItemsEditing } from './items/useItemsEditing';
 import ItemsToolbarRight from './items/components/ItemsToolbarRight';
 import NewItemModal from './items/components/NewItemModal';
 import ManageItemModal from './items/components/ManageItemModal';
+
+const OPTIONAL_COLUMNS = [
+  { key: 'group_name', label: 'Nazwa grupowa', hasValue: (row: Item) => Boolean(row.group_name?.trim()) },
+  { key: 'tag', label: 'Tag', hasValue: (row: Item) => Boolean(row.category_id) },
+  { key: 'unit_of_measurement', label: 'Jednostka', hasValue: (row: Item) => Boolean(row.unit_of_measurement?.trim()) },
+  { key: 'manufacturer', label: 'Producent', hasValue: (row: Item) => Boolean(row.manufacturer?.trim()) },
+  { key: 'comment', label: 'Komentarz', hasValue: (row: Item) => Boolean(userComment(row.comment)) }
+];
 
 const ItemsPage = () => {
   const {
@@ -130,7 +141,9 @@ const ItemsPage = () => {
     }
   }, [detailsItemId, detailsItem]);
 
-  const itemColumns: readonly Column<Item>[] = [
+  const { hiddenKeys, setVisible } = useColumnVisibility('items', OPTIONAL_COLUMNS, items);
+
+  const allColumns: readonly Column<Item>[] = [
     {
       key: 'actions',
       name: '',
@@ -153,7 +166,7 @@ const ItemsPage = () => {
               setDetailsItemId(row.id);
             }}
           >
-            <IconPencil size={16} aria-hidden="true" />
+            <PencilIcon size={16} aria-hidden="true" />
           </button>
         </div>
       )
@@ -192,9 +205,13 @@ const ItemsPage = () => {
       key: 'comment',
       name: 'Komentarz',
       minWidth: 200,
-      renderCell: ({ row }) => renderCell(row, 'comment')
+      renderCell: ({ row }) => (isAutoComment(row.comment) ? null : renderCell(row, 'comment'))
     }
   ];
+  // Ostatnia widoczna kolumna wypełnia szerokość, żeby po ukryciu pól tabela nie kończyła się w połowie
+  const itemColumns = allColumns
+    .filter((column) => !hiddenKeys.has(String(column.key)))
+    .map((column, index, visible) => (index === visible.length - 1 ? { ...column, width: undefined } : column));
 
   const getItemRowId = useCallback((item: Item) => item.id, []);
 
@@ -242,7 +259,8 @@ const ItemsPage = () => {
             <p className="accounts-page__subtitle">{items.length} pozycji w słowniku</p>
           </div>
           <div className="accounts-page__actions">
-            <Button icon={<IconPlus size={16} aria-hidden="true" />} onClick={() => setShowNewItemModal(true)}>
+            <ColumnsMenu columns={OPTIONAL_COLUMNS} hiddenKeys={hiddenKeys} onChange={setVisible} />
+            <Button icon={<PlusIcon size={16} aria-hidden="true" />} onClick={() => setShowNewItemModal(true)}>
               Nowy przedmiot
             </Button>
           </div>
@@ -262,7 +280,7 @@ const ItemsPage = () => {
             {inlineError && (
               <div className="accounts-section-card__alert">
                 <div className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0" role="alert">
-                  <IconAlertCircle size={18} aria-hidden="true" />
+                  <CircleAlertIcon size={18} aria-hidden="true" />
                   <div>{inlineError}</div>
                 </div>
               </div>
@@ -291,6 +309,7 @@ const ItemsPage = () => {
               <div className="accounts-section-card__table">
                 {!noResults ? (
                   <DataTable
+                    tableId="items"
                     aria-label="Lista przedmiotów"
                     className="accounts-grid items-grid"
                     columns={itemColumns}

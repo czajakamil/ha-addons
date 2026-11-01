@@ -1,6 +1,8 @@
-// Rozwijana karta Auto-Assign: każda opcja ustawia przypisania wszystkich kategorii naraz.
-import { IconBolt, IconChevronDown } from '@tabler/icons-react';
-import { AUTO_ASSIGN_OPTION_GROUPS, moneyLabel } from '../model';
+// Rozwijana sekcja „Przypisz automatycznie": każda opcja ustawia przypisania wszystkich kategorii naraz.
+import { ChevronDown } from 'lucide-react';
+import Money from '../../../components/ui/Money';
+import { copy } from '../../../copy/pl';
+import { AUTO_ASSIGN_OPTION_GROUPS } from '../model';
 import type { BudgetEditing } from '../useBudgetEditing';
 
 type AutoAssignCardProps = {
@@ -12,41 +14,35 @@ const AutoAssignCard = ({ editing }: AutoAssignCardProps) => {
     editing;
 
   return (
-    <section className="card budget-side-card budget-side-card--action">
+    <section className="budget-side">
       <button
         type="button"
-        className="budget-side-card__toggle budget-auto-assign__toggle"
+        className="budget-side__toggle"
         aria-expanded={autoAssignMenuOpen}
         aria-controls="budget-auto-assign-panel"
         onClick={() => setAutoAssignMenuOpen((prev) => !prev)}
       >
-        <span className="budget-auto-assign__toggle-title">
-          <IconBolt size={16} aria-hidden="true" />
-          <span>Auto-Assign</span>
-        </span>
-        <IconChevronDown
+        <span>{copy.budget.autoAssign.title}</span>
+        <ChevronDown
           size={16}
           aria-hidden="true"
-          className={`budget-side-card__toggle-icon budget-auto-assign__toggle-icon${autoAssignMenuOpen ? ' is-open' : ''}`}
+          className={`budget-side__chevron${autoAssignMenuOpen ? ' is-open' : ''}`}
         />
       </button>
       {autoAssignMenuOpen && (
-        <div id="budget-auto-assign-panel" className="budget-side-card__body budget-auto-assign__body">
+        <div id="budget-auto-assign-panel" className="budget-auto">
           {AUTO_ASSIGN_OPTION_GROUPS.map((options, groupIndex) => (
-            <div
-              key={groupIndex}
-              className={`budget-auto-assign__group${groupIndex > 0 ? ' budget-auto-assign__group--secondary' : ''}`}
-            >
+            <div key={groupIndex} className="budget-auto__group">
               {options.map(({ mode, label }) => (
                 <button
                   key={mode}
                   type="button"
-                  className="budget-auto-assign__option"
+                  className="budget-auto__option"
                   onClick={() => void applyAutoAssign(mode)}
                   disabled={autoAssignDisabled}
                 >
                   <span>{label}</span>
-                  <strong>{moneyLabel(autoAssignTotals[mode])}</strong>
+                  <Money cents={autoAssignTotals[mode]} tone="neutral" />
                 </button>
               ))}
             </div>

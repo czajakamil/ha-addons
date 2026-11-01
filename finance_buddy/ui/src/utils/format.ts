@@ -5,7 +5,7 @@ const normalizeSpaces = (value: string) => value.replace(/[\u00A0\u202F]/g, ' ')
 const plainFormatter = new Intl.NumberFormat('pl-PL', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-  useGrouping: true
+  useGrouping: 'always' as unknown as boolean
 });
 
 const moneyFormatters = new Map<string, Intl.NumberFormat | null>();
@@ -18,7 +18,9 @@ const getMoneyFormatter = (currency: string): Intl.NumberFormat | null => {
         style: 'currency',
         currency,
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
+        // Domyślnie pl-PL grupuje dopiero od 10 000; separator ma być zawsze
+        useGrouping: 'always' as unknown as boolean
       });
     } catch {
       formatter = null;

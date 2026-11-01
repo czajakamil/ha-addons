@@ -3,7 +3,7 @@
 // Paleta i siatka są zwijane: domyślnie widać tylko podgląd, resztę rozwija się
 // klikając nagłówek (mniej wizualnego szumu w formularzu konta).
 import { useId, useState } from 'react';
-import { IconChevronDown } from '@tabler/icons-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { ACCOUNT_COLOR_OPTIONS, ACCOUNT_ICON_OPTIONS } from '../accountPresentation';
 import AccountAvatar from './AccountAvatar';
 
@@ -40,10 +40,10 @@ const AccountIconPicker = ({
             {expanded ? 'Podgląd ikony konta' : 'Zmień ikonę i kolor'}
           </span>
         </span>
-        <IconChevronDown
+        <ChevronDownIcon
           className="account-icon-picker__chevron"
           size={18}
-          stroke={1.7}
+          strokeWidth={1.7}
           aria-hidden
         />
       </button>
@@ -91,7 +91,7 @@ const AccountIconPicker = ({
                   onClick={() => onIconChange(option.id)}
                   disabled={disabled}
                 >
-                  <Icon size={20} stroke={1.7} />
+                  <Icon size={20} strokeWidth={1.7} />
                 </button>
               );
             })}

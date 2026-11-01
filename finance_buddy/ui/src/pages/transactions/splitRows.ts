@@ -14,6 +14,7 @@
 import type { Category, Item, Transaction, TransactionItem } from '../../api';
 
 export type TransactionGridRow =
+  | { kind: 'day'; id: string; date: string; totalCents: number | null; currency: string }
   | { kind: 'transaction'; id: string; transaction: Transaction }
   | {
       kind: 'item';
@@ -63,24 +64,39 @@ export const buildTransactionGridRows = (
   categoryMap: ReadonlyMap<string, Category>
 ): TransactionGridRow[] => {
   const rows: TransactionGridRow[] = [];
+  let index = 0;
 
-  for (const transaction of transactions) {
-    rows.push({ kind: 'transaction', id: transaction.id, transaction });
-    if (!expandedIds.has(transaction.id)) continue;
+  while (index < transactions.length) {
+    const date = transactions[index].date ?? '';
+    let end = index;
+    while (end < transactions.length && (transactions[end].date ?? '') === date) end += 1;
+    const day = transactions.slice(index, end);
+    const currency = day[0].currency;
+    // Suma dnia ma sens tylko w jednej walucie
+    const totalCents = day.every((tx) => tx.currency === currency)
+      ? day.reduce((sum, tx) => sum + tx.total_cents, 0)
+      : null;
+    rows.push({ kind: 'day', id: `day:${date}`, date, totalCents, currency });
 
-    for (const item of transaction.items) {
-      const product = productMap.get(item.product_id);
-      const categoryId = product?.category_id ?? null;
-      rows.push({
-        kind: 'item',
-        id: `${transaction.id}:${item.id}`,
-        transaction,
-        item,
-        productName: product?.name ?? 'nieznany produkt',
-        category: categoryId ? categoryMap.get(categoryId) ?? null : null,
-        totalCents: itemTotalCents(item)
-      });
+    for (const transaction of day) {
+      rows.push({ kind: 'transaction', id: transaction.id, transaction });
+      if (!expandedIds.has(transaction.id)) continue;
+
+      for (const item of transaction.items) {
+        const product = productMap.get(item.product_id);
+        const categoryId = product?.category_id ?? null;
+        rows.push({
+          kind: 'item',
+          id: `${transaction.id}:${item.id}`,
+          transaction,
+          item,
+          productName: product?.name ?? 'nieznany produkt',
+          category: categoryId ? categoryMap.get(categoryId) ?? null : null,
+          totalCents: itemTotalCents(item)
+        });
+      }
     }
+    index = end;
   }
 
   return rows;

@@ -3,6 +3,8 @@
 // albo grozi utratą danych, potem zaległości, na końcu pieniądze do rozdzielenia.
 import type { HomeEnvelope, HomeSummary } from '../../api';
 import type { BackupHealth } from '../panel/backupStatus';
+import { formatSignedMoney } from '../../components/ui/Money';
+import { copy } from '../../copy/pl';
 import { formatMoney, pluralPL } from '../../utils/format';
 
 export const HOME_CURRENCY = 'PLN';
@@ -44,9 +46,9 @@ export const buildTodoItems = (summary: HomeSummary, backup: BackupHealth | null
       key: 'overspent',
       kind: 'overspent',
       tone: 'danger',
-      label: pluralPL(summary.overspent_count, 'Koperta na minusie', 'Koperty na minusie', 'Kopert na minusie'),
+      label: pluralPL(summary.overspent_count, 'Kategoria ponad budżet', 'Kategorie ponad budżet', 'Kategorii ponad budżet'),
       value: String(summary.overspent_count),
-      to: '/budget'
+      to: '/budget?filter=overspent'
     });
   }
 
@@ -55,9 +57,9 @@ export const buildTodoItems = (summary: HomeSummary, backup: BackupHealth | null
       key: 'assign',
       kind: 'assign',
       tone: 'danger',
-      label: 'Przypisano więcej, niż masz',
+      label: 'Przypisano więcej niż masz',
       value: formatMoney(-summary.ready_to_assign_cents, HOME_CURRENCY),
-      to: '/budget'
+      to: '/budget?filter=overspent'
     });
   }
 
@@ -134,30 +136,21 @@ export const formatChangePct = (pct: number) => {
   return `${sign}${Math.abs(rounded).toLocaleString('pl-PL', { maximumFractionDigits: 1 })}%`;
 };
 
-/** Zapełnienie paska koperty: 0–100, koperta na minusie zawsze pełna. */
-export const envelopeFill = (envelope: HomeEnvelope) => {
-  if (envelope.available_cents < 0 || envelope.funds_cents <= 0) return 100;
-  return Math.min(100, Math.round((envelope.spent_cents / envelope.funds_cents) * 100));
+/** Procent użycia kategorii dla paska; powyżej 100 oznacza przekroczenie. */
+export const envelopeUsage = (envelope: HomeEnvelope) => {
+  if (envelope.available_cents < 0) return 101;
+  if (envelope.funds_cents <= 0) return 100;
+  return Math.min(100, (envelope.spent_cents / envelope.funds_cents) * 100);
 };
 
 export const envelopeNote = (envelope: HomeEnvelope) =>
   envelope.available_cents < 0
-    ? `${formatMoney(-envelope.available_cents, HOME_CURRENCY)} na minusie`
-    : `zostało ${formatMoney(envelope.available_cents, HOME_CURRENCY)}`;
+    ? copy.home.overLimit(formatSignedMoney(-envelope.available_cents, HOME_CURRENCY))
+    : copy.home.left(formatSignedMoney(envelope.available_cents, HOME_CURRENCY));
 
-/** „Październik 2026" i „dzień 18 z 31" z daty ISO zwróconej przez backend. */
-export const describeMonth = (todayIso: string) => {
+/** Podpis pod główną liczbą: ile dni zostało do końca miesiąca z daty ISO z backendu. */
+export const describeDaysLeft = (todayIso: string) => {
   const [year, month, day] = todayIso.split('-').map(Number);
-  const name = new Date(year, month - 1, 1).toLocaleDateString('pl-PL', { month: 'long' });
-  const daysInMonth = new Date(year, month, 0).getDate();
-  return {
-    title: `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`,
-    progress: `Dzień ${day} z ${daysInMonth}`
-  };
-};
-
-/** „17.10" — rok jest zbędny na liście kilku ostatnich transakcji. */
-export const shortDate = (iso: string) => {
-  const [, month, day] = iso.split('-');
-  return `${day}.${month}`;
+  const left = new Date(year, month, 0).getDate() - day;
+  return left === 0 ? copy.home.lastDay : copy.home.daysLeft(days(left));
 };

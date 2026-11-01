@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { IconDatabaseExport, IconDownload, IconRefresh } from '@tabler/icons-react';
+import { DatabaseBackupIcon, DownloadIcon, RefreshCwIcon } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { createBackupNow, downloadBackup, getBackupStatus, type BackupStatus } from '../../api';
 import { backupHealth, formatBytes, type BackupHealth } from './backupStatus';
+import ResizableTable from '../../components/ui/ResizableTable';
 
 const HEALTH_BADGE: Record<BackupHealth, { className: string; label: string }> = {
   ok: { className: 'bg-green-lt', label: 'Aktualna' },
@@ -84,7 +85,7 @@ const BackupsCard = () => {
             onClick={() => void refetch()}
             disabled={loading}
           >
-            <IconRefresh size={16} className="me-1" />
+            <RefreshCwIcon size={16} className="me-1" />
             Odśwież
           </button>
           <button
@@ -93,7 +94,7 @@ const BackupsCard = () => {
             onClick={() => void handleCreate()}
             disabled={creating || Boolean(data?.running)}
           >
-            <IconDatabaseExport size={16} className="me-1" />
+            <DatabaseBackupIcon size={16} className="me-1" />
             {creating ? 'Tworzę kopię…' : 'Zrób kopię teraz'}
           </button>
         </div>
@@ -148,7 +149,7 @@ const BackupsCard = () => {
       </div>
       {data && data.backups.length > 0 && (
         <div className="table-responsive">
-          <table className="table table-vcenter card-table mb-0">
+          <ResizableTable tableId="backups" className="table table-vcenter card-table mb-0">
             <thead>
               <tr>
                 <th>Kopia bazy</th>
@@ -173,14 +174,14 @@ const BackupsCard = () => {
                       disabled={downloading === backup.name}
                       title="Pobierz plik bazy (bez załączników)"
                     >
-                      <IconDownload size={16} className="me-1" />
+                      <DownloadIcon size={16} className="me-1" />
                       Pobierz
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResizableTable>
         </div>
       )}
     </div>

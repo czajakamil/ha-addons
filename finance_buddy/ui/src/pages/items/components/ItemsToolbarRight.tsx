@@ -1,6 +1,6 @@
 // Pasek narzędzi listy przedmiotów: wyszukiwarka + wybór sortowania.
 import type { Dispatch, SetStateAction } from 'react';
-import { IconSearch } from '@tabler/icons-react';
+import { SearchIcon } from 'lucide-react';
 import { SORT_OPTIONS, type SortOption } from '../model';
 
 type ItemsToolbarRightProps = {
@@ -20,7 +20,7 @@ const ItemsToolbarRight = ({
     <div className="accounts-toolbar__field accounts-toolbar__field--search">
       <div className="input-icon">
         <span className="input-icon-addon">
-          <IconSearch size={16} aria-hidden="true" />
+          <SearchIcon size={16} aria-hidden="true" />
         </span>
         <input
           id="items-search-input"

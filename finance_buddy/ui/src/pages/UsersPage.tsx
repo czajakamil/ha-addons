@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApi } from '../hooks/useApi';
-import {
-  IconCopy,
-  IconDownload,
-  IconEye,
-  IconEyeOff,
-  IconRefresh,
-  IconUserPlus
-} from '@tabler/icons-react';
+import { CopyIcon, DownloadIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, UserPlusIcon } from 'lucide-react';
 import {
   createUserInvite,
   deleteUser,
@@ -26,6 +19,7 @@ import {
   type YnabSettings
 } from '../api';
 import BackupsCard from './panel/BackupsCard';
+import ResizableTable from '../components/ui/ResizableTable';
 
 const resolveErrorMessage = (err: unknown, fallback = 'Nie udało się wykonać akcji.') => {
   if (!(err instanceof Error)) return fallback;
@@ -439,7 +433,7 @@ const UsersPage = () => {
                         onClick={() => setYnabShowKey((prev) => !prev)}
                         aria-label={ynabShowKey ? 'Ukryj klucz API' : 'Pokaż klucz API'}
                       >
-                        {ynabShowKey ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                        {ynabShowKey ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                       </button>
                     </div>
                     {ynabSettings?.api_key_set && (
@@ -474,7 +468,7 @@ const UsersPage = () => {
                         onClick={handleFetchBudgets}
                         disabled={ynabBudgetsLoading}
                       >
-                        <IconRefresh size={16} className="me-2" />
+                        <RefreshCwIcon size={16} className="me-2" />
                         Pobierz budżety
                       </button>
                       <button
@@ -500,7 +494,7 @@ const UsersPage = () => {
                       onClick={handleImportYnab}
                       disabled={ynabImporting}
                     >
-                      <IconDownload size={18} className="me-2" />
+                      <DownloadIcon size={18} className="me-2" />
                       Pobierz transakcje
                     </button>
                     {ynabSettings?.last_imported_at && (
@@ -539,7 +533,7 @@ const UsersPage = () => {
               onClick={() => void loadUsers()}
               disabled={usersLoading}
             >
-              <IconRefresh size={16} className="me-1" />
+              <RefreshCwIcon size={16} className="me-1" />
               Odśwież
             </button>
           </div>
@@ -557,7 +551,7 @@ const UsersPage = () => {
               <div className="p-3 text-secondary">Brak użytkowników do wyświetlenia.</div>
             ) : (
               <div className="table-responsive">
-                <table className="table table-vcenter mb-0">
+                <ResizableTable tableId="users" className="table table-vcenter mb-0">
                   <thead>
                     <tr>
                       <th>Użytkownik</th>
@@ -621,7 +615,7 @@ const UsersPage = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </ResizableTable>
               </div>
             )}
           </div>
@@ -659,7 +653,7 @@ const UsersPage = () => {
               type="submit"
               disabled={!username.trim() || !displayName.trim()}
             >
-              <IconUserPlus size={18} className="me-2" />
+              <UserPlusIcon size={18} className="me-2" />
               Utwórz zaproszenie
             </button>
           </form>
@@ -683,7 +677,7 @@ const UsersPage = () => {
                 Ważny do: {new Date(result.invite_expires_at).toLocaleString()}
               </div>
               <button className="btn btn-outline-primary" type="button" onClick={handleCopy}>
-                <IconCopy size={16} className="me-2" />
+                <CopyIcon size={16} className="me-2" />
                 Skopiuj
               </button>
             </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { IconCircleOff, IconPalette } from '@tabler/icons-react';
+import { CircleOffIcon, PaletteIcon } from 'lucide-react';
 import { TagColorDot } from './TagChip';
 import {
   DEFAULT_CUSTOM_HSL,
@@ -180,7 +180,7 @@ const TagColorPicker = ({ resolved, ownColorId, canInherit = true, disabled, onS
               aria-expanded={customOpen}
               aria-label="Kolor niestandardowy"
             >
-              {!isCustomActive && <IconPalette size={12} aria-hidden="true" />}
+              {!isCustomActive && <PaletteIcon size={12} aria-hidden="true" />}
             </button>
           </div>
 
@@ -245,7 +245,7 @@ const TagColorPicker = ({ resolved, ownColorId, canInherit = true, disabled, onS
               className={`tag-color-picker__inherit${ownColorId === null ? ' is-selected' : ''}`}
               onClick={() => choose(null)}
             >
-              <IconCircleOff size={14} aria-hidden="true" />
+              <CircleOffIcon size={14} aria-hidden="true" />
               <span>Dziedzicz z rodzica</span>
             </button>
           )}

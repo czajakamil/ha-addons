@@ -1,12 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  IconAlertTriangle,
-  IconFileImport,
-  IconPhoto,
-  IconRefresh,
-  IconTrash
-} from '@tabler/icons-react';
+import { FileInputIcon, ReceiptIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import Button from '../../components/Button';
 import {
   deleteReceiptDraft,
@@ -16,14 +10,14 @@ import {
   type ReceiptDraftSummary,
   type ReceiptQueueFilter
 } from '../../api';
+import EmptyState from '../../components/ui/EmptyState';
+import PageHeader from '../../components/ui/PageHeader';
+import SegmentedControl from '../../components/ui/SegmentedControl';
+import SkeletonRows from '../../components/ui/SkeletonRows';
+import TruncatedText from '../../components/ui/TruncatedText';
+import { formatShortDate } from '../../utils/date';
 import { formatMoney } from '../../utils/format';
-
-const FILTERS: { value: ReceiptQueueFilter; label: string }[] = [
-  { value: 'todo', label: 'Do zrobienia' },
-  { value: 'done', label: 'Zatwierdzone' },
-  { value: 'skipped', label: 'Pominięte' },
-  { value: 'all', label: 'Wszystkie' }
-];
+import ResizableTable from '../../components/ui/ResizableTable';
 
 const EMPTY_COUNTS: ReceiptDraftCounts = {
   total: 0,
@@ -47,7 +41,6 @@ const ReceiptInboxPage = () => {
   const [counts, setCounts] = useState<ReceiptDraftCounts>(EMPTY_COUNTS);
   const [loading, setLoading] = useState(false);
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [progressMessage, setProgressMessage] = useState('');
@@ -82,17 +75,12 @@ const ReceiptInboxPage = () => {
     []
   );
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSelectedFiles(Array.from(event.target.files ?? []));
-    setError(null);
-  };
-
-  const handleUpload = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedFiles.length) {
-      setError('Wybierz co najmniej jeden plik PDF albo zdjęcie.');
-      return;
-    }
+  // Wybór plików od razu startuje rozpoznawanie: nic nie trafia jeszcze do transakcji,
+  // a szkic zawsze można usunąć.
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!selectedFiles.length) return;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -115,7 +103,6 @@ const ReceiptInboxPage = () => {
         signal: controller.signal
       });
       setCounts(response.counts);
-      setSelectedFiles([]);
       setProgress(100);
       setProgressMessage(`Wgrano ${response.counts.total} stron do skrzynki.`);
       await load(filter);
@@ -143,203 +130,167 @@ const ReceiptInboxPage = () => {
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const openFirst = () => {
     const first = drafts[0];
     if (first) navigate(`/receipts/${first.id}?filter=${filter}`);
   };
 
   return (
-    <div className="page-wrapper compact-page">
-      <div className="page-shell">
-        <div className="page-header d-print-none">
-          <div className="row align-items-center">
-            <div className="col">
-              <h2 className="page-title">Skrzynka paragonów</h2>
-              <div className="text-secondary mt-1">
-                Wgrane paragony czekają tu jako szkice — transakcja powstaje dopiero po
-                zatwierdzeniu w edytorze.
-              </div>
-            </div>
+    <div className="page-shell page-stack-layout receipt-inbox">
+      <PageHeader
+        title="Paragony"
+        count={counts.todo}
+        actions={
+          <>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => void load(filter)}
+              disabled={loading}
+            >
+              <RefreshCwIcon size={14} aria-hidden="true" />
+              Odśwież
+            </button>
+            <Button
+              icon={<FileInputIcon size={16} aria-hidden="true" />}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? 'Przetwarzanie…' : 'Wgraj paragony'}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="d-none"
+              accept="application/pdf,image/*"
+              multiple
+              aria-label="Pliki paragonów"
+              onChange={(event) => void handleFileChange(event)}
+            />
+          </>
+        }
+      />
+
+      {progress !== null && (
+        <div className="receipt-inbox__progress" role="status">
+          <div className="receipt-inbox__progress-label">
+            <span>{progressMessage}</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="progress-bar">
+            <span style={{ width: `${progress}%`, transition: 'width 220ms ease' }} />
           </div>
         </div>
+      )}
 
-        <div className="page-body">
-          <div className="card">
-            <div className="card-body">
-              <form className="d-flex flex-wrap align-items-center gap-2" onSubmit={handleUpload}>
-                <input
-                  type="file"
-                  className="form-control receipt-inbox__file"
-                  accept="application/pdf,image/*"
-                  multiple
-                  onChange={handleFileChange}
-                  disabled={uploading}
-                />
-                <Button
-                  type="submit"
-                  icon={<IconFileImport size={16} />}
-                  disabled={uploading || !selectedFiles.length}
-                >
-                  {uploading ? 'Przetwarzanie…' : 'Wgraj i rozpoznaj'}
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  icon={<IconRefresh size={16} />}
-                  onClick={() => void load(filter)}
-                  disabled={loading}
-                >
-                  Odśwież
-                </Button>
-              </form>
+      {error && (
+        <p className="transactions-error" role="alert">
+          {error}
+        </p>
+      )}
 
-              {progress !== null ? (
-                <div className="mt-3">
-                  <div className="d-flex justify-content-between text-secondary small mb-1">
-                    <span>{progressMessage}</span>
-                    <span>{Math.round(progress)}%</span>
-                  </div>
-                  <div className="progress-bar">
-                    <span style={{ width: `${progress}%`, transition: 'width 220ms ease' }} />
-                  </div>
-                </div>
-              ) : null}
+      <div className="receipt-inbox__toolbar">
+        <SegmentedControl
+          label="Stan paragonów"
+          value={filter}
+          options={[
+            { value: 'todo', label: 'Do zrobienia', count: counts.todo },
+            { value: 'done', label: 'Zatwierdzone', count: counts.committed },
+            { value: 'skipped', label: 'Pominięte', count: counts.skipped },
+            { value: 'all', label: 'Wszystkie', count: counts.total }
+          ]}
+          onChange={setFilter}
+        />
+        {drafts.length > 0 && (
+          <button type="button" className="text-button" onClick={openFirst}>
+            Przeglądaj po kolei
+          </button>
+        )}
+      </div>
 
-              {error ? (
-                <div className="alert alert-danger mt-3 mb-0" role="alert">
-                  {error}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="receipt-inbox__toolbar mt-3">
-            <div className="btn-group" role="group">
-              {FILTERS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`btn btn-sm ${
-                    filter === option.value ? 'btn-primary' : 'btn-outline-secondary'
-                  }`}
-                  onClick={() => setFilter(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <span className="flex-grow-1" />
-            {counts.review ? (
-              <span className="receipt-badge receipt-badge--warn">
-                <IconAlertTriangle size={14} /> do przejrzenia: {counts.review}
-              </span>
-            ) : null}
-            <span className="text-secondary small">
-              do zrobienia {counts.todo} · zatwierdzone {counts.committed} · pominięte{' '}
-              {counts.skipped}
-            </span>
-            <Button size="sm" onClick={openFirst} disabled={!drafts.length}>
-              Otwórz pierwszy
-            </Button>
-          </div>
-
-          <div className="card mt-2">
-            <div className="table-responsive">
-              <table className="table table-vcenter card-table">
-                <thead>
-                  <tr>
-                    <th>Plik</th>
-                    <th>Sklep</th>
-                    <th>Data</th>
-                    <th className="text-end">Suma</th>
-                    <th className="text-end">Pozycje</th>
-                    <th>Stan</th>
-                    <th aria-label="Akcje" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {drafts.map((draft) => {
-                    const worst = draft.issues.find((issue) => issue.level === 'bad')
-                      ?? draft.issues[0];
-                    return (
-                      <tr
-                        key={draft.id}
-                        className="receipt-inbox__row"
-                        onClick={() => navigate(`/receipts/${draft.id}?filter=${filter}`)}
-                      >
-                        <td>
-                          <div className="d-flex align-items-center gap-2">
-                            <IconPhoto size={16} className="text-secondary" />
-                            <span>
-                              {draft.source_name}
-                              <span className="text-secondary"> · s.{draft.page_number}</span>
-                            </span>
-                          </div>
-                        </td>
-                        <td>{draft.store_name || <span className="text-secondary">—</span>}</td>
-                        <td>
-                          {draft.happened_at ? (
-                            draft.happened_at.slice(0, 16).replace('T', ' ')
-                          ) : (
-                            <span className="text-secondary">—</span>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          {draft.total_cents == null ? (
-                            <span className="text-secondary">—</span>
-                          ) : (
-                            formatMoney(draft.total_cents, draft.currency)
-                          )}
-                        </td>
-                        <td className="text-end">{draft.item_count}</td>
-                        <td>
-                          {draft.status === 'committed' ? (
-                            <span className="receipt-badge receipt-badge--ok">zatwierdzony</span>
-                          ) : draft.status === 'skipped' ? (
-                            <span className="receipt-badge">pominięty</span>
-                          ) : worst ? (
-                            <span
-                              className={`receipt-badge receipt-badge--${
-                                worst.level === 'bad' ? 'bad' : 'warn'
-                              }`}
-                              title={worst.message}
-                            >
-                              {worst.message}
-                            </span>
-                          ) : (
-                            <span className="receipt-badge receipt-badge--ok">gotowy</span>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            icon={<IconTrash size={16} />}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDelete(draft);
-                            }}
-                            aria-label="Usuń szkic"
+      <section className="receipt-inbox__card">
+        {loading && !drafts.length && <SkeletonRows rows={6} />}
+        {!loading && !drafts.length && (
+          <EmptyState
+            icon={ReceiptIcon}
+            message="Nic tu nie ma. Wgrane paragony czekają tu jako szkice, a transakcja powstaje dopiero po zatwierdzeniu."
+          />
+        )}
+        {drafts.length > 0 && (
+          <div className="table-responsive">
+            <ResizableTable tableId="receipts" className="receipt-inbox__table">
+              <thead>
+                <tr>
+                  <th>Sklep</th>
+                  <th className="receipt-inbox__date">Data</th>
+                  <th className="receipt-inbox__amount">Suma</th>
+                  <th className="receipt-inbox__status">Stan</th>
+                  <th className="receipt-inbox__actions" aria-label="Akcje" />
+                </tr>
+              </thead>
+              <tbody>
+                {drafts.map((draft) => {
+                  const worst = draft.issues.find((issue) => issue.level === 'bad') ?? draft.issues[0];
+                  return (
+                    <tr
+                      key={draft.id}
+                      className="receipt-inbox__row"
+                      onClick={() => navigate(`/receipts/${draft.id}?filter=${filter}`)}
+                    >
+                      <td>
+                        <TruncatedText text={draft.store_name || draft.source_name} />
+                        <span className="receipt-inbox__meta">
+                          <TruncatedText
+                            text={`${draft.source_name}, s. ${draft.page_number} · pozycje: ${draft.item_count}`}
+                          />
+                        </span>
+                      </td>
+                      <td className="receipt-inbox__date">
+                        {draft.happened_at ? formatShortDate(draft.happened_at.slice(0, 10)) : '—'}
+                      </td>
+                      <td className="receipt-inbox__amount">
+                        {draft.total_cents == null ? '—' : formatMoney(draft.total_cents, draft.currency)}
+                      </td>
+                      <td className="receipt-inbox__status">
+                        {draft.status === 'committed' ? (
+                          <span className="receipt-badge receipt-badge--ok">zatwierdzony</span>
+                        ) : draft.status === 'skipped' ? (
+                          <span className="receipt-badge">pominięty</span>
+                        ) : worst ? (
+                          <span
+                            className={`receipt-badge receipt-badge--${worst.level === 'bad' ? 'bad' : 'warn'}`}
+                            title={worst.message}
                           >
-                            <span className="visually-hidden">Usuń szkic</span>
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!drafts.length && !loading ? (
-                    <tr>
-                      <td colSpan={7} className="text-secondary text-center py-4">
-                        Nic tu nie ma. Wgraj paragony powyżej — PDF-y wielostronicowe rozbijamy na
-                        pojedyncze paragony.
+                            {worst.message}
+                          </span>
+                        ) : (
+                          <span className="receipt-badge receipt-badge--ok">gotowy</span>
+                        )}
+                      </td>
+                      <td className="receipt-inbox__actions">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="Usuń szkic"
+                          aria-label="Usuń szkic"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDelete(draft);
+                          }}
+                        >
+                          <Trash2Icon size={14} aria-hidden="true" />
+                        </button>
                       </td>
                     </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </ResizableTable>
           </div>
-        </div>
-      </div>
+        )}
+      </section>
     </div>
   );
 };

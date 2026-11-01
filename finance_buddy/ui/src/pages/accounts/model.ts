@@ -1,5 +1,4 @@
 // Typy, stałe i czyste helpery strony kont — bez stanu i bez JSX.
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Account, AccountKind } from '../../api';
 
 export const currencyOptions = [
@@ -26,33 +25,6 @@ export const currencyOptions = [
 ];
 
 export type EditableField = 'name' | 'currency' | 'comment';
-
-export type EditingCell = {
-  accountId: string;
-  field: EditableField;
-};
-
-export const ACCOUNT_COLUMN_KEYS = ['name', 'category', 'currency', 'balance', 'kind', 'budget', 'comment'] as const;
-export type AccountColumn = (typeof ACCOUNT_COLUMN_KEYS)[number];
-
-export const isAccountColumnKey = (value: string): value is AccountColumn =>
-  ACCOUNT_COLUMN_KEYS.includes(value as AccountColumn);
-
-export const isEditableFieldColumn = (column: AccountColumn): column is EditableField =>
-  column === 'name' || column === 'currency' || column === 'comment';
-
-const ACCOUNT_GRID_MIN_HEIGHT = 260;
-const ACCOUNT_GRID_MAX_HEIGHT = 720;
-export const ACCOUNT_GRID_ROW_HEIGHT = 52;
-export const ACCOUNT_GRID_HEADER_HEIGHT = 44;
-
-export const getAccountsGridHeight = (rowCount: number) => {
-  if (rowCount <= 0) {
-    return ACCOUNT_GRID_MIN_HEIGHT;
-  }
-  const estimated = ACCOUNT_GRID_HEADER_HEIGHT + 16 + ACCOUNT_GRID_ROW_HEIGHT * rowCount;
-  return Math.min(ACCOUNT_GRID_MAX_HEIGHT, Math.max(ACCOUNT_GRID_MIN_HEIGHT, estimated));
-};
 
 export type BudgetLabelValue = 'on' | 'off';
 
@@ -84,9 +56,6 @@ export const getAccountKindLabel = (value?: string | null) => {
   return ACCOUNT_KIND_LABELS.get(normalized) ?? value ?? 'Nieznane';
 };
 
-export const isCreditAccountKind = (value?: string | null) =>
-  normalizeAccountKind(value) === 'creditcard';
-
 // Konta, dla których ma sens widok długu: oprocentowanie, rata i harmonogram.
 // Karty kredytowe świadomie NIE — YNAB nie wypełnia dla nich pól długu, mają
 // za to własną ścieżkę z kategorią spłaty.
@@ -102,32 +71,6 @@ export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'balance_asc', label: 'Saldo rosnąco' }
 ];
 
-export const NAVIGATION_KEYS = new Set<string>([
-  'ArrowLeft',
-  'ArrowRight',
-  'ArrowUp',
-  'ArrowDown',
-  'Home',
-  'End',
-  'PageUp',
-  'PageDown'
-]);
-
-export const stopNavigationKeyPropagation = (
-  event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
-) => {
-  if (NAVIGATION_KEYS.has(event.key)) {
-    // Zatrzymaj event zanim dotrze do react-data-grid
-    event.stopPropagation();
-  }
-};
-
-export const focusClosestGridCell = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) return;
-  const cell = target.closest<HTMLElement>('.rdg-cell, [role="gridcell"]');
-  cell?.focus();
-};
-
 export type BalanceAdjustmentModalState = {
   account: Account;
   targetBalanceCents: number;
@@ -136,3 +79,19 @@ export type BalanceAdjustmentModalState = {
 // Znormalizowane porównywanie ścieżek kategorii ("A / B" ~ "a/b") przy wyszukiwaniu.
 export const normalizeCategoryLabel = (value: string) =>
   value.replace(/\s*\/\s*/g, '/').trim().toLowerCase();
+
+const DORMANT_AFTER_DAYS = 90;
+const MAIN_CURRENCY = 'PLN';
+
+/** Konto z zerowym saldem i bez ruchu od 90 dni. Brak daty oznacza, że aktywność jeszcze się wczytuje. */
+export const isDormantAccount = (account: Account, lastActivity: string | null | undefined) => {
+  if (account.balance_cents !== 0 || lastActivity === undefined) return false;
+  if (lastActivity === null) return true;
+  return Date.now() - Date.parse(lastActivity) > DORMANT_AFTER_DAYS * 86_400_000;
+};
+
+// Suma grupy obejmuje konta w głównej walucie; kursów nie przeliczamy.
+export const sumInMainCurrency = (accounts: Account[]) =>
+  accounts
+    .filter((account) => account.currency === MAIN_CURRENCY)
+    .reduce((sum, account) => sum + account.balance_cents, 0);

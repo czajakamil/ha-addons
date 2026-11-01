@@ -12,7 +12,7 @@ const AccountAvatar = ({ icon, color, size = 'md' }: AccountAvatarProps) => {
   const style = { '--account-avatar-color': getAccountColorValue(color) } as CSSProperties;
   return (
     <span className={`account-avatar account-avatar--${size}`} style={style} aria-hidden="true">
-      {createElement(getAccountIcon(icon), { size: size === 'sm' ? 16 : 18, stroke: 1.7 })}
+      {createElement(getAccountIcon(icon), { size: size === 'sm' ? 16 : 18, strokeWidth: 1.7 })}
     </span>
   );
 };

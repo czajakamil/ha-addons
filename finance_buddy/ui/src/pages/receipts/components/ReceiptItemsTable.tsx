@@ -4,7 +4,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent
 } from 'react';
-import { IconGripVertical, IconPlus, IconX } from '@tabler/icons-react';
+import { GripVerticalIcon, PlusIcon, X } from 'lucide-react';
 import Button from '../../../components/Button';
 import TagPathInput from '../../../components/tags/TagPathInput';
 import EntityAutocomplete, {
@@ -20,6 +20,7 @@ import {
   rowsBalance,
   type ItemRow
 } from '../model';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type ReceiptItemsTableProps = {
   rows: ItemRow[];
@@ -116,7 +117,7 @@ const ReceiptItemsTable = ({
   return (
     <div className="receipt-items">
       <div className="table-responsive">
-        <table className="table table-sm table-vcenter receipt-items__table mb-0">
+        <ResizableTable tableId="receipt-items" className="table table-sm table-vcenter receipt-items__table mb-0">
           <thead>
             <tr>
               <th className="receipt-items__col-drag" aria-label="Kolejność" />
@@ -147,7 +148,7 @@ const ReceiptItemsTable = ({
                     title="Przeciągnij, aby zmienić kolejność (albo Alt+↑/↓)"
                     onMouseDown={(event) => startDrag(index, event)}
                   >
-                    <IconGripVertical size={16} />
+                    <GripVerticalIcon size={16} />
                   </td>
                   <td>
                     <input
@@ -252,7 +253,7 @@ const ReceiptItemsTable = ({
                     <Button
                       variant="link"
                       size="sm"
-                      icon={<IconX size={16} />}
+                      icon={<X size={16} />}
                       onClick={() => onRemove(index)}
                       aria-label="Usuń pozycję"
                     >
@@ -270,11 +271,11 @@ const ReceiptItemsTable = ({
               </tr>
             ) : null}
           </tbody>
-        </table>
+        </ResizableTable>
       </div>
 
       <div className="receipt-items__footer">
-        <Button variant="outline-secondary" size="sm" icon={<IconPlus size={16} />} onClick={onAdd}>
+        <Button variant="outline-secondary" size="sm" icon={<PlusIcon size={16} />} onClick={onAdd}>
           pozycja
         </Button>
         <span className="flex-grow-1" />
