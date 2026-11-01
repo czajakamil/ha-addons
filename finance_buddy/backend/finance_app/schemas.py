@@ -163,6 +163,18 @@ class StoreRead(StoreBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StoreStats(BaseModel):
+    store_id: str
+    count: int
+    spent_cents_12m: int
+    last_date: dt.date | None = None
+
+
+class StoreMonthlySpend(BaseModel):
+    month: str
+    cents: int
+
+
 class ItemBase(BaseModel):
     name: str
     group_name: str | None = None
@@ -514,6 +526,7 @@ class TransactionUpdate(BaseModel):
 class TransactionRead(TransactionBase):
     id: str
     total_cents: int
+    bank_description: str | None = None
     items: list[TransactionItemRead]
 
     model_config = ConfigDict(from_attributes=True)

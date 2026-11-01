@@ -579,6 +579,11 @@
       display: none;
     }
 
+    .stores-table--no-bank-name .stores-table__account {
+      display: table-cell;
+      width: auto;
+    }
+
     .stores-table th.stores-table__spent,
     .stores-table td.stores-table__spent {
       width: 112px;

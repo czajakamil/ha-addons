@@ -12,6 +12,7 @@ import datetime as dt
 import re
 import sqlite3
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -501,6 +502,7 @@ def _filtered_transactions(
     category_id: str | None,
     search: str | None,
     exclude_internal: bool,
+    store_ids: Sequence[str] | None = None,
 ) -> Select[tuple[Transaction]]:
     stmt = (
         select(Transaction)
@@ -521,6 +523,9 @@ def _filtered_transactions(
     if store_id is not None:
         _get_owned_or_404(db, Store, store_id, user_id, "Store")
         stmt = stmt.where(Transaction.store_id == store_id)
+    if store_ids:
+        # Bez sprawdzania właściciela: wyżej zawężamy do transakcji użytkownika.
+        stmt = stmt.where(Transaction.store_id.in_(store_ids))
     if category_id is not None:
         if category_id == "__uncategorized__":
             stmt = stmt.where(Transaction.category_id.is_(None))
@@ -556,6 +561,7 @@ def list_transactions(
     end_date: dt.date | None = None,
     account_id: str | None = None,
     store_id: str | None = None,
+    store_ids: Sequence[str] | None = None,
     category_id: str | None = None,
     search: str | None = None,
     exclude_internal: bool = False,
@@ -569,6 +575,7 @@ def list_transactions(
         end_date=end_date,
         account_id=account_id,
         store_id=store_id,
+        store_ids=store_ids,
         category_id=category_id,
         search=search,
         exclude_internal=exclude_internal,
@@ -583,6 +590,7 @@ def list_transactions_page(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     account_id: str | None = None,
+    store_ids: Sequence[str] | None = None,
     search: str | None = None,
     offset: int = 0,
     limit: int = 50,
@@ -595,6 +603,7 @@ def list_transactions_page(
         end_date=end_date,
         account_id=account_id,
         store_id=None,
+        store_ids=store_ids,
         category_id=None,
         search=search,
         exclude_internal=False,

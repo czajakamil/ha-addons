@@ -2,7 +2,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Store as StoreIcon } from 'lucide-react';
-import { getAllStores, getSession, type Store } from '../api';
+import { getAllStores, getSession, getStoreStats, type Store } from '../api';
 import Button from '../components/Button';
 import ColumnsMenu from '../components/ui/ColumnsMenu';
 import EmptyState from '../components/ui/EmptyState';
@@ -18,16 +18,15 @@ import NewStoreModal from './stores/components/NewStoreModal';
 import StoreGroupsTable from './stores/components/StoreGroupsTable';
 import StoresCleanup from './stores/components/StoresCleanup';
 import {
-  aggregateStoreStats,
   buildStoreGroups,
   isInactiveGroup,
   sortStoreGroups,
+  toStatsMap,
   type GroupSort,
   type StoreGroup
 } from './stores/groups';
 import { useStoreCategories } from './stores/useStoreCategories';
 import { categoryPayload, useStoreGroupSave } from './stores/useStoreGroupSave';
-import { useAllTransactions } from './stores/useStoreStats';
 
 const labels = copy.stores;
 const SORTS = Object.keys(labels.sort) as GroupSort[];
@@ -50,7 +49,7 @@ const StoresPage = () => {
     errorMessage: labels.loadFailed
   });
   const session = useApi(getSession);
-  const { transactions, failed: statsFailed, reload: reloadStats } = useAllTransactions();
+  const statsRequest = useApi(() => getStoreStats(), { errorMessage: labels.statsFailed });
   const { categories, categoryMap, ensureCategory } = useStoreCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<GroupSort>('spent');
@@ -62,10 +61,7 @@ const StoresPage = () => {
   const setView = (next: 'all' | 'cleanup') =>
     setSearchParams(next === 'cleanup' ? { view: 'cleanup' } : {}, { replace: true });
 
-  const stats = useMemo(
-    () => (transactions ? aggregateStoreStats(transactions, stores) : null),
-    [transactions, stores]
-  );
+  const stats = useMemo(() => (statsRequest.data ? toStatsMap(statsRequest.data) : null), [statsRequest.data]);
   const groups = useMemo(() => buildStoreGroups(stores, stats ?? new Map()), [stores, stats]);
   const ownerName = session.data?.display_name?.trim() || session.data?.username?.trim() || '';
   const cleanupItems = useMemo(() => buildCleanupItems(stores, ownerName), [stores, ownerName]);
@@ -197,10 +193,10 @@ const StoresPage = () => {
       </div>
 
       {error && !loading && <p className="accounts-error" role="alert">{error}</p>}
-      {statsFailed && (
+      {statsRequest.error && (
         <p className="accounts-error" role="alert">
           {labels.statsFailed}{' '}
-          <button type="button" className="text-button" onClick={() => void reloadStats()}>
+          <button type="button" className="text-button" onClick={() => void statsRequest.refetch()}>
             {labels.retry}
           </button>
         </p>
@@ -219,7 +215,7 @@ const StoresPage = () => {
               </button>
             </div>
           )}
-          {!transactions && !statsFailed && <p className="stores-muted stores-status">{labels.statsLoading}</p>}
+          {!stats && !statsRequest.error && <p className="stores-muted stores-status">{labels.statsLoading}</p>}
           {needle && !sorted.length && <EmptyState icon={StoreIcon} message={labels.empty} />}
           {recentGroups.length > 0 && renderTable(recentGroups)}
           {inactiveGroups.length > 0 && (

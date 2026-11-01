@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Pencil, Store as StoreIcon } from 'lucide-react';
-import { getAccounts, getAllStoreTransactions, getAllStores, type Store } from '../../api';
+import { getAccounts, getAllStores, getStoreMonthlySpend, getStoreStats, getTransactionsPage, type Store } from '../../api';
 import EmptyState from '../../components/ui/EmptyState';
 import Money, { formatSignedMoney } from '../../components/ui/Money';
 import SkeletonRows from '../../components/ui/SkeletonRows';
@@ -15,12 +15,13 @@ import StoreCategory from './components/StoreCategory';
 import StoreSettings from './components/StoreSettings';
 import StoreSpendChart from './components/StoreSpendChart';
 import StoreTransactions from './components/StoreTransactions';
-import { aggregateStoreStats, buildMonthlySpend, buildStoreGroups } from './groups';
+import { buildStoreGroups, toStatsMap } from './groups';
 import { useStoreCategories } from './useStoreCategories';
 import { useStoreGroupSave } from './useStoreGroupSave';
 
 const labels = copy.stores;
 const MONTHS_IN_WINDOW = 12;
+const RECENT_LIMIT = 20;
 
 const StoreDetailsPage = () => {
   const { storeId = '' } = useParams();
@@ -38,21 +39,27 @@ const StoreDetailsPage = () => {
   );
   const memberKey = group?.members.map((store) => store.id).sort().join(',') ?? '';
 
-  // Wynik niesie klucz grupy, żeby po zmianie składu nie pokazać transakcji poprzedniego
-  const transactions = useApi(
-    async () => ({ key: memberKey, items: await getAllStoreTransactions(memberKey.split(',')) }),
+  // Wynik niesie klucz grupy, żeby po zmianie składu nie pokazać danych poprzedniego
+  const details = useApi(
+    async () => {
+      const ids = memberKey.split(',');
+      const [statsRows, months, recent] = await Promise.all([
+        getStoreStats(ids),
+        getStoreMonthlySpend(ids),
+        getTransactionsPage({ store_ids: ids, limit: RECENT_LIMIT })
+      ]);
+      return { key: memberKey, stats: toStatsMap(statsRows), months, recent: recent.items };
+    },
     { errorMessage: labels.transactionsFailed, immediate: false }
   );
-  const { refetch: refetchTransactions } = transactions;
+  const { refetch: refetchDetails } = details;
   useEffect(() => {
-    if (memberKey) void refetchTransactions();
-  }, [memberKey, refetchTransactions]);
+    if (memberKey) void refetchDetails();
+  }, [memberKey, refetchDetails]);
 
-  const txList = transactions.data?.key === memberKey ? transactions.data.items : null;
-  const stats = useMemo(
-    () => (txList ? aggregateStoreStats(txList, group?.members ?? []) : null),
-    [txList, group?.members]
-  );
+  const loaded = details.data?.key === memberKey ? details.data : null;
+  const stats = loaded?.stats ?? null;
+  const months = loaded?.months ?? null;
   const summary = useMemo(
     () => (group && stats ? buildStoreGroups(group.members, stats)[0] : null),
     [group, stats]
@@ -61,7 +68,6 @@ const StoreDetailsPage = () => {
     () => (stats ? new Map(Array.from(stats, ([id, stat]) => [id, stat.count])) : null),
     [stats]
   );
-  const months = useMemo(() => (txList ? buildMonthlySpend(txList, group?.members ?? []) : null), [txList, group?.members]);
 
   const applyUpdated = useCallback(
     (updated: Store[]) => {
@@ -148,8 +154,8 @@ const StoreDetailsPage = () => {
             </div>
           </header>
 
-          {transactions.error && <p className="accounts-error" role="alert">{transactions.error}</p>}
-          {months ? <StoreSpendChart months={months} /> : !transactions.error && <SkeletonRows rows={4} />}
+          {details.error && <p className="accounts-error" role="alert">{details.error}</p>}
+          {months ? <StoreSpendChart months={months} /> : !details.error && <SkeletonRows rows={4} />}
 
           <div className="account-tabs" role="tablist" aria-label={labels.tabs.label}>
             {(['transactions', 'settings'] as const).map((value) => (
@@ -171,15 +177,15 @@ const StoreDetailsPage = () => {
 
           <div role="tabpanel" id={`store-panel-${tab}`} aria-labelledby={`store-tab-${tab}`}>
             {tab === 'transactions' ? (
-              txList ? (
+              loaded ? (
                 <StoreTransactions
-                  transactions={txList}
+                  transactions={loaded.recent}
                   members={group.members}
                   accounts={accounts.data ?? []}
                   categoryMap={categoryMap}
                 />
               ) : (
-                !transactions.error && <SkeletonRows rows={6} />
+                !details.error && <SkeletonRows rows={6} />
               )
             ) : (
               <StoreSettings

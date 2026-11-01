@@ -89,7 +89,7 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Zmiana nazwy zapisuje `group_name` we wszystkich sklepach grupy, a `name` zostaje.** Importer CSV dopasowuje sklepy po `Store.name`, więc zmiana `name` odcięłaby je od kolejnych importów. Skutek uboczny: nazwa identyczna z inną grupą łączy obie na liście.
 - **Grupa to ta sama nazwa grupowa po zmianie wielkości liter i spacji,** a przy jej braku `name`. Sklep zarchiwizowany nie dokleja się do aktywnej grupy, bo importer już go nie dopasowuje.
 - **`/payees/:id` przyjmuje id dowolnego sklepu z grupy,** bo grupa nie ma własnego id. Lista zostaje pod `/stores`, a stare adresy dalej działają.
-- **Statystyki to jedno przejście po wszystkich transakcjach,** a nie żądanie na sklep. Koszt i propozycja endpointu są w `docs/design/sklepy/ETAP2.md`.
+- **Statystyki liczy baza** (`GET /stores/stats`, `/stores/stats/monthly`), z tymi samymi wykluczeniami co raporty. Lista i wykres korzystają z jednego źródła, więc liczby się nie rozjeżdżają.
 - **Transakcje i Ostatnia liczą całą historię, Wydano ostatnie 12 miesięcy kalendarzowych z bieżącym,** tak samo jak wykres. Średnia to zawsze suma / 12. Wydano pomija przelewy, korekty salda i inne waluty niż PLN, a zwrot pomniejsza sumę.
 - **Do wczytania statystyk lista jest alfabetyczna i pokazuje wszystkie grupy.** Inaczej wiersze przeskakiwałyby, a bez dat nie wiadomo, co jest nieaktywne.
 - **Domyślna kategoria grupy** to kategoria pierwszego sklepu, który ją ma, licząc od największej liczby transakcji. Zapis ustawia ją we wszystkich sklepach grupy i włącza auto-kategoryzację, bez której importer jej nie użyje.
@@ -100,8 +100,8 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Usuwanie tylko przy pewnej liczbie 0 transakcji.** Backend nie blokuje usunięcia sklepu z transakcjami i zeruje im `store_id`, więc błąd wczytania też blokuje przycisk. Etap 2 proponuje blokadę na backendzie. Grupa bez transakcji usuwa wszystkie swoje sklepy.
 - **Archiwizacja zostaje,** choć brief jej nie wymienia: w „⋯”, na stronie sklepu i jako „Pokaż zarchiwizowane”, jak w Kontach. Usunięty komentarz sklepu nie ma już pola edycji; dane zostają w bazie.
 - **Wykres to CSS, nie Nivo.** Dwanaście słupków z wartościami nie potrzebuje biblioteki; precedens to lista z paskami w Raportach. Poniżej 700 px widać 6 miesięcy, jak na stronie konta.
-- **Filtr po sklepie w Transakcjach** (`?stores=a,b`) pobiera wszystkie transakcje każdego sklepu i scala je w przeglądarce, bo API filtruje po jednym sklepie, a API zostaje bez zmian. Nazwa filtra to chip z „×”.
-- **„Nazwa z banku” to na razie `Store.name`,** bo API nie zwraca `bank_description`.
+- **Filtr po sklepie w Transakcjach** (`?stores=a,b`) idzie przez parametr `store_ids`, także w `/transactions/page`, więc ma stronicowanie i łączną liczbę. Nazwa filtra to chip z „×”.
+- **„Nazwa z banku” to tylko `bank_description`.** Zapisuje go wyłącznie import CSV; YNAB nie zapisuje `import_payee_name_original`. Bez opisu komórka jest pusta, a gdy żadna z ostatnich transakcji go nie ma, kolumny nie ma. Nazwy sklepu nie podstawiamy.
 - **Telefon (do 700 px):** lista pokazuje nazwę i Wydano, a porządki nazwę z powodem pod spodem. Sortowanie to pole wyboru jak w Kontach, a nie klik w nagłówek.
 
 ## Raporty

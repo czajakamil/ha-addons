@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Store, Transaction } from '../../api';
+import type { Store } from '../../api';
 import {
-  aggregateStoreStats,
-  buildMonthlySpend,
   buildStoreGroups,
   isInactiveGroup,
   sortStoreGroups,
-  spendWindowStart
+  spendWindowStart,
+  toStatsMap
 } from './groups';
 
 const TODAY = new Date(2026, 10, 15);
@@ -21,58 +20,16 @@ const store = (id: string, name: string, extra: Partial<Store> = {}): Store => (
   ...extra
 });
 
-const tx = (storeId: string | null, date: string, total: number, extra: Partial<Transaction> = {}): Transaction => ({
-  id: `${storeId}-${date}-${total}`,
-  account_id: 'a',
-  store_id: storeId,
-  date,
-  currency: 'PLN',
-  cleared: true,
-  reconciled: false,
-  total_cents: total,
-  items: [],
-  ...extra
-});
-
-describe('aggregateStoreStats', () => {
-  const stores = [store('s', 'Lidl')];
-
-  it('liczy całą historię, a wydatki tylko z okna 12 miesięcy', () => {
-    const stat = aggregateStoreStats(
-      [tx('s', '2026-11-01', -1000), tx('s', '2025-12-01', -500), tx('s', '2025-11-30', -9900)],
-      stores,
-      TODAY
-    ).get('s');
-    expect(stat).toEqual({ count: 3, spentCents: 1500, lastDate: '2026-11-01' });
-  });
-
-  it('odejmuje zwroty, pomija przelewy i inne waluty, ale je zlicza', () => {
-    const stat = aggregateStoreStats(
-      [
-        tx('s', '2026-10-01', -1000),
-        tx('s', '2026-10-02', 300),
-        tx('s', '2026-10-03', -5000, { transfer_account_id: 'b' }),
-        tx('s', '2026-10-04', -7000, { currency: 'EUR' })
-      ],
-      stores,
-      TODAY
-    ).get('s');
-    expect(stat).toMatchObject({ count: 4, spentCents: 700 });
-  });
-
-  it('nie traktuje korekty salda jako wydatku', () => {
-    const adjustment = [store('r', 'Reconciliation Balance Adjustment')];
-    expect(aggregateStoreStats([tx('r', '2026-10-01', -1000)], adjustment, TODAY).get('r')?.spentCents).toBe(0);
-  });
-});
-
 describe('buildStoreGroups', () => {
   const stores = [
     store('b1', 'Biedronka', { group_name: 'Biedronka' }),
     store('b2', 'BIEDRONKA 4521 KRAKOW', { group_name: ' biedronka ', automatic_category_id: 'food' }),
     store('i', 'Ikea')
   ];
-  const stats = aggregateStoreStats([tx('b2', '2026-10-01', -200), tx('b2', '2026-10-02', -300), tx('b1', '2026-09-01', -100)], stores, TODAY);
+  const stats = toStatsMap([
+    { store_id: 'b2', count: 2, spent_cents_12m: 500, last_date: '2026-10-02' },
+    { store_id: 'b1', count: 1, spent_cents_12m: 100, last_date: '2026-09-01' }
+  ]);
 
   it('łączy nazwy grupowe bez względu na wielkość liter, a głównym sklepem jest ten z największą liczbą transakcji', () => {
     const groups = buildStoreGroups(stores, stats);
@@ -102,15 +59,5 @@ describe('isInactiveGroup', () => {
     expect(isInactiveGroup(make('2025-12-01'), TODAY)).toBe(false);
     expect(isInactiveGroup(make('2025-11-30'), TODAY)).toBe(true);
     expect(isInactiveGroup(make(null), TODAY)).toBe(true);
-  });
-});
-
-describe('buildMonthlySpend', () => {
-  it('zwraca 12 miesięcy z bieżącym na końcu i nie schodzi poniżej zera', () => {
-    const months = buildMonthlySpend([tx('s', '2026-11-02', -800), tx('s', '2026-10-02', 500)], [], TODAY);
-    expect(months).toHaveLength(12);
-    expect(months[11]).toEqual({ month: '2026-11', cents: 800 });
-    expect(months[10]).toEqual({ month: '2026-10', cents: 0 });
-    expect(months[0].month).toBe('2025-12');
   });
 });

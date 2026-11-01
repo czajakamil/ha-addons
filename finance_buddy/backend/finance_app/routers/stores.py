@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -13,7 +15,8 @@ from ..dependencies import (
     get_current_user,
 )
 from ..models import Store, User
-from ..schemas import StoreCreate, StoreRead, StoreUpdate
+from ..schemas import StoreCreate, StoreMonthlySpend, StoreRead, StoreStats, StoreUpdate
+from ..services import store_stats as store_stats_service
 
 router = APIRouter()
 
@@ -45,6 +48,24 @@ def list_stores(
         )
     stmt = apply_pagination(stmt, offset, limit)
     return db.scalars(stmt).all()
+
+
+@router.get("/stores/stats", response_model=list[StoreStats])
+def get_store_stats(
+    store_ids: Annotated[list[str] | None, Query()] = None,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return store_stats_service.store_stats(db, current_user.id, store_ids)
+
+
+@router.get("/stores/stats/monthly", response_model=list[StoreMonthlySpend])
+def get_store_monthly_spend(
+    store_ids: Annotated[list[str], Query(min_length=1)],
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return store_stats_service.store_monthly_spend(db, current_user.id, store_ids)
 
 
 @router.post("/stores", response_model=StoreRead, status_code=status.HTTP_201_CREATED)

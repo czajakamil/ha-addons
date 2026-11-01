@@ -11,7 +11,6 @@ import { maskAccountNumbers } from '../cleanup';
 import StoreCategory from './StoreCategory';
 
 const labels = copy.stores;
-const RECENT_LIMIT = 20;
 
 type StoreTransactionsProps = {
   transactions: Transaction[];
@@ -23,29 +22,32 @@ type StoreTransactionsProps = {
 const StoreTransactions = ({ transactions, members, accounts, categoryMap }: StoreTransactionsProps) => {
   const navigate = useNavigate();
   if (!transactions.length) return <EmptyState icon={ReceiptText} message={labels.noTransactions} />;
-  const memberById = new Map(members.map((store) => [store.id, store]));
+  // Opis ma tylko import CSV. Nazwy sklepu nie podstawiamy, więc bez opisów kolumny nie ma.
+  const showBankName = transactions.some((tx) => tx.bank_description);
   const accountById = new Map(accounts.map((account) => [account.id, account]));
   const allHref = `/transactions?stores=${members.map((store) => encodeURIComponent(store.id)).join(',')}`;
 
   return (
     <div className="accounts-table-card stores-table-card">
-      <table className="accounts-table stores-table stores-table--transactions">
+      <table className={`accounts-table stores-table stores-table--transactions${showBankName ? '' : ' stores-table--no-bank-name'}`}>
         <thead>
           <tr>
             <th scope="col" className="stores-table__date">{labels.columns.date}</th>
-            <th scope="col">{labels.columns.bankName}</th>
+            {showBankName && <th scope="col">{labels.columns.bankName}</th>}
             <th scope="col" className="stores-table__account">{labels.columns.account}</th>
             <th scope="col" className="stores-table__category">{labels.columns.transactionCategory}</th>
             <th scope="col" className="stores-table__spent">{labels.columns.amount}</th>
           </tr>
         </thead>
         <tbody>
-          {transactions.slice(0, RECENT_LIMIT).map((tx) => (
+          {transactions.map((tx) => (
             <tr key={tx.id} className="accounts-table__row" onClick={() => navigate(`/transactions/${tx.id}`)}>
               <td className="stores-table__date">{tx.date ? formatShortDate(tx.date) : '—'}</td>
-              <td className="stores-muted">
-                <TruncatedText text={maskAccountNumbers((tx.store_id && memberById.get(tx.store_id)?.name) || '')} />
-              </td>
+              {showBankName && (
+                <td className="stores-muted">
+                  <TruncatedText text={maskAccountNumbers(tx.bank_description ?? '')} />
+                </td>
+              )}
               <td className="stores-table__account">
                 <TruncatedText text={accountById.get(tx.account_id)?.name ?? ''} />
               </td>

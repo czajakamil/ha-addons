@@ -76,3 +76,25 @@ export const updateStore = (id: string, payload: StoreUpdate) =>
   request<Store>(`/stores/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 
 export const deleteStore = (id: string) => request<void>(`/stores/${id}`, { method: 'DELETE' });
+
+/** Statystyki z serwera. Sklep bez transakcji nie ma wiersza. */
+export interface StoreStatsRow {
+  store_id: string;
+  count: number;
+  spent_cents_12m: number;
+  last_date?: string | null;
+}
+
+export interface StoreMonthlySpend {
+  month: string;
+  cents: number;
+}
+
+const storeIdsQuery = (storeIds: readonly string[]) =>
+  storeIds.map((id) => `store_ids=${encodeURIComponent(id)}`).join('&');
+
+export const getStoreStats = (storeIds: readonly string[] = []) =>
+  request<StoreStatsRow[]>(`/stores/stats${storeIds.length ? `?${storeIdsQuery(storeIds)}` : ''}`);
+
+export const getStoreMonthlySpend = (storeIds: readonly string[]) =>
+  request<StoreMonthlySpend[]>(`/stores/stats/monthly?${storeIdsQuery(storeIds)}`);

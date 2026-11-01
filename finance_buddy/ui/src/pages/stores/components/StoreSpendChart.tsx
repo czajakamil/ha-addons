@@ -2,7 +2,7 @@
 import { formatSignedMoney } from '../../../components/ui/Money';
 import { copy } from '../../../copy/pl';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import type { MonthlySpend } from '../groups';
+import type { StoreMonthlySpend } from '../../../api';
 
 const labels = copy.stores;
 const COMPACT_MONTHS = 6;
@@ -18,9 +18,13 @@ const toDate = (month: string) => {
   return new Date(year, index - 1, 1);
 };
 
-const StoreSpendChart = ({ months }: { months: MonthlySpend[] }) => {
+const StoreSpendChart = ({ months }: { months: StoreMonthlySpend[] }) => {
   const isCompact = useMediaQuery('(max-width: 699px)');
-  const visible = isCompact ? months.slice(-COMPACT_MONTHS) : months;
+  // Miesiąc z nadwyżką zwrotów nie ma słupka w dół
+  const visible = (isCompact ? months.slice(-COMPACT_MONTHS) : months).map((entry) => ({
+    ...entry,
+    cents: Math.max(0, entry.cents)
+  }));
   const max = Math.max(...visible.map((entry) => entry.cents), 1);
   const summary = visible
     .map((entry) => `${monthName.format(toDate(entry.month))}: ${formatSignedMoney(entry.cents)}`)

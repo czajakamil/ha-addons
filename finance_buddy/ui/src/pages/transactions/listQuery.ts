@@ -1,7 +1,7 @@
 // Logika listy transakcji: zapytanie o stronę, doklejanie kolejnych stron i opisy
 // liczników. Filtrowanie i wyszukiwanie robi serwer, więc tu nie ma żadnego
 // przeszukiwania danych w przeglądarce.
-import { getAllStoreTransactions, getTransactions, getTransactionsPage, type Transaction, type TransactionPageParams } from '../../api';
+import { getTransactions, getTransactionsPage, type Transaction, type TransactionPageParams } from '../../api';
 import { pluralPL } from '../../utils/format';
 import type { FilterState } from './model';
 
@@ -18,15 +18,6 @@ export const fetchTransactionsPage = async (
   offset = 0
 ): Promise<{ items: Transaction[]; total: number | null }> => {
   const query = buildTransactionsPageQuery(filters, search, offset);
-  // Sklep to często kilka nazw z banku, a API filtruje po jednej, więc scalamy listy tutaj.
-  if (filters.storeIds?.length) {
-    const { offset: _offset, limit: _limit, ...params } = query;
-    const items = await getAllStoreTransactions(filters.storeIds, {
-      ...params,
-      category_id: filters.categoryId || undefined
-    });
-    return { items: items.slice(offset, offset + TRANSACTIONS_PAGE_SIZE), total: items.length };
-  }
   if (!filters.categoryId) {
     const page = await getTransactionsPage(query);
     return { items: page.items, total: page.total };
@@ -45,6 +36,7 @@ export const buildTransactionsPageQuery = (
     start_date: filters.startDate || undefined,
     end_date: filters.endDate || undefined,
     account_id: filters.accountId || undefined,
+    store_ids: filters.storeIds?.length ? filters.storeIds : undefined,
     search: needle || undefined,
     offset,
     limit: TRANSACTIONS_PAGE_SIZE

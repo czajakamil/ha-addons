@@ -33,6 +33,8 @@ export interface Transaction {
   cleared: boolean;
   reconciled: boolean;
   total_cents: number;
+  /** Surowy opis z importu CSV; transakcje z YNAB i ręczne go nie mają. */
+  bank_description?: string | null;
   items: TransactionItem[];
 }
 
@@ -84,6 +86,7 @@ export interface TransactionQueryParams {
   category_id?: string;
   account_id?: string;
   store_id?: string;
+  store_ids?: readonly string[];
   search?: string;
   exclude_internal?: boolean;
   offset?: number;
@@ -97,6 +100,7 @@ const toSearchParams = (params: TransactionQueryParams) => {
   if (params.category_id) searchParams.set('category_id', params.category_id);
   if (params.account_id) searchParams.set('account_id', params.account_id);
   if (params.store_id) searchParams.set('store_id', params.store_id);
+  params.store_ids?.forEach((id) => searchParams.append('store_ids', id));
   if (params.search) searchParams.set('search', params.search);
   if (typeof params.exclude_internal === 'boolean') {
     searchParams.set('exclude_internal', params.exclude_internal ? 'true' : 'false');
@@ -120,32 +124,11 @@ export interface TransactionPage {
 
 export type TransactionPageParams = Pick<
   TransactionQueryParams,
-  'start_date' | 'end_date' | 'account_id' | 'search' | 'offset' | 'limit'
+  'start_date' | 'end_date' | 'account_id' | 'store_ids' | 'search' | 'offset' | 'limit'
 >;
 
 export const getTransactionsPage = (params: TransactionPageParams = {}) =>
   request<TransactionPage>(`/transactions/page${toSearchParams(params)}`);
-
-const STORE_PAGE_SIZE = 200;
-
-/** Wszystkie transakcje podanych sklepów, od najnowszej. API filtruje tylko po jednym sklepie. */
-export const getAllStoreTransactions = async (
-  storeIds: readonly string[],
-  params: Omit<TransactionQueryParams, 'store_id' | 'offset' | 'limit'> = {}
-) => {
-  const fetchStore = async (storeId: string) => {
-    const all: Transaction[] = [];
-    for (let offset = 0; ; offset += STORE_PAGE_SIZE) {
-      const batch = await getTransactions({ ...params, store_id: storeId, offset, limit: STORE_PAGE_SIZE });
-      all.push(...batch);
-      if (batch.length < STORE_PAGE_SIZE) return all;
-    }
-  };
-  const chunks = await Promise.all(storeIds.map(fetchStore));
-  return chunks
-    .flat()
-    .sort((a, b) => (b.recorded_at ?? '').localeCompare(a.recorded_at ?? '') || b.id.localeCompare(a.id));
-};
 
 export const getTransaction = (id: string) => request<TransactionDetail>(`/transactions/${id}`);
 
