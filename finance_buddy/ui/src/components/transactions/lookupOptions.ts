@@ -71,6 +71,10 @@ export const buildStoreOptions = (stores: Store[]): LookupOption[] => {
   return options;
 };
 
+/** Konta do wyboru: bez zarchiwizowanych, poza tym, które pole już ma ustawione. */
+export const selectableAccounts = (accounts: Account[], currentId?: string | null) =>
+  accounts.filter((account) => !account.is_closed || account.id === currentId);
+
 export const buildTransferOptions = (accounts: Account[]): LookupOption[] =>
   accounts.map((account) => {
     const rowLabel = `${account.name}${account.currency ? ` (${account.currency})` : ''}`;

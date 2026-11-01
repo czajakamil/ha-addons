@@ -94,7 +94,6 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   }, []);
 
   const {
-    accounts,
     stores,
     categories,
     transactions,
@@ -156,7 +155,6 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   } = useTransactionsEditing({
     transactions,
     setTransactions: setEditedTransactions,
-    accounts,
     activeAccounts,
     stores,
     categories,

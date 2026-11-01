@@ -5,6 +5,7 @@ import Button from '../../components/Button';
 import { formatMoney } from '../../utils/format';
 import TagPathInput from '../../components/tags/TagPathInput';
 import EntityAutocomplete, { type EntityOption } from '../../components/transactions/EntityAutocomplete';
+import { selectableAccounts } from '../../components/transactions/lookupOptions';
 import {
   commitIssuesFromError,
   commitReceiptDraft,
@@ -349,14 +350,15 @@ const ReceiptDraftEditorPage = () => {
       !(selectedStore.automatically_categorize_payee && storeTagPath === tagPath)
   );
 
+  const currentAccountId = form?.accountId;
   const accountOptions = useMemo<EntityOption[]>(
     () =>
-      accounts.map((account) => ({
+      selectableAccounts(accounts, currentAccountId).map((account) => ({
         id: account.id,
         label: account.name,
         hint: account.currency ?? undefined
       })),
-    [accounts]
+    [accounts, currentAccountId]
   );
 
   const updateRow = (index: number, patch: Partial<ItemRow>) =>

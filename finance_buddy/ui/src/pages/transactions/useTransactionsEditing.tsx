@@ -24,7 +24,6 @@ import { getNextStatusPayload, type EditableAmountField, type EditableLookupFiel
 type UseTransactionsEditingParams = {
   transactions: Transaction[];
   setTransactions: Dispatch<SetStateAction<Transaction[]>>;
-  accounts: Account[];
   activeAccounts: Account[];
   stores: Store[];
   categories: Category[];
@@ -48,7 +47,6 @@ type TransactionCellArgs = {
 export const useTransactionsEditing = ({
   transactions,
   setTransactions,
-  accounts,
   activeAccounts,
   stores,
   categories,
@@ -327,7 +325,7 @@ export const useTransactionsEditing = ({
         field === 'account'
           ? activeAccounts.map((a) => ({ id: a.id, label: a.name, kind: 'entry' }))
           : field === 'store'
-          ? [...buildStoreOptions(stores), ...buildTransferOptions(accounts)]
+          ? [...buildStoreOptions(stores), ...buildTransferOptions(activeAccounts)]
           : categories.map((c) => ({ id: c.id, label: c.name, kind: 'entry' }));
       const className = ['editable-cell', 'align-middle', 'is-editing']
         .filter(Boolean)

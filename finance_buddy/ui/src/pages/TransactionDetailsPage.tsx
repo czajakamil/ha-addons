@@ -8,6 +8,7 @@ import { buildCategoryMap } from '../components/tags/tagColors';
 import EntityAutocomplete, {
   type EntityOption
 } from '../components/transactions/EntityAutocomplete';
+import { selectableAccounts } from '../components/transactions/lookupOptions';
 import {
   Account,
   Category,
@@ -205,8 +206,13 @@ const TransactionDetailsPage = () => {
   }, [transaction]);
 
   const accountOptions = useMemo<EntityOption[]>(
-    () => accounts.map((account) => ({ id: account.id, label: account.name, hint: account.currency ?? undefined })),
-    [accounts]
+    () =>
+      selectableAccounts(accounts, transaction?.account_id).map((account) => ({
+        id: account.id,
+        label: account.name,
+        hint: account.currency ?? undefined
+      })),
+    [accounts, transaction?.account_id]
   );
   const storeOptions = useMemo<EntityOption[]>(
     () => stores.map((store) => ({ id: store.id, label: store.group_name?.trim() || store.name })),

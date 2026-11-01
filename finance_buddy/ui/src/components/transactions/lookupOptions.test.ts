@@ -7,6 +7,7 @@ import {
   filterLookupOptions,
   findSelectedLookupIndex,
   resolveTypedLookup,
+  selectableAccounts,
   splitLookupMatch,
   type LookupOption
 } from './lookupOptions';
@@ -96,5 +97,19 @@ describe('splitLookupMatch', () => {
   it('zwraca null, gdy wiersz nie zawiera fragmentu', () => {
     expect(splitLookupMatch('Revolut', 'przelew')).toBeNull();
     expect(splitLookupMatch('Revolut', '')).toBeNull();
+  });
+});
+
+describe('selectableAccounts', () => {
+  const open = { id: 'a1', is_closed: false } as Account;
+  const closed = { id: 'a2', is_closed: true } as Account;
+
+  it('ukrywa zarchiwizowane konta', () => {
+    expect(selectableAccounts([open, closed])).toEqual([open]);
+    expect(selectableAccounts([open, closed], 'a1')).toEqual([open]);
+  });
+
+  it('zostawia zarchiwizowane konto, które pole już ma ustawione', () => {
+    expect(selectableAccounts([open, closed], 'a2')).toEqual([open, closed]);
   });
 });
