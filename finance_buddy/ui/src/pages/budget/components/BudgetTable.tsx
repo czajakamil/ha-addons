@@ -9,6 +9,7 @@ import { copy } from '../../../copy/pl';
 import { sumGroupTotals, type BudgetStatusFilter, type CategoryNode } from '../model';
 import type { AdjacentRows, BudgetEditing } from '../useBudgetEditing';
 import BudgetRow from './BudgetRow';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type BudgetTableProps = {
   categoryTree: CategoryNode[];
@@ -87,7 +88,7 @@ const BudgetTable = ({
       );
     }
     return (
-      <table className="budget-table">
+      <ResizableTable tableId="budget" className="budget-table">
         <thead>
           <tr>
             <th scope="col">{copy.budget.columns.category}</th>
@@ -134,7 +135,7 @@ const BudgetTable = ({
             );
           })}
         </tbody>
-      </table>
+      </ResizableTable>
     );
   };
 

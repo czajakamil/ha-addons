@@ -20,6 +20,7 @@ import {
   rowsBalance,
   type ItemRow
 } from '../model';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type ReceiptItemsTableProps = {
   rows: ItemRow[];
@@ -116,7 +117,7 @@ const ReceiptItemsTable = ({
   return (
     <div className="receipt-items">
       <div className="table-responsive">
-        <table className="table table-sm table-vcenter receipt-items__table mb-0">
+        <ResizableTable tableId="receipt-items" className="table table-sm table-vcenter receipt-items__table mb-0">
           <thead>
             <tr>
               <th className="receipt-items__col-drag" aria-label="Kolejność" />
@@ -270,7 +271,7 @@ const ReceiptItemsTable = ({
               </tr>
             ) : null}
           </tbody>
-        </table>
+        </ResizableTable>
       </div>
 
       <div className="receipt-items__footer">

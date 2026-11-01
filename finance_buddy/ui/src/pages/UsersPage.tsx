@@ -19,6 +19,7 @@ import {
   type YnabSettings
 } from '../api';
 import BackupsCard from './panel/BackupsCard';
+import ResizableTable from '../components/ui/ResizableTable';
 
 const resolveErrorMessage = (err: unknown, fallback = 'Nie udało się wykonać akcji.') => {
   if (!(err instanceof Error)) return fallback;
@@ -550,7 +551,7 @@ const UsersPage = () => {
               <div className="p-3 text-secondary">Brak użytkowników do wyświetlenia.</div>
             ) : (
               <div className="table-responsive">
-                <table className="table table-vcenter mb-0">
+                <ResizableTable tableId="users" className="table table-vcenter mb-0">
                   <thead>
                     <tr>
                       <th>Użytkownik</th>
@@ -614,7 +615,7 @@ const UsersPage = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </ResizableTable>
               </div>
             )}
           </div>

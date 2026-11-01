@@ -36,8 +36,7 @@ const AccountsPage = () => {
     data: accounts = [],
     loading,
     error,
-    refetch: loadAccounts,
-    setData: setAccounts
+    refetch: loadAccounts
   } = useApi(async () => (await getAccounts()).accounts, {
     errorMessage: copy.accounts.loadFailed
   });
@@ -60,20 +59,12 @@ const AccountsPage = () => {
   const {
     inlineError,
     renderBalanceCell,
-    handleGridDoubleClick,
+    startBalanceEditing,
     balanceAdjustmentModal,
     adjustingBalance,
     handleCancelBalanceAdjustment,
     handleConfirmBalanceAdjustment
-  } = useAccountsEditing({
-    accounts,
-    setAccounts,
-    loadAccounts,
-    accountKindOptions,
-    categories: accountCategories,
-    getCategoryLabel,
-    ensureAccountCategory
-  });
+  } = useAccountsEditing({ loadAccounts });
 
   const handleAccountCreated = useCallback(async () => {
     await loadAccounts();
@@ -148,7 +139,7 @@ const AccountsPage = () => {
       renderBalanceCell={renderBalanceCell}
       onOpen={(account) => navigate(`/accounts/${account.id}`)}
       onEdit={(account) => setEditingAccountId(account.id)}
-      onChangeBalance={(account) => handleGridDoubleClick({ column: { key: 'balance' }, row: account } as never)}
+      onChangeBalance={startBalanceEditing}
       onImport={(account) => navigate(`/bank-import?account=${encodeURIComponent(account.id)}`)}
       onDebt={(account) => setDebtAccountId(account.id)}
     />

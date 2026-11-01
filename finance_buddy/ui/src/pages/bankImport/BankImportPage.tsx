@@ -28,6 +28,7 @@ import {
   type Mapping,
   type RowOverride
 } from './mapping';
+import ResizableTable from '../../components/ui/ResizableTable';
 
 const EMPTY_MAPPING: Mapping = { columns: {}, amount_mode: 'signed', status_accepted: [] };
 const PREVIEW_DEBOUNCE_MS = 300;
@@ -470,7 +471,7 @@ const BankImportPage = () => {
               <h3 className="card-title">Historia importów</h3>
             </summary>
             <div className="table-responsive">
-              <table className="table table-sm table-vcenter card-table">
+              <ResizableTable tableId="bank-import-history" className="table table-sm table-vcenter card-table">
                 <thead>
                   <tr>
                     <th>Kiedy</th>
@@ -513,7 +514,7 @@ const BankImportPage = () => {
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
+              </ResizableTable>
             </div>
           </details>
         </div>

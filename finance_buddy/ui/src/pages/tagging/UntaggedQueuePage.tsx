@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeftIcon, CheckIcon, SkipForwardIcon, TagsIcon } from 'lucide-react';
 import Button from '../../components/Button';
+import PageHeader from '../../components/ui/PageHeader';
+import TruncatedText from '../../components/ui/TruncatedText';
+import { formatShortDate } from '../../utils/date';
 import TagPathInput from '../../components/tags/TagPathInput';
 import { TagChip } from '../../components/tags/TagChip';
 import {
@@ -28,6 +31,7 @@ import {
   type QueueAction,
   type QueueItem
 } from './model';
+import ResizableTable from '../../components/ui/ResizableTable';
 
 const TAG_INPUT_ID = 'untagged-queue-tag';
 
@@ -287,226 +291,192 @@ const UntaggedQueuePage = () => {
   const position = Math.min(cursor + 1, items.length);
 
   return (
-    <div className="page-wrapper compact-page">
-      <div className="page-shell">
-        <div className="page-header d-print-none">
-          <div className="row align-items-center">
-            <div className="col">
-              <h2 className="page-title">Do otagowania</h2>
-              <div className="text-secondary mt-1">
-                {loading
-                  ? 'Ładuję kolejkę…'
-                  : `${total} transakcji bez tagu. Przelewy między kontami, korekty salda i konta śledzone są pominięte.`}
+    <div className="page-shell page-stack-layout untagged-queue">
+      <PageHeader
+        title="Do otagowania"
+        count={loading ? undefined : total}
+        actions={
+          <Link to="/transactions" className="text-button">
+            <ArrowLeftIcon size={14} aria-hidden="true" />
+            Transakcje
+          </Link>
+        }
+      />
+
+      {error && (
+        <p className="transactions-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="untagged-queue__layout">
+        <section className="untagged-queue__focus" aria-live="polite">
+          {loading ? (
+            <p className="untagged-queue__muted">Ładuję…</p>
+          ) : !items.length ? (
+            <div className="untagged-queue__empty">
+              <CheckIcon size={24} strokeWidth={1.5} aria-hidden="true" />
+              <strong>Wszystko otagowane</strong>
+              <span className="untagged-queue__muted">Nowe transakcje bez tagu pojawią się tutaj.</span>
+            </div>
+          ) : !current ? (
+            <div className="untagged-queue__empty">
+              <SkipForwardIcon size={24} strokeWidth={1.5} aria-hidden="true" />
+              <strong>Koniec kolejki</strong>
+              <span className="untagged-queue__muted">
+                Pominięte: {skippedCount}. Wybierz je z listy, aby wrócić.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="untagged-queue__progress" role="img" aria-label={`Pozycja ${position} z ${total}`}>
+                <span style={{ width: `${(position / Math.max(total, 1)) * 100}%` }} />
               </div>
-            </div>
-            <div className="col-auto">
-              <Link to="/transactions" className="btn btn-outline-secondary btn-sm">
-                <ArrowLeftIcon size={16} className="me-1" aria-hidden="true" />
-                Transakcje
-              </Link>
-            </div>
-          </div>
-        </div>
+              <div className="untagged-queue__meta">
+                <span>
+                  {position} z {total}
+                </span>
+                <span>{current.date ? formatShortDate(current.date) : '—'}</span>
+                <span>{current.account_name}</span>
+                {current.skipped ? <span className="receipt-badge">pominięta</span> : null}
+              </div>
 
-        <div className="page-body">
-          {error ? (
-            <div className="alert alert-danger" role="alert">
-              {error}
-            </div>
-          ) : null}
-
-          <section className="card untagged-queue__current" aria-live="polite">
-            <div className="card-body">
-              {loading ? (
-                <p className="text-secondary mb-0">Ładuję…</p>
-              ) : !items.length ? (
-                <div className="untagged-queue__empty">
-                  <CheckIcon size={28} aria-hidden="true" />
-                  <div>
-                    <strong>Wszystko otagowane.</strong>
-                    <div className="text-secondary">Nowe transakcje bez tagu pojawią się tutaj.</div>
-                  </div>
+              <div className="untagged-queue__headline">
+                <div className="untagged-queue__payee">
+                  <strong>{current.store_name || current.comment || 'Bez opisu'}</strong>
+                  {current.store_name && current.comment && current.comment !== current.store_name ? (
+                    <span className="untagged-queue__muted">{current.comment}</span>
+                  ) : null}
                 </div>
-              ) : !current ? (
-                <div className="untagged-queue__empty">
-                  <SkipForwardIcon size={28} aria-hidden="true" />
-                  <div>
-                    <strong>Koniec kolejki.</strong>
-                    <div className="text-secondary">
-                      Pominięte: {skippedCount}. <Kbd>↑</Kbd> wraca do poprzednich.
-                    </div>
+                <span className={`untagged-queue__amount${current.total_cents < 0 ? '' : ' is-income'}`}>
+                  {formatMoney(current.total_cents, current.currency)}
+                </span>
+              </div>
+
+              <div className="untagged-queue__field">
+                <label className="form-label" htmlFor={TAG_INPUT_ID}>
+                  Tag
+                </label>
+                <TagPathInput
+                  inputId={TAG_INPUT_ID}
+                  value={draftPath}
+                  categories={categories}
+                  forAccounts={false}
+                  commitOnBlur={false}
+                  placeholder="Wpisz tag, np. jedzenie/zakupy"
+                  disabled={busy}
+                  onChange={(path) => setOverride({ id: current.id, path })}
+                  onCommit={(path) => void tagCurrent(path)}
+                  onCancel={() => {
+                    setOverride(null);
+                    releaseFocus();
+                  }}
+                />
+                <div className="untagged-queue__suggestion">
+                  {suggestion && suggestedCategory ? (
+                    <>
+                      <TagChip category={suggestedCategory} byId={categoryById} label={suggestedCategory.path} />
+                      <span className="untagged-queue__muted">{describeSuggestion(suggestion)}</span>
+                    </>
+                  ) : (
+                    <span className="untagged-queue__muted">Brak podpowiedzi: nic podobnego nie ma jeszcze tagu.</span>
+                  )}
+                </div>
+              </div>
+
+              {confirm ? (
+                <div className="untagged-queue__confirm" role="alertdialog" aria-label="Otagować cały sklep?">
+                  <p>
+                    Otagować <strong>{confirm.count}</strong> {confirm.count === 1 ? 'transakcję' : 'transakcji'} z „
+                    {confirm.storeName}” tagiem <strong>{confirm.path}</strong>?
+                  </p>
+                  <div className="untagged-queue__actions">
+                    <Button onClick={() => void confirmTagStore()} disabled={busy}>
+                      Tak, otaguj <Kbd>⏎</Kbd>
+                    </Button>
+                    <Button variant="outline-secondary" onClick={() => setConfirm(null)}>
+                      Anuluj <Kbd>Esc</Kbd>
+                    </Button>
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="untagged-queue__meta">
-                    <span>
-                      {position} / {total}
-                    </span>
-                    <span>{current.date}</span>
-                    <span>{current.account_name}</span>
-                    {current.skipped ? <span className="receipt-badge">pominięta</span> : null}
-                  </div>
-
-                  <div className="untagged-queue__headline">
-                    <div className="untagged-queue__payee">
-                      <strong>{current.store_name || current.comment || 'Bez opisu'}</strong>
-                      {current.store_name && current.comment && current.comment !== current.store_name ? (
-                        <span className="text-secondary">{current.comment}</span>
-                      ) : null}
-                    </div>
-                    <span
-                      className={`untagged-queue__amount${current.total_cents < 0 ? '' : ' is-income'}`}
+                <div className="untagged-queue__actions">
+                  <Button
+                    className="untagged-queue__accept"
+                    icon={<CheckIcon size={16} aria-hidden="true" />}
+                    onClick={() => void tagCurrent(draftPath)}
+                    disabled={busy || !draftPath.trim()}
+                  >
+                    Przyjmij <Kbd>⏎</Kbd>
+                  </Button>
+                  <Button variant="outline-secondary" onClick={skipCurrent} disabled={busy}>
+                    Pomiń <Kbd>S</Kbd>
+                  </Button>
+                  {current.store_id ? (
+                    <Button
+                      variant="outline-secondary"
+                      icon={<TagsIcon size={16} aria-hidden="true" />}
+                      onClick={() => void askTagStore()}
+                      disabled={busy || !draftPath.trim()}
                     >
-                      {formatMoney(current.total_cents, current.currency)}
-                    </span>
-                  </div>
-
-                  <div className="untagged-queue__tag-row">
-                    <label className="untagged-queue__label" htmlFor={TAG_INPUT_ID}>
-                      Tag
-                    </label>
-                    <div className="untagged-queue__tag-input">
-                      <TagPathInput
-                        inputId={TAG_INPUT_ID}
-                        value={draftPath}
-                        categories={categories}
-                        forAccounts={false}
-                        commitOnBlur={false}
-                        placeholder="Wpisz tag, np. jedzenie/zakupy"
-                        disabled={busy}
-                        onChange={(path) => setOverride({ id: current.id, path })}
-                        onCommit={(path) => void tagCurrent(path)}
-                        onCancel={() => {
-                          setOverride(null);
-                          releaseFocus();
-                        }}
-                      />
-                    </div>
-                    <div className="untagged-queue__suggestion">
-                      {suggestion && suggestedCategory ? (
-                        <>
-                          <span className="text-secondary">Podpowiedź:</span>
-                          <TagChip
-                            category={suggestedCategory}
-                            byId={categoryById}
-                            label={suggestedCategory.path}
-                          />
-                          <span className="text-secondary">{describeSuggestion(suggestion)}</span>
-                        </>
-                      ) : (
-                        <span className="text-secondary">
-                          Brak podpowiedzi — nic podobnego nie było jeszcze otagowane.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {confirm ? (
-                    <div className="alert alert-warning untagged-queue__confirm mb-0" role="alertdialog">
-                      <div>
-                        Otagować <strong>{confirm.count}</strong>{' '}
-                        {confirm.count === 1 ? 'transakcję' : 'transakcji'} z „{confirm.storeName}"
-                        tagiem <strong>{confirm.path}</strong>?
-                      </div>
-                      <div className="d-flex gap-2">
-                        <Button size="sm" onClick={() => void confirmTagStore()} disabled={busy}>
-                          Tak, otaguj <Kbd>⏎</Kbd>
-                        </Button>
-                        <Button size="sm" variant="outline-secondary" onClick={() => setConfirm(null)}>
-                          Anuluj <Kbd>Esc</Kbd>
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="untagged-queue__actions">
-                      <Button
-                        size="sm"
-                        icon={<CheckIcon size={16} />}
-                        onClick={() => void tagCurrent(draftPath)}
-                        disabled={busy || !draftPath.trim()}
-                      >
-                        Przyjmij <Kbd>⏎</Kbd>
-                      </Button>
-                      <Button size="sm" variant="outline-secondary" onClick={focusTagInput} disabled={busy}>
-                        Inny tag <Kbd>T</Kbd>
-                      </Button>
-                      <Button size="sm" variant="outline-secondary" onClick={skipCurrent} disabled={busy}>
-                        Pomiń <Kbd>S</Kbd>
-                      </Button>
-                      {current.store_id ? (
-                        <Button
-                          size="sm"
-                          variant="outline-secondary"
-                          icon={<TagsIcon size={16} />}
-                          onClick={() => void askTagStore()}
-                          disabled={busy || !draftPath.trim()}
-                        >
-                          Cały sklep ({current.store_untagged_count}) <Kbd>W</Kbd>
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                </>
+                      Cały sklep ({current.store_untagged_count}) <Kbd>W</Kbd>
+                    </Button>
+                  ) : null}
+                </div>
               )}
+            </>
+          )}
 
-              {notice ? <div className="untagged-queue__notice">Ostatnio: {notice}</div> : null}
-              <div className="untagged-queue__help">
-                <Kbd>⏎</Kbd> przyjmij · <Kbd>T</Kbd> inny tag · <Kbd>S</Kbd> pomiń · <Kbd>J</Kbd>/
-                <Kbd>K</Kbd> następna/poprzednia · <Kbd>W</Kbd> cały sklep · w polu tagu <Kbd>Esc</Kbd>{' '}
-                wraca
-              </div>
-            </div>
-          </section>
+          {notice ? <div className="untagged-queue__notice">Ostatnio: {notice}</div> : null}
+          <div className="untagged-queue__help">
+            <Kbd>T</Kbd> inny tag · <Kbd>J</Kbd>/<Kbd>K</Kbd> następna/poprzednia · <Kbd>Esc</Kbd> wyjście z pola
+          </div>
+        </section>
 
-          {items.length ? (
-            <div className="card mt-3">
-              <div className="table-responsive">
-                <table className="table table-vcenter card-table untagged-queue__list">
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Sklep / opis</th>
-                      <th>Konto</th>
-                      <th className="text-end">Kwota</th>
-                      <th>Podpowiedź</th>
+        {items.length > 0 && (
+          <section className="untagged-queue__rest" aria-label="Kolejka">
+            <ResizableTable tableId="untagged-queue" className="untagged-queue__list">
+              <thead>
+                <tr>
+                  <th>Sklep</th>
+                  <th className="untagged-queue__list-date">Data</th>
+                  <th className="untagged-queue__list-amount">Kwota</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => {
+                  const path = suggestedPath(item, pathById);
+                  return (
+                    <tr
+                      key={item.id}
+                      className={(index === cursor ? 'is-current' : '') + (item.skipped ? ' is-skipped' : '')}
+                      aria-current={index === cursor ? 'true' : undefined}
+                      onClick={() => moveTo(items, index)}
+                    >
+                      <td>
+                        <TruncatedText text={item.store_name || item.comment || '—'} />
+                        {path ? (
+                          <span className="untagged-queue__list-hint">
+                            <TruncatedText text={path} />
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="untagged-queue__list-date">{item.date ? formatShortDate(item.date) : '—'}</td>
+                      <td className="untagged-queue__list-amount">{formatMoney(item.total_cents, item.currency)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, index) => {
-                      const path = suggestedPath(item, pathById);
-                      return (
-                        <tr
-                          key={item.id}
-                          className={
-                            (index === cursor ? 'is-current' : '') + (item.skipped ? ' is-skipped' : '')
-                          }
-                          aria-current={index === cursor ? 'true' : undefined}
-                          onClick={() => moveTo(items, index)}
-                        >
-                          <td className="text-nowrap">{item.date}</td>
-                          <td>{item.store_name || item.comment || '—'}</td>
-                          <td className="text-secondary">{item.account_name}</td>
-                          <td className="text-end text-nowrap">
-                            {formatMoney(item.total_cents, item.currency)}
-                          </td>
-                          <td className="text-secondary">{path || '—'}</td>
-                        </tr>
-                      );
-                    })}
-                    {loadingMore ? (
-                      <tr>
-                        <td colSpan={5} className="text-secondary text-center">
-                          Ładuję kolejne…
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-        </div>
+                  );
+                })}
+                {loadingMore ? (
+                  <tr>
+                    <td colSpan={3} className="untagged-queue__muted">
+                      Ładuję kolejne…
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </ResizableTable>
+          </section>
+        )}
       </div>
     </div>
   );

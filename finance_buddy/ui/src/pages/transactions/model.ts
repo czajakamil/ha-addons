@@ -73,7 +73,6 @@ export const getNextStatusPayload = (transaction: Transaction): StatusUpdatePayl
   return { cleared: true, reconciled: false };
 };
 
-export const MIN_COLUMN_WIDTH = 10;
 export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>> = {
   select: 40,
   open: 44,
@@ -83,51 +82,4 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>>
   amount: 128,
   status: 40
 };
-export const COLUMN_WIDTH_TABLE_ID = 'transactions';
-export const COLUMN_WIDTH_PERSIST_DELAY = 400;
-export const TRANSACTION_COLUMN_ORDER: readonly TransactionColumnId[] = [
-  'select',
-  'store',
-  'account',
-  'category',
-  'comment',
-  'amount',
-  'status',
-  'open'
-];
-
-export const TRANSACTION_COLUMN_IDS = new Set<TransactionColumnId>(TRANSACTION_COLUMN_ORDER);
-
-export const sanitizeStoredColumnWidths = (
-  widths: Record<string, unknown>
-): Partial<Record<TransactionColumnId, number>> => {
-  const sanitized: Partial<Record<TransactionColumnId, number>> = {};
-
-  Object.entries(widths).forEach(([columnId, value]) => {
-    const typedId = columnId as TransactionColumnId;
-
-    if (!TRANSACTION_COLUMN_IDS.has(typedId)) return;
-    if (typeof value !== 'number' || Number.isNaN(value)) return;
-
-    sanitized[typedId] = Math.max(MIN_COLUMN_WIDTH, Math.round(value));
-  });
-
-  return sanitized;
-};
-
-export const toPersistableColumnWidths = (
-  widths: Partial<Record<TransactionColumnId, number>>
-): Record<string, number> => {
-  const payload: Record<string, number> = {};
-
-  (Object.entries(widths) as [TransactionColumnId, number | undefined][]).forEach(([columnId, value]) => {
-    if (!TRANSACTION_COLUMN_IDS.has(columnId)) return;
-    if (typeof value !== 'number' || Number.isNaN(value)) return;
-
-    payload[columnId] = Math.max(MIN_COLUMN_WIDTH, Math.round(value));
-  });
-
-  return payload;
-};
-
 export type EditableLookupField = 'account' | 'store' | 'category';

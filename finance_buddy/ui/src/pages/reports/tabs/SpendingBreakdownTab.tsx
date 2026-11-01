@@ -247,6 +247,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
             <p className="report-empty">Brak transakcji w tej kategorii.</p>
           ) : (
             <DataTable
+              tableId="report-breakdown"
               aria-label="Transakcje z wybranej kategorii"
               className="transactions-grid breakdown-transactions__grid"
               columns={breakdownGridColumns}

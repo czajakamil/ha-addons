@@ -9,7 +9,7 @@ import {
   type ColSpanArgs
 } from 'react-data-grid';
 import { ChevronDown, ChevronRight, ListFilter, PanelRightOpen, Plus, Receipt, Tags } from 'lucide-react';
-import { Transaction, deleteTransaction, updateTransaction, type TransactionUpdate } from '../api';
+import { Transaction, deleteTransaction, updateTransaction } from '../api';
 import { TagChip } from '../components/tags/TagChip';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUntaggedCount } from '../hooks/useUntaggedCount';
@@ -23,7 +23,7 @@ import SkeletonRows from '../components/ui/SkeletonRows';
 import TruncatedText from '../components/ui/TruncatedText';
 import { copy } from '../copy/pl';
 import { formatDayHeading } from '../utils/date';
-import { TRANSACTION_COLUMN_IDS, type FilterState, type TransactionColumnId } from './transactions/model';
+import { DEFAULT_COLUMN_WIDTHS, type FilterState } from './transactions/model';
 import {
   buildTransactionGridRows,
   itemLabel,
@@ -33,8 +33,9 @@ import {
 import { formatOperationsCount } from './transactions/listQuery';
 import { useTransactionsData } from './transactions/useTransactionsData';
 import { useTransactionsEditing } from './transactions/useTransactionsEditing';
-import { useColumnWidths } from './transactions/useColumnWidths';
+import { runBulkUpdate, type BulkAction, type BulkReport } from './transactions/bulkUpdate';
 import TransactionsBulkBar from './transactions/components/TransactionsBulkBar';
+import TransactionsBulkReport from './transactions/components/TransactionsBulkReport';
 import TransactionsFilters from './transactions/components/TransactionsFilters';
 import TransactionsContextMenu from './transactions/components/TransactionsContextMenu';
 import TransactionStatusCell from './transactions/components/TransactionStatusCell';
@@ -43,7 +44,7 @@ const labels = copy.transactions;
 const DAY_ROW_HEIGHT = 32;
 const COMPACT_ROW_HEIGHT = 56;
 const LOAD_MORE_THRESHOLD_PX = 600;
-const BULK_CONCURRENCY = 5;
+const COLUMN_WIDTH_TABLE_ID = 'transactions';
 
 const TransactionsPage = () => {
   const navigate = useNavigate();
@@ -51,7 +52,8 @@ const TransactionsPage = () => {
   // Na telefonie wiersz to sklep, konto i kwota; szczegóły otwiera dotknięcie
   const isCompact = useMediaQuery('(max-width: 700px)');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkReport, setBulkReport] = useState<BulkReport | null>(null);
   const [showModal, setShowModal] = useState(false);
   // Rozwinięte transakcje trzymamy po id, a nie w danych — zwijanie ma przetrwać
   // przeładowanie listy po edycji.
@@ -98,8 +100,6 @@ const TransactionsPage = () => {
     productMap,
     getLookupDisplayValue
   } = useTransactionsData();
-
-  const { getColumnWidth, handleColumnResize } = useColumnWidths();
 
   const openTransactionDetails = useCallback(
     (transactionId: string) => {
@@ -173,33 +173,49 @@ const TransactionsPage = () => {
     });
   }, []);
 
-  // API nie ma zapisu zbiorczego, więc aktualizujemy porcjami po kilka transakcji
-  const applyToSelected = async (payload: (transaction: Transaction) => TransactionUpdate | null) => {
-    const targets = transactions.filter((tx) => selectedIds.has(tx.id));
-    setBulkBusy(true);
-    let failed = false;
-    for (let start = 0; start < targets.length; start += BULK_CONCURRENCY) {
-      const results = await Promise.allSettled(
-        targets.slice(start, start + BULK_CONCURRENCY).map(async (tx) => {
-          const update = payload(tx);
-          return update ? updateTransaction(tx.id, update) : tx;
-        })
-      );
-      const updated = new Map<string, Transaction>();
-      results.forEach((result) => {
-        if (result.status === 'fulfilled') updated.set(result.value.id, result.value);
-        else failed = true;
-      });
-      setTransactions((prev) => prev.map((tx) => updated.get(tx.id) ?? tx));
-    }
-    setBulkBusy(false);
-    if (failed) {
-      setInlineError(labels.bulkFailed);
-    } else {
-      setInlineError(null);
-      setSelectedIds(new Set());
-    }
+  // Zaznaczenie obejmuje tylko wczytane wiersze; po wyszukaniu lub odświeżeniu listy
+  // ukryte transakcje wypadają, inaczej licznik obiecywałby więcej, niż akcja zmieni.
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const loaded = new Set(transactions.map((tx) => tx.id));
+      const next = new Set([...current].filter((id) => loaded.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [transactions]);
+
+  const runBulkAction = async (targets: readonly Transaction[], action: BulkAction) => {
+    setBulkReport(null);
+    setInlineError(null);
+    setBulkProgress({ done: 0, total: targets.length });
+    const report = await runBulkUpdate(targets, action, {
+      update: updateTransaction,
+      onProgress: (done, updated) => {
+        setBulkProgress({ done, total: targets.length });
+        const byId = new Map(updated.map((tx) => [tx.id, tx]));
+        setTransactions((prev) => prev.map((tx) => byId.get(tx.id) ?? tx));
+      }
+    });
+    setBulkProgress(null);
+    setBulkReport(report);
+    // Zaznaczone zostają tylko nieudane, żeby można było też użyć na nich innej akcji
+    setSelectedIds(new Set(report.failures.map((failure) => failure.transaction.id)));
   };
+
+  const applyToSelected = (action: BulkAction) =>
+    runBulkAction(transactions.filter((tx) => selectedIds.has(tx.id)), action);
+
+  const retryFailed = () => {
+    if (!bulkReport) return;
+    const loaded = new Map(transactions.map((tx) => [tx.id, tx]));
+    // Nieudana transakcja mogła zniknąć z listy po zmianie filtrów; id wciąż wystarczy do zapisu
+    const targets = bulkReport.failures.map((failure) => loaded.get(failure.transaction.id) ?? failure.transaction);
+    void runBulkAction(targets, bulkReport.action);
+  };
+
+  const failedIds = useMemo(
+    () => new Set(bulkReport?.failures.map((failure) => failure.transaction.id)),
+    [bulkReport]
+  );
 
   const handleDelete = async (transaction: Transaction) => {
     setContextMenu(null);
@@ -332,7 +348,7 @@ const TransactionsPage = () => {
     {
       key: 'select',
       name: '',
-      width: getColumnWidth('select'),
+      width: DEFAULT_COLUMN_WIDTHS.select,
       resizable: false,
       colSpan: dayRowSpan(6),
       renderHeaderCell: () => {
@@ -367,21 +383,21 @@ const TransactionsPage = () => {
     {
       key: 'store',
       name: labels.columns.store,
-      width: getColumnWidth('store'),
+      width: DEFAULT_COLUMN_WIDTHS.store,
       renderCell: ({ row }) =>
         row.kind === 'transaction' ? renderLookupCell(row.transaction, 'store') : null
     },
     {
       key: 'account',
       name: labels.columns.account,
-      width: getColumnWidth('account'),
+      width: DEFAULT_COLUMN_WIDTHS.account,
       renderCell: ({ row }) =>
         row.kind === 'transaction' ? renderLookupCell(row.transaction, 'account') : null
     },
     {
       key: 'category',
       name: labels.columns.category,
-      width: getColumnWidth('category'),
+      width: DEFAULT_COLUMN_WIDTHS.category,
       renderCell: ({ row }) => {
         if (row.kind === 'day') return null;
         if (row.kind === 'item') {
@@ -398,7 +414,7 @@ const TransactionsPage = () => {
     {
       key: 'comment',
       name: labels.columns.comment,
-      width: getColumnWidth('comment'),
+      width: DEFAULT_COLUMN_WIDTHS.comment,
       renderCell: ({ row }) => {
         if (row.kind === 'day') return null;
         if (row.kind === 'item') return <TruncatedText text={itemLabel(row.productName, row.item)} />;
@@ -408,7 +424,7 @@ const TransactionsPage = () => {
     {
       key: 'amount',
       name: labels.columns.amount,
-      width: getColumnWidth('amount'),
+      width: DEFAULT_COLUMN_WIDTHS.amount,
       cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
       headerCellClass: 'transactions-grid__cell--numeric',
       renderCell: ({ row }) => {
@@ -423,7 +439,7 @@ const TransactionsPage = () => {
     {
       key: 'status',
       name: '',
-      width: getColumnWidth('status'),
+      width: DEFAULT_COLUMN_WIDTHS.status,
       resizable: false,
       cellClass: 'transactions-grid__cell transactions-grid__cell--status',
       renderCell: ({ row }) =>
@@ -438,7 +454,7 @@ const TransactionsPage = () => {
     {
       key: 'open',
       name: '',
-      width: getColumnWidth('open'),
+      width: DEFAULT_COLUMN_WIDTHS.open,
       resizable: false,
       cellClass: 'transactions-grid__cell transactions-grid__cell--actions',
       renderCell: ({ row }) =>
@@ -468,9 +484,9 @@ const TransactionsPage = () => {
     (row: TransactionGridRow) => {
       if (row.kind === 'day') return 'transactions-grid__row--day';
       if (row.kind === 'item') return 'transactions-grid__row--item';
-      return undefined;
+      return failedIds.has(row.transaction.id) ? 'transactions-grid__row--failed' : undefined;
     },
-    []
+    [failedIds]
   );
 
   const transactionRowHeight = useCallback(
@@ -614,12 +630,37 @@ const TransactionsPage = () => {
         <TransactionsBulkBar
           count={selectedIds.size}
           categories={categories}
-          busy={bulkBusy}
-          onCategoryChange={(categoryId) =>
-            void applyToSelected((tx) => (tx.transfer_account_id ? null : { category_id: categoryId }))
+          busy={bulkProgress !== null}
+          progress={bulkProgress && labels.bulkSaving(bulkProgress.done, bulkProgress.total)}
+          onCategoryChange={(categoryId) => {
+            const category = categoryMap.get(categoryId);
+            void applyToSelected({
+              label: labels.bulk.categoryAction(category?.path || category?.name || ''),
+              skippedLabel: labels.bulk.skippedTransfers,
+              payload: (tx) => (tx.transfer_account_id ? null : { category_id: categoryId })
+            });
+          }}
+          onApprove={() =>
+            void applyToSelected({
+              label: labels.bulk.approveAction,
+              skippedLabel: labels.bulk.skippedApproved,
+              payload: (tx) => (tx.cleared ? null : { cleared: true })
+            })
           }
-          onApprove={() => void applyToSelected((tx) => (tx.cleared ? null : { cleared: true }))}
           onClear={() => setSelectedIds(new Set())}
+        />
+      )}
+
+      {bulkReport && (
+        <TransactionsBulkReport
+          report={bulkReport}
+          busy={bulkProgress !== null}
+          transactionName={(tx) => {
+            const store = tx.store_id ? storeMap.get(tx.store_id) : undefined;
+            return store?.group_name?.trim() || store?.name || tx.comment || '—';
+          }}
+          onRetry={retryFailed}
+          onDismiss={() => setBulkReport(null)}
         />
       )}
 
@@ -645,6 +686,7 @@ const TransactionsPage = () => {
         {!loading && !error && !noResults && (
           <DataTable
             aria-label={labels.gridLabel}
+            tableId={COLUMN_WIDTH_TABLE_ID}
             className="transactions-grid"
             columns={transactionsGridColumns}
             rows={gridRows}
@@ -652,13 +694,6 @@ const TransactionsPage = () => {
             rowClass={transactionRowClass}
             rowHeight={transactionRowHeight}
             onScroll={handleGridScroll}
-            onColumnResize={(idx: number, width: number) => {
-              const column = transactionsGridColumns[idx];
-              if (!column || !('key' in column)) return;
-              const columnId = column.key as TransactionColumnId;
-              if (!TRANSACTION_COLUMN_IDS.has(columnId)) return;
-              handleColumnResize(columnId, width);
-            }}
             onCellClick={
               isCompact
                 ? (args) => {

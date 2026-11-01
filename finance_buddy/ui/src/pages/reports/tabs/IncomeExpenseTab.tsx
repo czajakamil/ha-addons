@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { aggregateCategories, moneyLabel } from '../model';
 import type { ReportsController } from '../useReports';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type IncomeExpenseTabProps = {
   controller: ReportsController;
@@ -42,7 +43,7 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
       {incomeTotals?.months.length ? (
         <>
           <div className="table-responsive">
-            <table className="table report-table">
+            <ResizableTable tableId="report-income-expense" className="table report-table">
               <thead>
                 <tr>
                   <th>Miesiąc</th>
@@ -63,7 +64,7 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </ResizableTable>
           </div>
           <div className="report-mini-grid">
             <div>

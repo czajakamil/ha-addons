@@ -8,20 +8,20 @@ import type { Category } from '../../api';
 export type TagColorOption = { id: string; label: string; value: string };
 
 export const TAG_COLOR_OPTIONS: TagColorOption[] = [
-  { id: 'indigo', label: 'Indygo', value: 'var(--cat-indigo)' },
-  { id: 'teal', label: 'Morski', value: 'var(--cat-teal)' },
-  { id: 'green', label: 'Zielony', value: 'var(--cat-green)' },
-  { id: 'coral', label: 'Koralowy', value: 'var(--cat-coral)' },
-  { id: 'amber', label: 'Bursztynowy', value: 'var(--cat-amber)' },
-  { id: 'pink', label: 'Różowy', value: 'var(--cat-pink)' },
-  { id: 'blue', label: 'Niebieski', value: 'var(--cat-blue)' },
-  { id: 'violet', label: 'Fioletowy', value: 'var(--cat-violet)' }
+  { id: 'indigo', label: 'Indygo', value: 'var(--text-muted)' },
+  { id: 'teal', label: 'Morski', value: 'var(--text-muted)' },
+  { id: 'green', label: 'Zielony', value: 'var(--positive)' },
+  { id: 'coral', label: 'Koralowy', value: 'var(--negative)' },
+  { id: 'amber', label: 'Bursztynowy', value: 'var(--warning)' },
+  { id: 'pink', label: 'Różowy', value: 'var(--text-muted)' },
+  { id: 'blue', label: 'Niebieski', value: 'var(--accent)' },
+  { id: 'violet', label: 'Fioletowy', value: 'var(--text-muted)' }
 ];
 
 const TAG_COLOR_MAP = new Map(TAG_COLOR_OPTIONS.map((option) => [option.id, option]));
 
 /** Neutralny kolor dla tagów bez własnego i bez pokolorowanego przodka. */
-export const NEUTRAL_TAG_COLOR = 'var(--tag-neutral)';
+export const NEUTRAL_TAG_COLOR = 'var(--text-muted)';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 

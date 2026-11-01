@@ -3,6 +3,27 @@
    ========================================================================== */
 
 @layer components {
+  /* Zwykłe tabele: uchwyt zmiany szerokości na krawędzi nagłówka (obsługa w ResizableTable).
+     :where, żeby przyklejone nagłówki zachowały position: sticky. */
+  :where(.resizable-table thead th) { position: relative; }
+
+  .resizable-table thead th:not(:empty)::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: 8px;
+    cursor: col-resize;
+  }
+
+  .resizable-table thead th:not(:empty):hover::after {
+    border-inline-end: 2px solid var(--border);
+  }
+
+  @media (max-width: 700px) {
+    .resizable-table thead th::after { display: none; }
+  }
+
   /* Kwota */
   .money {
     display: inline-block;
@@ -112,9 +133,41 @@
   }
 
   /* Przycisk tekstowy */
+  /* Stała ikona-akcja poza siatką, w tym na ekranach dotykowych */
+  .icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .icon-button:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--text);
+    transform: none;
+  }
+
+  /* Ekrany z kolumnowym układem sekcji; zastępuje globalny margines section + section */
+  .page-stack-layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-16);
+  }
+
+  .page-stack-layout .page-heading { margin-block-end: 0; }
+  .page-stack-layout section + section { margin-top: 0; }
+
   .text-button {
     display: inline-flex;
     align-items: center;
+    gap: var(--s-4);
     height: var(--row-height-compact);
     padding: 0 var(--s-8);
     border-radius: var(--radius-control);

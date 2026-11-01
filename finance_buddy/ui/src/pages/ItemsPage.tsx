@@ -309,6 +309,7 @@ const ItemsPage = () => {
               <div className="accounts-section-card__table">
                 {!noResults ? (
                   <DataTable
+                    tableId="items"
                     aria-label="Lista przedmiotów"
                     className="accounts-grid items-grid"
                     columns={itemColumns}

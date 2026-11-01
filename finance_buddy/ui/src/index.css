@@ -32,19 +32,19 @@ a:not(.btn) {
   --tblr-body-bg-rgb: 250, 250, 249;
   --tblr-body-color: var(--text);
   --tblr-body-color-rgb: 24, 24, 27;
-  --tblr-emphasis-color: var(--text-strong);
+  --tblr-emphasis-color: var(--text);
   --tblr-heading-color: var(--text);
-  --tblr-secondary-color: var(--muted);
-  --tblr-tertiary-color: var(--muted-strong);
+  --tblr-secondary-color: var(--text-muted);
+  --tblr-tertiary-color: var(--text-muted);
 
   --tblr-bg-surface: var(--surface);
   --tblr-bg-surface-rgb: 255, 255, 255;
-  --tblr-bg-surface-secondary: var(--surface-subtle);
-  --tblr-bg-surface-tertiary: var(--surface-muted);
-  --tblr-bg-surface-dark: var(--surface-muted);
+  --tblr-bg-surface-secondary: var(--surface-2);
+  --tblr-bg-surface-tertiary: var(--surface-2);
+  --tblr-bg-surface-dark: var(--surface-2);
 
-  --tblr-secondary-bg: var(--surface-muted);
-  --tblr-tertiary-bg: var(--surface-subtle);
+  --tblr-secondary-bg: var(--surface-2);
+  --tblr-tertiary-bg: var(--surface-2);
 
   --tblr-card-bg: var(--surface);
   --tblr-card-color: var(--text);
@@ -54,26 +54,26 @@ a:not(.btn) {
   --tblr-border-color: var(--border);
   --tblr-border-color-translucent: var(--border);
 
-  --tblr-primary: var(--primary);
+  --tblr-primary: var(--text);
   --tblr-primary-rgb: 24, 24, 27;
-  --tblr-primary-fg: var(--on-brand);
-  --tblr-link-color: var(--link);
+  --tblr-primary-fg: var(--bg);
+  --tblr-link-color: var(--accent);
   --tblr-link-color-rgb: 37, 99, 235;
   --tblr-link-hover-color: var(--accent);
 
-  --tblr-secondary: var(--muted);
-  --tblr-muted: var(--muted);
+  --tblr-secondary: var(--text-muted);
+  --tblr-muted: var(--text-muted);
 
-  --tblr-success: var(--success);
-  --tblr-danger: var(--danger);
+  --tblr-success: var(--positive);
+  --tblr-danger: var(--negative);
   --tblr-warning: var(--warning);
 
-  --tblr-border-radius: var(--r);
-  --tblr-border-radius-sm: var(--r-sm);
-  --tblr-border-radius-lg: var(--r-lg);
+  --tblr-border-radius: var(--radius-control);
+  --tblr-border-radius-sm: var(--radius-control);
+  --tblr-border-radius-lg: var(--radius-card);
 
   /* form controls */
-  --tblr-form-control-bg: var(--panel);
+  --tblr-form-control-bg: var(--bg);
 }
 
 :root[data-theme="dark"] {
@@ -91,7 +91,7 @@ a:not(.btn) {
    styles/base.css (@layer base) are consolidated here. */
 body {
   margin: 0;
-  background: var(--app-bg);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--text-14);

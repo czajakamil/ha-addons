@@ -356,6 +356,7 @@ const StoresPage = () => {
               <div className="accounts-section-card__table">
                 {!noResults ? (
                   <DataTable
+                    tableId="stores"
                     aria-label="Lista sklepów"
                     className="accounts-grid stores-grid"
                     columns={storeColumns}
@@ -400,6 +401,7 @@ const StoresPage = () => {
               {showArchivedStores && (
                 <div className="accounts-section-card__table">
                   <DataTable
+                    tableId="stores"
                     aria-label="Lista zarchiwizowanych sklepów"
                     className="accounts-grid accounts-grid--archived stores-grid stores-grid--archived"
                     columns={storeColumns}

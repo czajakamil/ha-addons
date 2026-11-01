@@ -3,6 +3,7 @@ import { DatabaseBackupIcon, DownloadIcon, RefreshCwIcon } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { createBackupNow, downloadBackup, getBackupStatus, type BackupStatus } from '../../api';
 import { backupHealth, formatBytes, type BackupHealth } from './backupStatus';
+import ResizableTable from '../../components/ui/ResizableTable';
 
 const HEALTH_BADGE: Record<BackupHealth, { className: string; label: string }> = {
   ok: { className: 'bg-green-lt', label: 'Aktualna' },
@@ -148,7 +149,7 @@ const BackupsCard = () => {
       </div>
       {data && data.backups.length > 0 && (
         <div className="table-responsive">
-          <table className="table table-vcenter card-table mb-0">
+          <ResizableTable tableId="backups" className="table table-vcenter card-table mb-0">
             <thead>
               <tr>
                 <th>Kopia bazy</th>
@@ -180,7 +181,7 @@ const BackupsCard = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResizableTable>
         </div>
       )}
     </div>

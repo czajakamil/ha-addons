@@ -17,6 +17,7 @@ import { SpendingTrendsTooltip } from '../tooltips';
 import { useChartTheme } from '../useChartTheme';
 import { chartColor } from '../../../utils/tokens';
 import type { ReportsController } from '../useReports';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type SpendingTrendsTabProps = {
   controller: ReportsController;
@@ -325,7 +326,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
             ))}
           </div>
           <div className="table-responsive">
-            <table className="table report-table spending-trends-table">
+            <ResizableTable tableId="report-trends" className="table report-table spending-trends-table">
               <thead>
                 <tr>
                   <th>Miesiąc</th>
@@ -363,7 +364,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
                   );
                 })}
               </tbody>
-            </table>
+            </ResizableTable>
           </div>
         </>
       )}

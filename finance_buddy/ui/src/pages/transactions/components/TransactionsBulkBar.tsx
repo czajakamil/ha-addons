@@ -8,6 +8,7 @@ type TransactionsBulkBarProps = {
   count: number;
   categories: Category[];
   busy: boolean;
+  progress: string | null;
   onCategoryChange: (categoryId: string) => void;
   onApprove: () => void;
   onClear: () => void;
@@ -17,12 +18,15 @@ const TransactionsBulkBar = ({
   count,
   categories,
   busy,
+  progress,
   onCategoryChange,
   onApprove,
   onClear
 }: TransactionsBulkBarProps) => (
   <div className="transactions-bulk" role="toolbar" aria-label={labels.selected(count)}>
-    <span className="transactions-bulk__count">{labels.selected(count)}</span>
+    <span className="transactions-bulk__count" aria-live="polite">
+      {progress ?? labels.selected(count)}
+    </span>
     <select
       className="form-select"
       aria-label={labels.bulkCategory}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Account, BankPreviewRow } from '../../../api';
 import { formatMoney } from '../../../utils/format';
 import type { Decision, RowAction, RowOverride, RowStatus } from '../mapping';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type Filter = 'all' | 'new' | 'review' | 'done' | 'skipped';
 
@@ -91,7 +92,7 @@ const PreviewSection = ({
       </div>
 
       <div className="table-responsive mt-2">
-        <table className="table table-sm table-vcenter bank-import__preview">
+        <ResizableTable tableId="bank-import-preview" className="table table-sm table-vcenter bank-import__preview">
           <thead>
             <tr>
               <th aria-label="Importuj" />
@@ -211,7 +212,7 @@ const PreviewSection = ({
               </tr>
             ) : null}
           </tbody>
-        </table>
+        </ResizableTable>
       </div>
     </>
   );

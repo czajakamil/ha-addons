@@ -100,7 +100,24 @@ export const copy = {
     bulkCategory: 'Zmień kategorię',
     bulkApprove: 'Zatwierdź',
     bulkClear: 'Odznacz',
-    bulkFailed: 'Nie wszystkie transakcje udało się zaktualizować.',
+    bulkSaving: (done: number, total: number) => `Zapisywanie ${done} z ${total}…`,
+    bulk: {
+      categoryAction: (category: string) => `Zmiana kategorii na „${category}”`,
+      approveAction: 'Zatwierdzanie',
+      skippedTransfers: 'przelewy',
+      skippedApproved: 'już zatwierdzone',
+      summary: (updated: number, total: number) => `udało się ${updated} z ${total}.`,
+      skipped: (count: number, reason: string) => `Pominięto: ${count} (${reason}).`,
+      retry: (count: number) => `Ponów nieudane (${count})`,
+      dismiss: 'Zamknij podsumowanie',
+      failedList: 'Transakcje, których nie udało się zapisać',
+      errors: {
+        network: 'Brak połączenia z serwerem',
+        notFound: 'Transakcja już nie istnieje',
+        server: 'Błąd serwera',
+        rejected: 'Serwer odrzucił zmianę'
+      }
+    },
     deleteConfirm: 'Usunąć tę transakcję?',
     deleteFailed: 'Nie udało się usunąć transakcji.',
     empty: 'Żadna transakcja nie pasuje do tych filtrów.',

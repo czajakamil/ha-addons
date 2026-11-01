@@ -9,6 +9,7 @@ import {
 import { NetWorthTooltip } from '../tooltips';
 import { useChartTheme } from '../useChartTheme';
 import type { ReportsController } from '../useReports';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 type NetWorthTabProps = {
   controller: ReportsController;
@@ -174,7 +175,7 @@ const NetWorthTab = ({ controller }: NetWorthTabProps) => {
             </span>
           </div>
           <div className="table-responsive">
-            <table className="table report-table">
+            <ResizableTable tableId="report-net-worth" className="table report-table">
               <thead>
                 <tr>
                   <th>Miesiąc</th>
@@ -197,7 +198,7 @@ const NetWorthTab = ({ controller }: NetWorthTabProps) => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </ResizableTable>
           </div>
         </>
       ) : (

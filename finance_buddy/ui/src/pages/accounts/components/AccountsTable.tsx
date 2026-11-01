@@ -7,6 +7,7 @@ import TruncatedText from '../../../components/ui/TruncatedText';
 import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
 import { getAccountKindLabel, isLiabilityAccountKind } from '../model';
+import ResizableTable from '../../../components/ui/ResizableTable';
 
 const labels = copy.accounts;
 
@@ -32,7 +33,7 @@ const AccountsTable = ({
   onDebt
 }: AccountsTableProps) => (
   <div className="accounts-table-card">
-    <table className="accounts-table">
+    <ResizableTable tableId="accounts" className="accounts-table">
       <thead>
         <tr>
           <th scope="col">{labels.columns.name}</th>
@@ -107,7 +108,7 @@ const AccountsTable = ({
           );
         })}
       </tbody>
-    </table>
+    </ResizableTable>
   </div>
 );
 

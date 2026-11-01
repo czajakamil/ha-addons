@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, CheckIcon, CircleAlertIcon, CircleDotIcon, FlagIcon, ImageIcon, ImagePlusIcon, LinkIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, CircleAlertIcon, FlagIcon, ImageIcon, ImagePlusIcon, LinkIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import Button from '../components/Button';
 import TagPathInput from '../components/tags/TagPathInput';
 import { TagChip } from '../components/tags/TagChip';
@@ -27,16 +27,15 @@ import {
   updateTransaction,
   uploadTransactionAttachment
 } from '../api';
+import Money from '../components/ui/Money';
+import SkeletonRows from '../components/ui/SkeletonRows';
+import { formatDayHeading } from '../utils/date';
 import { useAuthorizedObjectUrl } from '../hooks/useAuthorizedObjectUrl';
 import { formatMoney, parseAmountToCents } from '../utils/format';
+import ResizableTable from '../components/ui/ResizableTable';
 
 type RouteParams = {
   transactionId?: string;
-};
-
-type TransactionDetailsPageProps = {
-  transactionId?: string;
-  embedded?: boolean;
 };
 
 type TransactionStatusState = 'pending' | 'cleared' | 'reconciled';
@@ -133,54 +132,36 @@ const AttachmentCard = ({ attachment, onDelete, deleting }: AttachmentCardProps)
         )}
       </div>
       <div className="attachment-card__body">
-        <div className="fw-semibold attachment-card__title" title={attachment.original_name}>
+        <div className="attachment-card__title" title={attachment.original_name}>
           {attachment.original_name}
         </div>
-        <div className="text-secondary small">
+        <div className="tx-page__muted">
           {formatFileSize(attachment.size_bytes)} · {formatDateTime(attachment.created_at)}
         </div>
       </div>
       <div className="attachment-card__actions">
         {url ? (
-          <a
-            className="btn btn-light btn-sm d-inline-flex align-items-center gap-1 is-focusable"
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="icon-button" href={url} target="_blank" rel="noreferrer" title="Otwórz" aria-label={`Otwórz ${attachment.original_name}`}>
             <LinkIcon size={14} aria-hidden="true" />
-            <span>Otwórz</span>
           </a>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-light btn-sm d-inline-flex align-items-center gap-1 is-focusable"
-            disabled
-          >
-            <LinkIcon size={14} aria-hidden="true" />
-            <span>{loading ? 'Ładowanie…' : 'Otwórz'}</span>
-          </button>
-        )}
+        ) : null}
         <button
           type="button"
-          className="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1 is-focusable"
+          className="icon-button"
+          title="Usuń"
+          aria-label={`Usuń ${attachment.original_name}`}
           onClick={() => onDelete(attachment.id)}
           disabled={deleting}
         >
           <Trash2Icon size={14} aria-hidden="true" />
-          <span>Usuń</span>
         </button>
       </div>
     </div>
   );
 };
 
-const TransactionDetailsPage = ({
-  transactionId: transactionIdProp,
-  embedded = false
-}: TransactionDetailsPageProps = {}) => {
-  const { transactionId: routeTransactionId } = useParams<RouteParams>();
-  const transactionId = transactionIdProp ?? routeTransactionId;
+const TransactionDetailsPage = () => {
+  const { transactionId } = useParams<RouteParams>();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -203,6 +184,7 @@ const TransactionDetailsPage = ({
     date: ''
   });
   const [newItemForm, setNewItemForm] = useState<NewItemForm>(EMPTY_ITEM_FORM);
+  const [showItemForm, setShowItemForm] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [itemError, setItemError] = useState<string | null>(null);
   const [categoryPath, setCategoryPath] = useState('');
@@ -478,6 +460,7 @@ const TransactionDetailsPage = ({
       await updateTransaction(transactionId, { items: currentItemsPayload });
       await Promise.all([loadTransaction(), loadReferences()]);
       setNewItemForm(EMPTY_ITEM_FORM);
+      setShowItemForm(false);
       setItemError(null);
     } catch (err) {
       console.error(err);
@@ -490,186 +473,102 @@ const TransactionDetailsPage = ({
   const statusState = getStatusState(transaction);
   const statusPresentation = STATUS_PRESENTATION[statusState];
 
-  const detailsContent = (
-    <>
+  const store = stores.find((entry) => entry.id === transaction?.store_id);
+  const accountName = accounts.find((entry) => entry.id === transaction?.account_id)?.name;
+  const heading =
+    store?.group_name?.trim() || store?.name || transaction?.comment || (transaction ? 'Transakcja' : '');
+
+  return (
+    <div className="page-shell page-stack-layout tx-page">
+      <button type="button" className="text-button tx-page__back" onClick={() => navigate('/transactions')}>
+        <ArrowLeftIcon size={14} aria-hidden="true" />
+        Transakcje
+      </button>
+
       {error && (
-        <div className="alert alert-danger d-flex align-items-center gap-2" role="alert">
-          <CircleAlertIcon size={18} aria-hidden="true" />
-          <div>{error}</div>
-        </div>
+        <p className="transactions-error" role="alert">
+          {error}
+        </p>
       )}
 
-      {loading && (
-        <div className="card mb-3">
-          <div className="card-body">
-            <div className="placeholder-glow">
-              <div className="placeholder col-6 mb-2" />
-              <div className="placeholder col-8 mb-2" />
-              <div className="placeholder col-12 mb-2" />
-              <div className="placeholder col-9 mb-0" />
-            </div>
-          </div>
-        </div>
-      )}
+      {loading && <SkeletonRows rows={6} />}
 
       {!loading && transaction && (
         <>
-          <div className="row g-3">
-            <div className="col-lg-5">
-              <div className="card h-100">
-                <form className="card-body d-flex flex-column gap-3" onSubmit={handleSaveFields}>
-                  {formError && (
-                    <div className="alert alert-danger d-flex align-items-center gap-2 mb-1" role="alert">
-                      <CircleAlertIcon size={16} aria-hidden="true" />
-                      <div>{formError}</div>
-                    </div>
-                  )}
-                  <div>
-                    <label className="form-label">Konto</label>
-                    <EntityAutocomplete
-                      value={editFields.account_id}
-                      options={accountOptions}
-                      onSelect={(id) => handleFieldChange('account_id', id)}
-                      placeholder="Wpisz, aby wyszukać konto"
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Sklep / grupa</label>
-                    <EntityAutocomplete
-                      value={editFields.store_id}
-                      options={storeOptions}
-                      onSelect={(id) => handleFieldChange('store_id', id)}
-                      emptyOptionLabel="Brak"
-                      placeholder="Wpisz, aby wyszukać sklep"
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Tag</label>
-                    <TagPathInput
-                      value={categoryPath}
-                      categories={categories}
-                      forAccounts={false}
-                      placeholder="np. dom/remont"
-                      onChange={setCategoryPath}
-                    />
-                    {matchedTagCategory && (
-                      <div className="mt-1">
-                        <TagChip category={matchedTagCategory} byId={categoryMap} label={matchedTagCategory.path} />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="form-label">Data księgowania</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={editFields.date}
-                      onChange={(e) => handleFieldChange('date', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Komentarz</label>
-                    <textarea
-                      className="form-control"
-                      rows={2}
-                      value={editFields.comment}
-                      onChange={(e) => handleFieldChange('comment', e.target.value)}
-                    />
-                  </div>
-                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div className="tx-detail__status mb-0">
-                      <div className={`tx-badge tx-badge--${statusPresentation.tone}`}>
-                        {statusState === 'reconciled' ? (
-                          <CheckIcon size={14} aria-hidden="true" />
-                        ) : (
-                          <FlagIcon size={14} aria-hidden="true" />
-                        )}
-                        <span>{statusPresentation.label}</span>
-                      </div>
-                      <div className="text-secondary small">{statusPresentation.description}</div>
-                      <div className="text-secondary small mt-1">
-                        Zarejestrowano: {formatDateTime(transaction.recorded_at)}
-                      </div>
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="outline-primary"
-                      size="sm"
-                      disabled={savingForm}
-                      icon={<CheckIcon size={14} aria-hidden="true" />}
-                    >
-                      {savingForm ? 'Zapisywanie…' : 'Zapisz zmiany'}
-                    </Button>
-                  </div>
-                </form>
-              </div>
+          <header className="tx-page__header">
+            <div className="tx-page__title">
+              <h1>{heading}</h1>
+              <p>
+                {transaction.date ? formatDayHeading(transaction.date) : '—'}
+                {accountName ? ` · ${accountName}` : ''}
+              </p>
             </div>
+            <div className="tx-page__total">
+              <Money cents={transaction.total_cents} currency={transaction.currency} />
+              <span className={`tx-badge tx-badge--${statusPresentation.tone}`} title={statusPresentation.description}>
+                {statusState === 'reconciled' ? (
+                  <CheckIcon size={14} aria-hidden="true" />
+                ) : (
+                  <FlagIcon size={14} aria-hidden="true" />
+                )}
+                {statusPresentation.label}
+              </span>
+            </div>
+          </header>
 
-            <div className="col-lg-7">
-              <div className="card mb-3">
-                <div className="card-header">
-                  <div>
-                    <div className="card-title mb-0">Pozycje na paragonie</div>
-                    <div className="text-secondary small">
-                      Szczegóły pozycji z tej transakcji (brutto).
-                    </div>
-                  </div>
-                </div>
-                <div className="card-body">
-                  {transaction.items.length ? (
-                    <div className="table-responsive">
-                      <table className="table table-sm mb-0">
-                        <thead>
-                          <tr>
-                            <th>Produkt</th>
-                            <th>Ilość</th>
-                            <th>Cena jedn.</th>
-                            <th className="text-end">Suma</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transaction.items.map((item) => {
-                            const totalCents = item.unit_price_cents * item.quantity;
-                            return (
-                              <tr key={item.id}>
-                                <td>
-                                  <div className="fw-semibold">{item.product_name ?? 'Produkt'}</div>
-                                  {item.comment && <div className="text-secondary small">{item.comment}</div>}
-                                </td>
-                                <td>
-                                  {item.quantity} {item.unit ?? ''}
-                                </td>
-                                <td>{formatMoney(item.unit_price_cents, transaction.currency)}</td>
-                                <td className="text-end">
-                                  {formatMoney(Math.round(totalCents), transaction.currency)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="empty m-0">
-                      <div className="empty-icon">
-                        <CircleDotIcon size={28} aria-hidden="true" />
-                      </div>
-                      <p className="empty-title">Brak pozycji</p>
-                      <p className="empty-subtitle text-secondary">Ta transakcja nie ma pozycji.</p>
-                    </div>
+          <div className="tx-page__layout">
+            <div className="tx-page__main">
+              <section className="tx-section">
+                <header className="tx-section__header">
+                  <h2>Pozycje</h2>
+                  {!showItemForm && (
+                    <button type="button" className="text-button" onClick={() => setShowItemForm(true)}>
+                      <PlusIcon size={14} aria-hidden="true" />
+                      Dodaj pozycję
+                    </button>
                   )}
-                  <hr className="my-3" />
-                  <form className="row g-2 align-items-end" onSubmit={handleAddItem}>
+                </header>
+                {transaction.items.length ? (
+                  <div className="table-responsive">
+                    <ResizableTable tableId="transaction-items" className="tx-items">
+                      <thead>
+                        <tr>
+                          <th>Produkt</th>
+                          <th className="tx-items__number">Ilość</th>
+                          <th className="tx-items__number">Cena</th>
+                          <th className="tx-items__number">Suma</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {transaction.items.map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              {item.product_name ?? 'Produkt'}
+                              {item.comment && <div className="tx-page__muted">{item.comment}</div>}
+                            </td>
+                            <td className="tx-items__number">
+                              {item.quantity} {item.unit ?? ''}
+                            </td>
+                            <td className="tx-items__number">{formatMoney(item.unit_price_cents, transaction.currency)}</td>
+                            <td className="tx-items__number">
+                              {formatMoney(Math.round(item.unit_price_cents * item.quantity), transaction.currency)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </ResizableTable>
+                  </div>
+                ) : (
+                  !showItemForm && <p className="tx-section__empty">Ta transakcja nie ma pozycji.</p>
+                )}
+                {showItemForm && (
+                  <form className="tx-item-form" onSubmit={handleAddItem}>
                     {itemError && (
-                      <div className="col-12">
-                        <div className="alert alert-danger d-flex align-items-center gap-2 mb-2" role="alert">
-                          <CircleAlertIcon size={16} aria-hidden="true" />
-                          <div>{itemError}</div>
-                        </div>
-                      </div>
+                      <p className="transactions-error tx-item-form__wide" role="alert">
+                        {itemError}
+                      </p>
                     )}
-                    <div className="col-12 col-md-6 col-lg-5">
+                    <div className="tx-item-form__wide">
                       <label className="form-label">Produkt</label>
                       <EntityAutocomplete
                         value={newItemForm.product_id}
@@ -680,9 +579,10 @@ const TransactionDetailsPage = ({
                         placeholder="Wpisz, aby wyszukać lub utworzyć"
                       />
                     </div>
-                    <div className="col-3 col-md-2">
-                      <label className="form-label">Ilość</label>
+                    <div>
+                      <label className="form-label" htmlFor="tx-item-quantity">Ilość</label>
                       <input
+                        id="tx-item-quantity"
                         type="number"
                         step="0.01"
                         min="0"
@@ -692,9 +592,10 @@ const TransactionDetailsPage = ({
                         required
                       />
                     </div>
-                    <div className="col-4 col-md-3">
-                      <label className="form-label">Cena jedn.</label>
+                    <div>
+                      <label className="form-label" htmlFor="tx-item-price">Cena jedn.</label>
                       <input
+                        id="tx-item-price"
                         type="number"
                         step="0.01"
                         min="0"
@@ -704,7 +605,7 @@ const TransactionDetailsPage = ({
                         required
                       />
                     </div>
-                    <div className="col-12 col-lg-6">
+                    <div>
                       <label className="form-label">Tag produktu</label>
                       <TagPathInput
                         value={newItemForm.tag_path}
@@ -714,133 +615,147 @@ const TransactionDetailsPage = ({
                         onChange={(value) => handleNewItemChange('tag_path', value)}
                       />
                     </div>
-                    <div className="col-12 col-lg-6">
-                      <label className="form-label">Komentarz</label>
+                    <div>
+                      <label className="form-label" htmlFor="tx-item-comment">Komentarz</label>
                       <input
+                        id="tx-item-comment"
                         type="text"
                         className="form-control"
                         value={newItemForm.comment}
                         onChange={(e) => handleNewItemChange('comment', e.target.value)}
-                        placeholder="opcjonalnie"
                       />
                     </div>
-                    <div className="col-12 d-flex justify-content-end">
-                      <Button
-                        type="submit"
-                        variant="outline-primary"
-                        size="sm"
-                        disabled={savingItem}
-                        icon={<PlusIcon size={14} aria-hidden="true" />}
+                    <div className="tx-item-form__actions">
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => {
+                          setShowItemForm(false);
+                          setItemError(null);
+                        }}
                       >
+                        Anuluj
+                      </button>
+                      <Button type="submit" disabled={savingItem}>
                         {savingItem ? 'Dodawanie…' : 'Dodaj pozycję'}
                       </Button>
                     </div>
                   </form>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="card-header align-items-start">
-                  <div>
-                    <div className="card-title mb-0">Załączniki</div>
-                    <div className="text-secondary small">
-                      Dodaj zdjęcia paragonu lub potwierdzenia, aby mieć je pod ręką.
-                    </div>
-                  </div>
-                  <div className="btn-list ms-auto">
-                    <Button
-                      variant="outline-secondary"
-                      icon={<ImagePlusIcon size={16} aria-hidden="true" />}
-                      onClick={openFilePicker}
-                      disabled={uploading}
-                    >
-                      {uploading ? 'Ładowanie…' : 'Dodaj zdjęcie'}
-                    </Button>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef}
-                      className="d-none"
-                      onChange={(event) => void handleFileChange(event)}
-                    />
-                  </div>
-                </div>
-                {attachmentError && (
-                  <div className="card-body pt-0">
-                    <div className="alert alert-danger mb-0 d-flex align-items-center gap-2" role="alert">
-                      <CircleAlertIcon size={16} aria-hidden="true" />
-                      <div>{attachmentError}</div>
-                    </div>
-                  </div>
                 )}
-                <div className="card-body">
-                  {sortedAttachments.length ? (
-                    <div className="transaction-attachments-grid">
-                      {sortedAttachments.map((attachment) => (
-                        <AttachmentCard
-                          key={attachment.id}
-                          attachment={attachment}
-                          onDelete={(attachmentId) => void handleDeleteAttachment(attachmentId)}
-                          deleting={removingAttachmentId === attachment.id}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="empty m-0">
-                      <div className="empty-icon">
-                        <ImageIcon size={24} aria-hidden="true" />
-                      </div>
-                      <p className="empty-title">Brak załączników</p>
-                      <p className="empty-subtitle text-secondary">
-                        Dodaj zdjęcie paragonu, aby mieć je pod ręką w jednym miejscu.
-                      </p>
+              </section>
+
+              <section className="tx-section">
+                <header className="tx-section__header">
+                  <h2>Załączniki</h2>
+                  <button type="button" className="text-button" onClick={openFilePicker} disabled={uploading}>
+                    <ImagePlusIcon size={14} aria-hidden="true" />
+                    {uploading ? 'Ładowanie…' : 'Dodaj zdjęcie'}
+                  </button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    className="d-none"
+                    aria-label="Zdjęcie załącznika"
+                    onChange={(event) => void handleFileChange(event)}
+                  />
+                </header>
+                {attachmentError && (
+                  <p className="transactions-error tx-section__empty" role="alert">
+                    {attachmentError}
+                  </p>
+                )}
+                {sortedAttachments.length ? (
+                  <div className="transaction-attachments-grid">
+                    {sortedAttachments.map((attachment) => (
+                      <AttachmentCard
+                        key={attachment.id}
+                        attachment={attachment}
+                        onDelete={(attachmentId) => void handleDeleteAttachment(attachmentId)}
+                        deleting={removingAttachmentId === attachment.id}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="tx-section__empty">Brak załączników.</p>
+                )}
+              </section>
+            </div>
+
+            <form className="tx-section tx-page__form" onSubmit={handleSaveFields}>
+              <header className="tx-section__header">
+                <h2>Dane</h2>
+              </header>
+              <div className="tx-page__fields">
+                {formError && (
+                  <p className="transactions-error" role="alert">
+                    {formError}
+                  </p>
+                )}
+                <div>
+                  <label className="form-label" htmlFor="tx-date">Data księgowania</label>
+                  <input
+                    id="tx-date"
+                    type="date"
+                    className="form-control"
+                    value={editFields.date}
+                    onChange={(e) => handleFieldChange('date', e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Konto</label>
+                  <EntityAutocomplete
+                    value={editFields.account_id}
+                    options={accountOptions}
+                    onSelect={(id) => handleFieldChange('account_id', id)}
+                    placeholder="Wpisz, aby wyszukać konto"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Sklep</label>
+                  <EntityAutocomplete
+                    value={editFields.store_id}
+                    options={storeOptions}
+                    onSelect={(id) => handleFieldChange('store_id', id)}
+                    emptyOptionLabel="Brak"
+                    placeholder="Wpisz, aby wyszukać sklep"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Kategoria</label>
+                  <TagPathInput
+                    value={categoryPath}
+                    categories={categories}
+                    forAccounts={false}
+                    placeholder="np. dom/remont"
+                    onChange={setCategoryPath}
+                  />
+                  {matchedTagCategory && (
+                    <div className="mt-1">
+                      <TagChip category={matchedTagCategory} byId={categoryMap} label={matchedTagCategory.path} />
                     </div>
                   )}
                 </div>
+                <div>
+                  <label className="form-label" htmlFor="tx-comment">Komentarz</label>
+                  <textarea
+                    id="tx-comment"
+                    className="form-control"
+                    rows={2}
+                    value={editFields.comment}
+                    onChange={(e) => handleFieldChange('comment', e.target.value)}
+                  />
+                </div>
+                <Button type="submit" disabled={savingForm} fullWidth className="justify-content-center">
+                  {savingForm ? 'Zapisywanie…' : 'Zapisz zmiany'}
+                </Button>
+                <p className="tx-page__muted">Zarejestrowano: {formatDateTime(transaction.recorded_at)}</p>
               </div>
-            </div>
+            </form>
           </div>
         </>
       )}
-    </>
-  );
-
-  if (embedded) {
-    return <div className="page-body p-0">{detailsContent}</div>;
-  }
-
-  return (
-    <div className="page compact-page">
-      <div className="page-shell">
-        <div className="page-header d-print-none">
-          <div className="row align-items-center">
-            <div className="col">
-              <div className="page-pretitle text-muted fw-semibold">Szczegóły transakcji</div>
-            </div>
-            <div className="col-auto ms-auto mt-3 mt-md-0">
-              <div className="btn-list">
-                <Button
-                  variant="outline-secondary"
-                  icon={<ArrowLeftIcon size={16} aria-hidden="true" />}
-                  onClick={() => navigate('/transactions')}
-                >
-                  Wróć do listy
-                </Button>
-                <Button
-                  variant="outline-primary"
-                  icon={<RefreshCwIcon size={16} aria-hidden="true" />}
-                  onClick={() => void loadTransaction()}
-                  disabled={loading}
-                >
-                  Odśwież
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="page-body">{detailsContent}</div>
-      </div>
     </div>
   );
 };

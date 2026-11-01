@@ -48,14 +48,14 @@ export const getAccountIcon = (id?: string | null): LucideIcon =>
 export type AccountColorOption = { id: string; label: string; value: string };
 
 export const ACCOUNT_COLOR_OPTIONS: AccountColorOption[] = [
-  { id: 'indigo', label: 'Indygo', value: 'var(--cat-indigo)' },
-  { id: 'teal', label: 'Morski', value: 'var(--cat-teal)' },
-  { id: 'green', label: 'Zielony', value: 'var(--cat-green)' },
-  { id: 'coral', label: 'Koralowy', value: 'var(--cat-coral)' },
-  { id: 'amber', label: 'Bursztynowy', value: 'var(--cat-amber)' },
-  { id: 'pink', label: 'Różowy', value: 'var(--cat-pink)' },
-  { id: 'blue', label: 'Niebieski', value: 'var(--cat-blue)' },
-  { id: 'violet', label: 'Fioletowy', value: 'var(--cat-violet)' }
+  { id: 'indigo', label: 'Indygo', value: 'var(--text-muted)' },
+  { id: 'teal', label: 'Morski', value: 'var(--text-muted)' },
+  { id: 'green', label: 'Zielony', value: 'var(--positive)' },
+  { id: 'coral', label: 'Koralowy', value: 'var(--negative)' },
+  { id: 'amber', label: 'Bursztynowy', value: 'var(--warning)' },
+  { id: 'pink', label: 'Różowy', value: 'var(--text-muted)' },
+  { id: 'blue', label: 'Niebieski', value: 'var(--accent)' },
+  { id: 'violet', label: 'Fioletowy', value: 'var(--text-muted)' }
 ];
 
 const ACCOUNT_COLOR_MAP = new Map(ACCOUNT_COLOR_OPTIONS.map((option) => [option.id, option]));

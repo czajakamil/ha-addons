@@ -13,9 +13,7 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 
 ## Tokeny
 
-- **Aliasy dawnych nazw** (`--primary`, `--muted`, `--r`, `--space-*`) wskazują na nowe tokeny, dzięki czemu nieprzerobione ekrany od razu dziedziczą nowy wygląd. Sekcja aliasów znika w fazie porządków.
-- **`--primary` to `--text`**, a nie akcent: dawne wypełnione elementy stają się odwrócone, zgodnie z zasadą, że akcent nie wypełnia powierzchni.
-- **`--pill` ma promień kontrolki.** Promień 999 px mają tylko kropki statusu (`--radius-dot`).
+- **Sekcja aliasów usunięta.** Wszystkie użycia dawnych nazw zamieniono mechanicznie na ich dotychczasowe cele, więc wygląd się nie zmienił. Dawne wypełnione elementy korzystają z `--text` (akcent nie wypełnia powierzchni), a promień 999 px mają tylko kropki statusu (`--radius-dot`).
 - **Dodatkowe tokeny poza briefem:** `--overlay` (tło pod dialogiem), `--on-color` (znacznik na kolorowym polu), tinty stanów 12%.
 
 ## Wyjątki od zakazu kolorów na sztywno
@@ -63,12 +61,15 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Suma dnia dotyczy wczytanych wierszy.** Na granicy strony może być chwilowo niepełna; kolejne strony doładowują się same przed końcem listy.
 - **Filtr kategorii idzie przez `/transactions`,** bo `/transactions/page` go nie obsługuje, a API zostaje bez zmian. Liczba wyników jest wtedy znana dopiero po ostatniej stronie, więc do tego czasu nie pokazujemy łącznej liczby.
 - **Status:** niezatwierdzona ma stałą ikonę, a zatwierdzona i uzgodniona tylko na hover. „Cleared” to „Zatwierdzona”, „Reconciled” to „Uzgodniona”.
-- **Akcje zbiorcze idą pojedynczymi żądaniami, po 5 naraz,** bo API nie ma zapisu zbiorczego. Zmiana kategorii pomija przelewy.
+- **Akcje zbiorcze idą pojedynczymi żądaniami, po 5 naraz,** bo API nie ma zapisu zbiorczego. Zmiana kategorii pomija przelewy, a zatwierdzanie transakcje już zatwierdzone; obie liczby są w podsumowaniu.
+- **Podsumowanie akcji zbiorczej** zostaje do zamknięcia i pokazuje liczbę udanych, listę nieudanych z powodem oraz „Ponów nieudane”. Po akcji zaznaczone zostają tylko nieudane, a ich wiersze mają czerwony tint. Ponowienie działa też po zmianie filtrów, bo podsumowanie pamięta transakcje.
+- **Powód błędu to polski opis statusu** (brak połączenia, transakcja nie istnieje, błąd serwera, odrzucona zmiana), bez surowej odpowiedzi API, która jest po angielsku.
+- **Zaznaczenie obejmuje tylko wczytane wiersze.** Po wyszukaniu ukryte transakcje wypadają z zaznaczenia; wcześniej licznik obiecywał więcej, niż akcja zmieniała.
 - **Telefon (do 700 px):** sklep z kontem pod spodem i kwota, a dotknięcie otwiera szczegóły. Edycja w komórkach i zaznaczanie są tylko na większych ekranach.
 
 ## Konta
 
-- **Lista kont bez edycji w komórkach.** Nazwę, typ, kategorię i walutę zmienia się w oknie „Edytuj”, a saldo przez „Zmień saldo” w menu „⋯”. Kliknięcie wiersza zajęły szczegóły konta.
+- **Lista kont bez edycji w komórkach.** Nazwę, typ, kategorię i walutę zmienia się w oknie „Edytuj”, a saldo przez „Zmień saldo” w menu „⋯”. Kliknięcie wiersza zajęły szczegóły konta. Z `useAccountsEditing` usunięto martwe renderery, a `renderBalanceCell` zostaje, bo obsługuje właśnie „Zmień saldo”.
 - **Szczegóły konta to osobny adres** (`/accounts/:id`) z wykresem salda na koniec miesiąca z ostatnich 12 miesięcy, odtworzonym wstecz z transakcji konta. API nie ma historii sald.
 - **Ostatnia aktywność to jedno żądanie na konto** (`/transactions?limit=1`), bo lista kont jej nie zwraca.
 - **Suma grupy obejmuje tylko konta w PLN.** Bez kursów nie da się uczciwie zsumować innych walut.
@@ -79,12 +80,35 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Struktura wydatków: lista z paskami pełni rolę poziomego wykresu.** Top 10 plus „Pozostałe”, posortowane malejąco, paski neutralne, klikalne jak wcześniej. Biblioteka wykresów nie dawałaby tu nic ponad to, a tekst pozostaje czytelny i dostępny.
 - **Donut w „Tagi kont” pojawia się tylko przy najwyżej 5 pozycjach.**
 - **Paleta wykresów `--chart-1…8`** to sprawdzona paleta kategorialna, osobno dla obu motywów. Nivo nie rozumie `var()`, więc kolory czytamy z tokenów w `utils/tokens.ts`, a zmiana motywu przebudowuje zakładkę.
-- **Przepływy:** Przychody → grupy → kategorie, 8 największych kategorii, reszta jako „Pozostałe wydatki”. Grupy biorą się ze ścieżki kategorii. Przelewy między kontami nie są już częścią diagramu. Gdy przychody przewyższają wydatki, nadwyżka to osobna gałąź; gdy są niższe, węzeł „Przychody” obrazuje tylko wydatki, a rzeczywiste kwoty stoją nad diagramem.
+- **Przepływy:** Przychody → grupy → kategorie, 8 największych kategorii, reszta jako „Pozostałe wydatki”. Grupy biorą się ze ścieżki kategorii. Przelewy między kontami nie są już częścią diagramu. Gdy przychody przewyższają wydatki, nadwyżka to osobna gałąź.
+- **Deficyt w Przepływach:** „Przychody” i „Z oszczędności” spływają do węzła „Wydatki”, a dopiero z niego do grup. Bezpośrednie łącza wymagałyby wymyślenia, które źródło opłaciło którą grupę. „Z oszczędności” to matematyczna różnica wydatków i przychodów: dane nie mówią, czy deficyt pokryły oszczędności, czy np. karta kredytowa.
+- **Przepływy na telefonie przewijają się w bok** (diagram ma min. 720 px), bo pięć poziomów etykiet nie mieści się w 390 px.
 
 ## Pozostałe ekrany i porządki
 
 - **Tabler CSS zostaje.** Okna dialogowe, formularze i układ pozostałych ekranów nadal korzystają z jego klas, a tokeny sprowadzają je do jednego wyglądu. Pakiet `@tabler/icons-react` jest usunięty.
-- **Tagi, Paragony i Panel użytkownika dostały nowy wygląd przez style globalne, bez przepisywania układu.** Sklepy i Przedmioty mają dodatkowo menu „Kolumny”, a Import z banku kreator w 3 krokach.
+- **Panel użytkownika ma nowy wygląd przez style globalne, bez przepisywania układu.** Sklepy i Przedmioty mają dodatkowo menu „Kolumny”, a Import z banku kreator w 3 krokach.
 - **Paleta Cmd+K:** dodanie wydatku, ekrany, konta i kategorie. Wybór kategorii otwiera Budżet. Skrót N działa poza polami tekstowymi.
-- **Dialog wydatku zachowuje dwa pola kwoty** (Wydatek i Wpływ), bo tak działa jego zapis; kwota jest na górze z autofokusem. Podpowiedź kategorii to domyślna kategoria sklepu.
+- **Dialog wydatku ma jedno pole kwoty ze znakiem,** jak Transakcje: wydatek z minusem, wpływ bez znaku. Pole startuje od „-”, więc zwykłe wpisanie kwoty daje wydatek, a wpływ wymaga skasowania znaku. Klawiatura dziesiętna iPhone'a nie ma minusa, więc inaczej nie dałoby się na niej wpisać wydatku. Pod polem na bieżąco widać „Wydatek: …” albo „Wpływ: …”. Kwota jest na górze z autofokusem. Podpowiedź kategorii to domyślna kategoria sklepu.
 - **Toasty (Sonner)** potwierdzają na razie tylko dodanie transakcji z palety. Akcji „cofnij” nie ma.
+
+## Układ przebudowanych ekranów
+
+- **Tagi:** przełącznik zakresu i dodawanie w jednym pasku, nad płaską listą bez karty w karcie. Kosz pojawia się po najechaniu, a na dotyku jest stale widoczny. Liczba przy grupie to liczba bezpośrednich podtagów.
+- **Paragony:** przycisk „Wgraj paragony” otwiera wybór plików i od razu startuje rozpoznawanie, bez drugiego kliknięcia. Szkic nie jest jeszcze transakcją i można go usunąć. Znika przy okazji angielskie „Choose file” przeglądarki. Plik i liczba pozycji są podpisem pod sklepem, a nie osobnymi kolumnami.
+- **Szczegóły transakcji:** nagłówek z nazwą, kwotą i statusem, pozycje i załączniki w głównej kolumnie, formularz w przyklejonej kolumnie po prawej (na węższych ekranach pod spodem). Formularz nowej pozycji otwiera się na żądanie. Usunięto „Odśwież” i nieużywany tryb `embedded`.
+- **Kolejka do otagowania:** karta decyzji po lewej, lista po prawej (na węższych ekranach pod spodem). Lista pokazuje sklep z podpowiedzią, datę i kwotę; konto widać na karcie. Przycisk „Inny tag” zniknął, bo pole tagu jest zawsze widoczne, a skrót T działa dalej. Na telefonie nie ma podpowiedzi klawiatury.
+- **Logowanie:** jedna kolumna z jedną główną akcją. Dodawanie passkey z zaproszenia jest rozwijane; przy pierwszym uruchomieniu formularz zastępuje logowanie. Pole loginu pojawia się tylko przy tworzeniu pierwszego admina, a kodu zaproszenia poza tym przypadkiem.
+
+## Szerokości kolumn
+
+- **Dwie ścieżki, jeden zapis.** `DataTable` dostaje `tableId`, a zwykłe tabele HTML komponent `ResizableTable`. Oba korzystają z `useColumnWidths`, czyli istniejącego API `/preferences/table-columns`, więc szerokości są na koncie, nie w przeglądarce.
+- **Stan jest wspólny dla tabeli,** bo API zastępuje cały zapis, a Konta czy Sklepy pokazują tę samą tabelę kilka razy na ekranie. Osobne kopie kasowałyby sobie zmiany.
+- **Zwykłe tabele rozpoznają kolumnę po tekście nagłówka** (lub `data-col`). Kolumny bez nazwy nie mają uchwytu. Zmiana tekstu nagłówka oznacza powrót do domyślnej szerokości.
+- **Na telefonie (do 700 px) szerokości się nie stosują ani nie zapisują.** Te układy mają własne kolumny, a przeciąganie na dotyku nie działa.
+- **Minimum to 48 px** w każdej tabeli (w Transakcjach było 10 px).
+- **Przeciąganie obsługuje tylko mysz,** jak w dotychczasowej siatce. Skrótu klawiaturowego nie ma.
+
+## Testy
+
+- **Pierwsze testy jednostkowe** (`bulkUpdate.test.ts`, `flows.test.ts`) obejmują logikę, której błąd zmieniałby dane lub liczby: podział wyników akcji zbiorczej i węzły Przepływów.
