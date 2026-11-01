@@ -84,6 +84,26 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Suma grupy obejmuje tylko konta w PLN.** Bez kursów nie da się uczciwie zsumować innych walut.
 - **Kolumna Komentarz i Tag zniknęły z listy.** Tag ustawia się w zakładce Ustawienia. Komentarz konta nie ma już pola edycji, a wyszukiwarka pomija automatyczne komentarze z importu.
 
+## Sklepy
+
+- **Zmiana nazwy zapisuje `group_name` we wszystkich sklepach grupy, a `name` zostaje.** Importer CSV dopasowuje sklepy po `Store.name`, więc zmiana `name` odcięłaby je od kolejnych importów. Skutek uboczny: nazwa identyczna z inną grupą łączy obie na liście.
+- **Grupa to ta sama nazwa grupowa po zmianie wielkości liter i spacji,** a przy jej braku `name`. Sklep zarchiwizowany nie dokleja się do aktywnej grupy, bo importer już go nie dopasowuje.
+- **`/payees/:id` przyjmuje id dowolnego sklepu z grupy,** bo grupa nie ma własnego id. Lista zostaje pod `/stores`, a stare adresy dalej działają.
+- **Statystyki to jedno przejście po wszystkich transakcjach,** a nie żądanie na sklep. Koszt i propozycja endpointu są w `docs/design/sklepy/ETAP2.md`.
+- **Transakcje i Ostatnia liczą całą historię, Wydano ostatnie 12 miesięcy kalendarzowych z bieżącym,** tak samo jak wykres. Średnia to zawsze suma / 12. Wydano pomija przelewy, korekty salda i inne waluty niż PLN, a zwrot pomniejsza sumę.
+- **Do wczytania statystyk lista jest alfabetyczna i pokazuje wszystkie grupy.** Inaczej wiersze przeskakiwałyby, a bez dat nie wiadomo, co jest nieaktywne.
+- **Domyślna kategoria grupy** to kategoria pierwszego sklepu, który ją ma, licząc od największej liczby transakcji. Zapis ustawia ją we wszystkich sklepach grupy i włącza auto-kategoryzację, bez której importer jej nie użyje.
+- **NIP i adres są na jednym sklepie grupy** (tym, który już je ma, inaczej tym z największą liczbą transakcji), bo NIP jest unikalny dla użytkownika.
+- **Każda pozycja „Do uporządkowania” ma jeden powód,** żeby liczniki chipów sumowały się do całości, jak w makiecie. Kolejność: przelew własny, duplikat, surowa nazwa, bez kategorii. Reguły działają na pojedynczych sklepach, nie grupach, bo kategorię i scalanie ustawia się per sklep.
+- **Właściciel w regule przelewu własnego** to `display_name`, a przy jego braku `username` z sesji. Wszystkie części nazwy muszą wystąpić w nazwie sklepu.
+- **Surowa nazwa obejmuje też holenderski kod pocztowy i `straat`/`strasse`/`street`,** bo tak wygląda przykład Adyen z makiety. Krajowy numer konta (26 cyfr) też jest maskowany. Propozycja nazwy to tekst przed formą prawną, przecinkiem lub cyfrą.
+- **Usuwanie tylko przy pewnej liczbie 0 transakcji.** Backend nie blokuje usunięcia sklepu z transakcjami i zeruje im `store_id`, więc błąd wczytania też blokuje przycisk. Etap 2 proponuje blokadę na backendzie. Grupa bez transakcji usuwa wszystkie swoje sklepy.
+- **Archiwizacja zostaje,** choć brief jej nie wymienia: w „⋯”, na stronie sklepu i jako „Pokaż zarchiwizowane”, jak w Kontach. Usunięty komentarz sklepu nie ma już pola edycji; dane zostają w bazie.
+- **Wykres to CSS, nie Nivo.** Dwanaście słupków z wartościami nie potrzebuje biblioteki; precedens to lista z paskami w Raportach. Poniżej 700 px widać 6 miesięcy, jak na stronie konta.
+- **Filtr po sklepie w Transakcjach** (`?stores=a,b`) pobiera wszystkie transakcje każdego sklepu i scala je w przeglądarce, bo API filtruje po jednym sklepie, a API zostaje bez zmian. Nazwa filtra to chip z „×”.
+- **„Nazwa z banku” to na razie `Store.name`,** bo API nie zwraca `bank_description`.
+- **Telefon (do 700 px):** lista pokazuje nazwę i Wydano, a porządki nazwę z powodem pod spodem. Sortowanie to pole wyboru jak w Kontach, a nie klik w nagłówek.
+
 ## Raporty
 
 - **Struktura wydatków: lista z paskami pełni rolę poziomego wykresu.** Top 10 plus „Pozostałe”, posortowane malejąco, paski neutralne, klikalne jak wcześniej. Biblioteka wykresów nie dawałaby tu nic ponad to, a tekst pozostaje czytelny i dostępny.

@@ -126,6 +126,27 @@ export type TransactionPageParams = Pick<
 export const getTransactionsPage = (params: TransactionPageParams = {}) =>
   request<TransactionPage>(`/transactions/page${toSearchParams(params)}`);
 
+const STORE_PAGE_SIZE = 200;
+
+/** Wszystkie transakcje podanych sklepów, od najnowszej. API filtruje tylko po jednym sklepie. */
+export const getAllStoreTransactions = async (
+  storeIds: readonly string[],
+  params: Omit<TransactionQueryParams, 'store_id' | 'offset' | 'limit'> = {}
+) => {
+  const fetchStore = async (storeId: string) => {
+    const all: Transaction[] = [];
+    for (let offset = 0; ; offset += STORE_PAGE_SIZE) {
+      const batch = await getTransactions({ ...params, store_id: storeId, offset, limit: STORE_PAGE_SIZE });
+      all.push(...batch);
+      if (batch.length < STORE_PAGE_SIZE) return all;
+    }
+  };
+  const chunks = await Promise.all(storeIds.map(fetchStore));
+  return chunks
+    .flat()
+    .sort((a, b) => (b.recorded_at ?? '').localeCompare(a.recorded_at ?? '') || b.id.localeCompare(a.id));
+};
+
 export const getTransaction = (id: string) => request<TransactionDetail>(`/transactions/${id}`);
 
 export const createTransaction = (payload: TransactionCreate) =>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Sklep: Biedronka</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0B0C}
+a{color:#EDEDEF;text-decoration:none}a:hover{color:#FFFFFF}
+button{font-family:inherit}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; min-height: 1180px; background: #0B0B0C; color: #EDEDEF; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums;">
+
+  <nav aria-label="Menu główne" style="flex: 0 0 232px; box-sizing: border-box; background: #141416; border-right: 1px solid #26262A; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px;">
+    <div style="padding: 4px 8px 16px; font-weight: 600; font-size: 14px;">Budget Buddy</div>
+    <div style="padding: 8px 8px 4px; font-size: 12px; color: #8B8B93;">Codzienne</div>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Start</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Budżet</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Transakcje</a>
+    <div style="padding: 16px 8px 4px; font-size: 12px; color: #8B8B93;">Dane</div>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Konta</a>
+    <a href="Main.dc.html" aria-current="page" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF; background: #1C1C1F; font-weight: 500;">Sklepy</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Paragony</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Import z banku</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Przedmioty</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Tagi</a>
+    <div style="padding: 16px 8px 4px; font-size: 12px; color: #8B8B93;">Analiza</div>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Raporty</a>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px;">
+
+    <a href="Main.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 4px; font-size: 13px; color: #B4B4BC;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+      Sklepy
+    </a>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span aria-hidden="true" style="width: 44px; height: 44px; border-radius: 10px; background: #1C1C1F; border: 1px solid #26262A; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; color: #B4B4BC;">B</span>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <button type="button" aria-label="Zmień nazwę sklepu: Biedronka" style="align-self: flex-start; display: flex; align-items: center; gap: 8px; margin: -2px -8px; padding: 2px 8px; border: 0; border-radius: 6px; background: #1C1C1F; color: #EDEDEF; font-size: 20px; line-height: 28px; font-weight: 600; cursor: text;">
+            Biedronka
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B8B93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path></svg>
+          </button>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8B8B93;">
+            <span style="width: 8px; height: 8px; border-radius: 999px; background: #3FB96F;"></span>
+            Spożywcze · 142 transakcje · 3 nazwy z banku
+          </span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end;">
+        <span style="font-size: 13px; color: #8B8B93;">Wydano w 12 mies.</span>
+        <span style="font-size: 32px; line-height: 40px; font-weight: 600;">8 412,30 zł</span>
+        <span style="font-size: 12px; color: #8B8B93;">średnio 701 zł miesięcznie</span>
+      </div>
+    </div>
+
+    <section aria-label="Wydatki miesięcznie" style="border: 1px solid #26262A; border-radius: 10px; background: #141416; padding: 16px 20px 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px;">
+        <h2 style="margin: 0; font-size: 14px; font-weight: 600;">Wydatki miesięcznie</h2>
+        <span style="font-size: 12px; color: #8B8B93;">gru 2025 – lis 2026</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; align-items: end; height: 190px; border-bottom: 1px solid #26262A;">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="12">
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%;">
+            <span style="font-size: 11px; line-height: 14px; color: #8B8B93; white-space: nowrap;">{{m.label}}</span>
+            <div style="width: 100%; max-width: 44px; border-radius: 4px 4px 0 0; height: {{m.h}}px; background: {{m.color}};"></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; padding-top: 6px;">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="12">
+          <span style="text-align: center; font-size: 12px; color: #8B8B93;">{{m.name}}</span>
+        </sc-for>
+      </div>
+    </section>
+
+    <div role="tablist" aria-label="Sekcje sklepu" style="display: flex; gap: 20px; border-bottom: 1px solid #26262A;">
+      <button type="button" role="tab" aria-selected="{{onTx}}" onClick="{{showTx}}" style="height: 40px; padding: 0; border: 0; background: transparent; font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: -1px; {{tabTx}}">Transakcje <span style="color: #8B8B93; font-weight: 400;">142</span></button>
+      <button type="button" role="tab" aria-selected="{{onSet}}" onClick="{{showSet}}" style="height: 40px; padding: 0; border: 0; background: transparent; font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: -1px; {{tabSet}}">Ustawienia</button>
+    </div>
+
+    <sc-if value="{{onTx}}" hint-placeholder-val="{{ false }}">
+      <div style="overflow-x: auto; border: 1px solid #26262A; border-radius: 10px; background: #141416;">
+        <div style="min-width: 760px;">
+          <div style="display: grid; grid-template-columns: 90px minmax(0, 1.2fr) minmax(0, 1fr) 160px 120px; gap: 12px; align-items: center; height: 36px; padding: 0 16px; border-bottom: 1px solid #26262A; font-size: 12px; color: #8B8B93; font-weight: 500;">
+            <span>Data</span><span>Nazwa z banku</span><span>Konto</span><span>Kategoria</span><span style="text-align: right;">Kwota</span>
+          </div>
+          <sc-for list="{{txs}}" as="t" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: 90px minmax(0, 1.2fr) minmax(0, 1fr) 160px 120px; gap: 12px; align-items: center; height: 44px; padding: 0 16px; border-bottom: 1px solid #26262A; font-size: 13px;">
+              <span style="color: #8B8B93;">{{t.date}}</span>
+              <span style="color: #B4B4BC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{t.raw}}</span>
+              <span>{{t.account}}</span>
+              <span style="display: flex; align-items: center; gap: 8px;"><span style="width: 8px; height: 8px; border-radius: 999px; background: #3FB96F;"></span>Spożywcze</span>
+              <span style="text-align: right; font-size: 14px;">{{t.amount}}</span>
+            </div>
+          </sc-for>
+          <div style="height: 44px; padding: 0 16px; display: flex; align-items: center;">
+            <a href="#" style="font-size: 13px; color: #B4B4BC;">Wszystkie transakcje sklepu w Transakcjach →</a>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{onSet}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div style="border: 1px solid #26262A; border-radius: 10px; background: #141416;">
+
+          <div style="display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 16px 20px; border-bottom: 1px solid #26262A;">
+            <div style="flex: 0 1 260px;">
+              <div style="font-size: 14px; font-weight: 500;">Domyślna kategoria</div>
+              <div style="font-size: 12px; line-height: 16px; color: #8B8B93;">Podpowiadana w nowej transakcji i przy imporcie z banku.</div>
+            </div>
+            <button type="button" style="flex: 0 1 320px; height: 36px; padding: 0 10px; border: 1px solid #26262A; border-radius: 6px; background: #0B0B0C; color: #EDEDEF; font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #3FB96F;"></span>
+              <span style="flex: 1; text-align: left;">Jedzenie / Spożywcze</span>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B8B93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+          </div>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 16px 20px; border-bottom: 1px solid #26262A;">
+            <div style="flex: 0 1 260px;">
+              <div style="font-size: 14px; font-weight: 500;">Nazwy z banku (aliasy)</div>
+              <div style="font-size: 12px; line-height: 16px; color: #8B8B93;">Import przypisze do tego sklepu każdą transakcję, której nazwa pasuje do aliasu. Gwiazdka dopasowuje dowolny ciąg.</div>
+            </div>
+            <div style="flex: 1 1 420px; max-width: 560px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="border: 1px solid #26262A; border-radius: 8px; overflow: hidden;">
+                <sc-for list="{{aliases}}" as="a" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 8px 0 12px; border-bottom: 1px solid #26262A; font-size: 13px;">
+                    <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{a.raw}}</span>
+                    <span style="color: #8B8B93; white-space: nowrap;">{{a.tx}}</span>
+                    <button type="button" aria-label="{{a.unpinLabel}}" style="height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #B4B4BC; font-size: 12px; cursor: pointer;">Odepnij</button>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <label style="flex: 1; display: flex;">
+                  <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Nowy alias</span>
+                  <input type="text" placeholder="Dodaj alias, np. BIEDRONKA*" style="flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #26262A; border-radius: 6px; background: #0B0B0C; color: #EDEDEF; font-size: 13px; outline: 0;">
+                </label>
+                <button type="button" style="height: 36px; padding: 0 12px; border: 1px solid #26262A; border-radius: 6px; background: #1C1C1F; color: #EDEDEF; font-size: 13px; cursor: pointer;">Dodaj</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 16px 20px; border-bottom: 1px solid #26262A;">
+            <label for="nip" style="flex: 0 1 260px; font-size: 14px; font-weight: 500;">NIP <span style="font-weight: 400; color: #8B8B93;">(opcjonalnie)</span></label>
+            <input id="nip" type="text" placeholder="Pomaga dopasować paragony" style="flex: 0 1 320px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #26262A; border-radius: 6px; background: #0B0B0C; color: #EDEDEF; font-size: 13px; outline: 0;">
+          </div>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 16px 20px;">
+            <label for="adres" style="flex: 0 1 260px; font-size: 14px; font-weight: 500;">Adres <span style="font-weight: 400; color: #8B8B93;">(opcjonalnie)</span></label>
+            <input id="adres" type="text" placeholder="Ulica, miasto" style="flex: 0 1 320px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #26262A; border-radius: 6px; background: #0B0B0C; color: #EDEDEF; font-size: 13px; outline: 0;">
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; border: 1px solid #26262A; border-radius: 10px; background: #141416;">
+          <div style="flex: 1 1 300px;">
+            <div style="font-size: 14px; font-weight: 500;">Scal z innym sklepem</div>
+            <div style="font-size: 12px; line-height: 16px; color: #8B8B93;">Transakcje i aliasy przejdą do wybranego sklepu. Ten sklep zniknie z listy.</div>
+          </div>
+          <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #26262A; border-radius: 6px; background: #1C1C1F; color: #EDEDEF; font-size: 13px; cursor: pointer;">Scal z…</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #F2555A;">Strefa niebezpieczna</h2>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; border: 1px solid rgba(242,85,90,0.35); border-radius: 10px; background: rgba(242,85,90,0.06);">
+            <div style="flex: 1 1 300px;">
+              <div style="font-size: 14px; font-weight: 500;">Usuń sklep</div>
+              <div style="font-size: 12px; line-height: 16px; color: #B4B4BC;">Dostępne tylko dla sklepu bez transakcji. Ten ma 142 — najpierw go scal.</div>
+            </div>
+            <button type="button" disabled="{{yes}}" style="height: 32px; padding: 0 12px; border: 1px solid #3A3A40; border-radius: 6px; background: transparent; color: #8B8B93; font-size: 13px; cursor: not-allowed;">Usuń sklep…</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'settings' };
+  }
+  renderVals() {
+    var self = this;
+    var vals = [['gru', 820], ['sty', 640], ['lut', 590], ['mar', 700], ['kwi', 680], ['maj', 760], ['cze', 720], ['lip', 810], ['sie', 690], ['wrz', 650], ['paź', 741], ['lis', 38]];
+    var max = 820;
+    var months = vals.map(function (v, i) {
+      var last = i === vals.length - 1;
+      return { name: v[0], label: v[1] + ' zł', h: Math.max(2, Math.round(v[1] / max * 150)), color: last ? '#EDEDEF' : '#3A3A40' };
+    });
+    var onTx = this.state.tab === 'tx';
+    var active = 'color: #EDEDEF; border-bottom: 2px solid #EDEDEF;';
+    var idle = 'color: #8B8B93; border-bottom: 2px solid transparent;';
+    return {
+      months: months,
+      onTx: onTx, onSet: !onTx,
+      tabTx: onTx ? active : idle, tabSet: onTx ? idle : active,
+      showTx: function () { self.setState({ tab: 'tx' }); },
+      showSet: function () { self.setState({ tab: 'settings' }); },
+      yes: true,
+      aliases: [
+        { raw: 'BIEDRONKA 4521 KRAKOW', tx: '88 transakcji', unpinLabel: 'Odepnij alias BIEDRONKA 4521 KRAKOW' },
+        { raw: 'Biedronka', tx: '41 transakcji', unpinLabel: 'Odepnij alias Biedronka' },
+        { raw: 'JMP S.A. BIEDRONKA 1123', tx: '13 transakcji', unpinLabel: 'Odepnij alias JMP S.A. BIEDRONKA 1123' }
+      ],
+      txs: [
+        { date: '1 lis', raw: 'BIEDRONKA 4521 KRAKOW', account: 'Main Account (PLN)', amount: '−38,20 zł' },
+        { date: '31 paź', raw: 'BIEDRONKA 4521 KRAKOW', account: 'Main Account (PLN)', amount: '−86,40 zł' },
+        { date: '29 paź', raw: 'Biedronka', account: 'Gotówka', amount: '−42,17 zł' },
+        { date: '27 paź', raw: 'JMP S.A. BIEDRONKA 1123', account: 'Revolut (PLN)', amount: '−124,90 zł' },
+        { date: '24 paź', raw: 'BIEDRONKA 4521 KRAKOW', account: 'Main Account (PLN)', amount: '−61,05 zł' },
+        { date: '21 paź', raw: 'Biedronka', account: 'Gotówka', amount: '−18,99 zł' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

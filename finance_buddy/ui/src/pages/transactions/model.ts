@@ -7,6 +7,8 @@ export type FilterState = {
   endDate: string;
   accountId: string;
   categoryId: string;
+  // Strona sklepu prowadzi tu z gotowym filtrem (?stores=)
+  storeIds?: string[];
 };
 
 export type DatePreset = 'all' | 'thisMonth' | 'previousMonth' | 'last90' | 'year' | 'custom';

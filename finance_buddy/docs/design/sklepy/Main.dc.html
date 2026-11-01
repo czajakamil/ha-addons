@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Sklepy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0B0C}
+a{color:#EDEDEF;text-decoration:none}a:hover{color:#FFFFFF}
+button{font-family:inherit}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; display: flex; flex-wrap: wrap; min-height: 1000px; background: #0B0B0C; color: #EDEDEF; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums;">
+
+  <nav aria-label="Menu główne" style="flex: 0 0 232px; box-sizing: border-box; background: #141416; border-right: 1px solid #26262A; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px;">
+    <div style="padding: 4px 8px 16px; font-weight: 600; font-size: 14px;">Budget Buddy</div>
+    <div style="padding: 8px 8px 4px; font-size: 12px; color: #8B8B93;">Codzienne</div>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Start</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Budżet</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Transakcje</a>
+    <div style="padding: 16px 8px 4px; font-size: 12px; color: #8B8B93;">Dane</div>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Konta</a>
+    <a href="#" aria-current="page" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF; background: #1C1C1F; font-weight: 500;">Sklepy</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Paragony</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Import z banku</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Przedmioty</a>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Tagi</a>
+    <div style="padding: 16px 8px 4px; font-size: 12px; color: #8B8B93;">Analiza</div>
+    <a href="#" style="padding: 6px 8px; border-radius: 6px; color: #EDEDEF;">Raporty</a>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <h1 style="margin: 0; font-size: 20px; line-height: 28px; font-weight: 600;">Sklepy</h1>
+        <span style="font-size: 20px; line-height: 28px; color: #8B8B93;">514</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid #26262A; background: transparent; color: #EDEDEF; font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M12 3v18"></path></svg>
+          Kolumny
+        </button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 6px; border: 0; background: #EDEDEF; color: #0B0B0C; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+          Nowy sklep
+        </button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+      <div role="group" aria-label="Widok" style="display: flex; padding: 3px; gap: 2px; background: #141416; border: 1px solid #26262A; border-radius: 8px;">
+        <button type="button" onClick="{{showAll}}" style="height: 30px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; {{segAll}}">Wszystkie <span style="color: #8B8B93;">514</span></button>
+        <button type="button" onClick="{{showCleanup}}" style="height: 30px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; {{segClean}}">Do uporządkowania <span style="padding: 0 6px; border-radius: 4px; background: rgba(229,162,58,0.14); color: #E5A23A; font-size: 12px;">38</span></button>
+      </div>
+      <label style="flex: 1 1 260px; max-width: 380px; height: 36px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #26262A; border-radius: 6px; background: #141416; color: #8B8B93;">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Szukaj sklepu</span>
+        <input type="search" placeholder="Szukaj: nazwa, nazwa z banku, NIP…" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #EDEDEF; font-size: 13px;">
+      </label>
+      <div style="flex: 1 1 0;"></div>
+      <sc-if value="{{isAll}}" hint-placeholder-val="{{ true }}">
+        <button type="button" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid #26262A; background: #141416; color: #EDEDEF; font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          Sortuj: Wydano (12 mies.)
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{isAll}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid #26262A; border-radius: 10px; background: #141416;">
+          <span style="width: 8px; height: 8px; border-radius: 999px; background: #E5A23A; flex: 0 0 auto;"></span>
+          <span style="flex: 1 1 300px; font-size: 13px; color: #B4B4BC;">38 pozycji wymaga uporządkowania: duplikaty, surowe nazwy z banku i sklepy bez kategorii. Psują raporty i podpowiedzi kategorii.</span>
+          <button type="button" onClick="{{showCleanup}}" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #26262A; background: #1C1C1F; color: #EDEDEF; font-size: 13px; cursor: pointer;">Przejrzyj</button>
+        </div>
+
+        <div style="overflow-x: auto; border: 1px solid #26262A; border-radius: 10px; background: #141416;">
+          <div style="min-width: 920px;">
+            <div style="display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) 190px 100px 140px 110px 32px; gap: 12px; align-items: center; height: 36px; padding: 0 16px; border-bottom: 1px solid #26262A; font-size: 12px; color: #8B8B93; font-weight: 500;">
+              <span></span><span></span>
+              <span>Sklep</span>
+              <span>Domyślna kategoria</span>
+              <span style="text-align: right;">Transakcje</span>
+              <span style="text-align: right; color: #EDEDEF;">Wydano (12 mies.) ↓</span>
+              <span style="text-align: right;">Ostatnia</span>
+              <span></span>
+            </div>
+
+            <sc-for list="{{groups}}" as="g" hint-placeholder-count="9">
+              <div style="border-bottom: 1px solid #26262A;">
+                <div style="display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) 190px 100px 140px 110px 32px; gap: 12px; align-items: center; min-height: 52px; padding: 6px 16px; box-sizing: border-box;">
+                  <sc-if value="{{g.multi}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{g.toggle}}" aria-label="{{g.toggleLabel}}" aria-expanded="{{g.expanded}}" style="width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #8B8B93; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                      <sc-if value="{{g.expanded}}" hint-placeholder-val="{{ false }}">
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{g.collapsed}}" hint-placeholder-val="{{ true }}">
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                      </sc-if>
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{g.single}}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
+                  <span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 8px; background: #1C1C1F; border: 1px solid #26262A; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #B4B4BC;">{{g.initial}}</span>
+                  <div style="min-width: 0; display: flex; flex-direction: column;">
+                    <a href="Sklep.dc.html" style="font-weight: 500; color: #EDEDEF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{g.name}}</a>
+                    <sc-if value="{{g.multi}}" hint-placeholder-val="{{ true }}">
+                      <span style="font-size: 12px; line-height: 16px; color: #8B8B93;">{{g.variantLabel}}</span>
+                    </sc-if>
+                  </div>
+                  <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0;">
+                    <span style="width: 8px; height: 8px; border-radius: 999px; flex: 0 0 auto; background: {{g.catColor}};"></span>
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{g.cat}}</span>
+                  </span>
+                  <span style="text-align: right; font-size: 13px; color: #B4B4BC;">{{g.tx}}</span>
+                  <span style="text-align: right; font-weight: 500;">{{g.spent}}</span>
+                  <span style="text-align: right; font-size: 13px; color: #8B8B93;">{{g.last}}</span>
+                  <button type="button" aria-label="Więcej akcji" style="width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #8B8B93; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                  </button>
+                </div>
+                <sc-if value="{{g.showVariants}}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 0 16px 10px 84px; display: flex; flex-direction: column; gap: 2px;">
+                    <sc-for list="{{g.variants}}" as="v" hint-placeholder-count="2">
+                      <div style="display: flex; align-items: center; gap: 12px; height: 30px; padding: 0 10px; border-radius: 6px; background: #1C1C1F; font-size: 13px;">
+                        <span style="font-size: 11px; color: #8B8B93; letter-spacing: 0.02em;">Z BANKU</span>
+                        <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #B4B4BC;">{{v.raw}}</span>
+                        <span style="color: #8B8B93;">{{v.tx}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <div style="height: 44px; padding: 0 16px; display: flex; align-items: center;">
+              <button type="button" style="padding: 0; border: 0; background: transparent; color: #8B8B93; font-size: 13px; cursor: pointer;">Pokaż nieaktywne (387) — bez transakcji od 12 miesięcy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isCleanup}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #3A3A40; background: #1C1C1F; font-size: 13px; display: flex; align-items: center; gap: 6px;">Wszystkie <span style="color: #8B8B93;">38</span></span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #26262A; font-size: 13px; color: #B4B4BC; display: flex; align-items: center; gap: 6px;">Duplikaty <span style="color: #8B8B93;">14</span></span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #26262A; font-size: 13px; color: #B4B4BC; display: flex; align-items: center; gap: 6px;">Surowe nazwy z banku <span style="color: #8B8B93;">15</span></span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #26262A; font-size: 13px; color: #B4B4BC; display: flex; align-items: center; gap: 6px;">Przelewy własne <span style="color: #8B8B93;">2</span></span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #26262A; font-size: 13px; color: #B4B4BC; display: flex; align-items: center; gap: 6px;">Bez kategorii <span style="color: #8B8B93;">7</span></span>
+        </div>
+
+        <sc-if value="{{hasSelection}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-radius: 10px; background: #EDEDEF; color: #0B0B0C;">
+            <span style="font-size: 13px; font-weight: 500; flex: 1 1 140px;">Zaznaczono: {{selCount}}</span>
+            <button type="button" onClick="{{openMerge}}" style="height: 32px; padding: 0 12px; border-radius: 6px; border: 0; background: #0B0B0C; color: #EDEDEF; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>
+              Scal w jeden sklep
+            </button>
+            <button type="button" style="height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid #C9C9CF; background: transparent; color: #0B0B0C; font-size: 13px; cursor: pointer;">Ustaw kategorię</button>
+            <button type="button" onClick="{{clearSel}}" style="height: 32px; padding: 0 12px; border-radius: 6px; border: 0; background: transparent; color: #3A3A40; font-size: 13px; cursor: pointer;">Odznacz</button>
+          </div>
+        </sc-if>
+
+        <div style="overflow-x: auto; border: 1px solid #26262A; border-radius: 10px; background: #141416;">
+          <div style="min-width: 920px;">
+            <div style="display: grid; grid-template-columns: 24px minmax(0, 1.3fr) 150px minmax(0, 1fr) 100px 32px; gap: 12px; align-items: center; height: 36px; padding: 0 16px; border-bottom: 1px solid #26262A; font-size: 12px; color: #8B8B93; font-weight: 500;">
+              <input type="checkbox" aria-label="Zaznacz wszystkie" checked="{{allSelected}}" onChange="{{toggleAll}}" style="width: 16px; height: 16px; margin: 0; accent-color: #EDEDEF;">
+              <span>Nazwa</span>
+              <span>Powód</span>
+              <span>Sugestia</span>
+              <span style="text-align: right;">Transakcje</span>
+              <span></span>
+            </div>
+            <sc-for list="{{items}}" as="it" hint-placeholder-count="9">
+              <div style="display: grid; grid-template-columns: 24px minmax(0, 1.3fr) 150px minmax(0, 1fr) 100px 32px; gap: 12px; align-items: center; min-height: 48px; padding: 6px 16px; box-sizing: border-box; border-bottom: 1px solid #26262A; {{it.rowStyle}}">
+                <input type="checkbox" aria-label="{{it.checkLabel}}" checked="{{it.selected}}" onChange="{{it.toggle}}" style="width: 16px; height: 16px; margin: 0; accent-color: #EDEDEF;">
+                <span title="{{it.name}}" style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{it.name}}</span>
+                <span><span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 16px; white-space: nowrap; {{it.badgeStyle}}">{{it.reason}}</span></span>
+                <span style="font-size: 13px; color: #B4B4BC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{it.hint}}</span>
+                <span style="text-align: right; font-size: 13px; color: #B4B4BC;">{{it.tx}}</span>
+                <button type="button" aria-label="Więcej akcji" style="width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #8B8B93; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                </button>
+              </div>
+            </sc-for>
+            <div style="height: 44px; padding: 0 16px; display: flex; align-items: center; font-size: 13px; color: #8B8B93;">Pokazano 9 z 38</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{merging}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-start; justify-content: center; padding: 120px 16px 16px; box-sizing: border-box;">
+      <div role="dialog" aria-modal="true" aria-labelledby="merge-title" style="width: 100%; max-width: 460px; background: #141416; border: 1px solid #26262A; border-radius: 12px; box-shadow: 0 24px 48px rgba(0,0,0,0.5); overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #26262A;">
+          <h2 id="merge-title" style="margin: 0; font-size: 16px; line-height: 24px; font-weight: 600;">Scal {{selCount}} w jeden sklep</h2>
+          <button type="button" onClick="{{closeMerge}}" aria-label="Zamknij" style="width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #8B8B93; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500;">Nazwa po scaleniu</span>
+            <input type="text" defaultValue="Action" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #3A3A40; border-radius: 6px; background: #0B0B0C; color: #EDEDEF; font-size: 14px; outline: 0;">
+          </label>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500;">Domyślna kategoria</span>
+            <button type="button" style="height: 36px; padding: 0 10px; border: 1px solid #3A3A40; border-radius: 6px; background: #0B0B0C; color: #EDEDEF; font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #4C8DFF;"></span>
+              <span style="flex: 1; text-align: left;">Dom</span>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B8B93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500;">Łączone nazwy</span>
+            <div style="border: 1px solid #26262A; border-radius: 8px; overflow: hidden;">
+              <sc-for list="{{selectedItems}}" as="s" hint-placeholder-count="2">
+                <div style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #26262A; font-size: 13px;">
+                  <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{s.name}}</span>
+                  <span style="color: #8B8B93; white-space: nowrap;">{{s.tx}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <p style="margin: 0; font-size: 13px; color: #B4B4BC;">{{mergeSummary}} Stare nazwy zostaną zapamiętane jako aliasy, więc kolejny import z banku sam przypisze je do tego sklepu.</p>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid #26262A; background: #111113;">
+          <button type="button" onClick="{{closeMerge}}" style="height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: transparent; color: #B4B4BC; font-size: 13px; cursor: pointer;">Anuluj</button>
+          <button type="button" onClick="{{confirmMerge}}" style="height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: #EDEDEF; color: #0B0B0C; font-size: 13px; font-weight: 500; cursor: pointer;">Scal</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'all', expanded: { biedronka: true }, selected: { a1: true, a2: true }, merging: false };
+  }
+  plural(n) {
+    var m10 = n % 10, m100 = n % 100;
+    if (n === 1) return n + ' transakcja';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return n + ' transakcje';
+    return n + ' transakcji';
+  }
+  groupsData() {
+    return [
+      { id: 'biedronka', name: 'Biedronka', cat: 'Spożywcze', catColor: '#3FB96F', tx: 142, spent: '8 412,30 zł', last: '31 paź', variants: [['BIEDRONKA 4521 KRAKOW', 88], ['Biedronka', 41], ['JMP S.A. BIEDRONKA 1123', 13]] },
+      { id: 'ikea', name: 'Ikea', cat: 'Dom', catColor: '#4C8DFF', tx: 6, spent: '5 214,08 zł', last: '18 paź', variants: [['IKEA Kraków', 4], ['IKEA.pl', 2]] },
+      { id: 'allegro', name: 'Allegro', cat: 'Zakupy online', catColor: '#A78BFA', tx: 38, spent: '3 905,17 zł', last: '27 paź', variants: [['Allegro', 30], ['PayU*Allegro', 8]] },
+      { id: 'lidl', name: 'Lidl', cat: 'Spożywcze', catColor: '#3FB96F', tx: 61, spent: '2 980,44 zł', last: '30 paź', variants: [['Lidl', 61]] },
+      { id: 'orlen', name: 'Orlen', cat: 'Transport', catColor: '#E5A23A', tx: 24, spent: '2 611,90 zł', last: '26 paź', variants: [['Orlen', 24]] },
+      { id: 'zabka', name: 'Żabka', cat: 'Śmieciowe jedzenie', catColor: '#F472B6', tx: 87, spent: '1 742,15 zł', last: '1 lis', variants: [['Żabka', 70], ['ZABKA Z5521 K.1', 17]] },
+      { id: 'amazon', name: 'Amazon Prime', cat: 'Subskrypcje', catColor: '#2DD4BF', tx: 12, spent: '828,00 zł', last: '31 paź', variants: [['Amazon Prime', 12]] },
+      { id: 'apple', name: 'Apple', cat: 'Subskrypcje', catColor: '#2DD4BF', tx: 12, spent: '599,88 zł', last: '20 paź', variants: [['Apple', 12]] },
+      { id: 'action', name: 'Action', cat: 'Dom', catColor: '#4C8DFF', tx: 9, spent: '412,60 zł', last: '12 paź', variants: [['Action', 5], ['Action', 4]] }
+    ];
+  }
+  itemsData() {
+    return [
+      { id: 'a1', name: 'Action', kind: 'dup', hint: 'Ta sama nazwa co „Action” (4 transakcje)', tx: 5 },
+      { id: 'a2', name: 'Action', kind: 'dup', hint: 'Ta sama nazwa co „Action” (5 transakcji)', tx: 4 },
+      { id: 'b1', name: '13 Balice Manual', kind: 'dup', hint: 'Ta sama nazwa co „13 Balice Manual”', tx: 2 },
+      { id: 'b2', name: '13 Balice Manual', kind: 'dup', hint: 'Ta sama nazwa co „13 Balice Manual”', tx: 1 },
+      { id: 'r1', name: '1024902301', kind: 'raw', hint: 'Same cyfry — nadaj czytelną nazwę', tx: 3 },
+      { id: 'r2', name: 'ADYEN N.V. SIMON CARMIGGELSTRAAT 6 1011 DJ A NETHERLANDS', kind: 'raw', hint: 'Zawiera adres — proponowana nazwa: Adyen', tx: 2 },
+      { id: 's1', name: '1/KAMIL CZAJA - SENT FROM REVOLUT - Account: LT13 •••• 1248', kind: 'self', hint: 'Wygląda na przelew między Twoimi kontami', tx: 7 },
+      { id: 'n1', name: 'Adwokat', kind: 'nocat', hint: 'Bez domyślnej kategorii — podpowiedzi nie zadziałają', tx: 2 },
+      { id: 'n2', name: 'Absolut Sp Z O.o.', kind: 'nocat', hint: 'Bez domyślnej kategorii', tx: 1 }
+    ];
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var reasons = {
+      dup: ['Duplikat', 'background: rgba(229,162,58,0.14); color: #E5A23A;'],
+      raw: ['Surowa nazwa z banku', 'background: #1C1C1F; color: #B4B4BC; border: 1px solid #26262A;'],
+      self: ['Przelew własny', 'background: rgba(76,141,255,0.14); color: #8DB6FF;'],
+      nocat: ['Bez kategorii', 'background: #1C1C1F; color: #B4B4BC; border: 1px solid #26262A;']
+    };
+    var groups = this.groupsData().map(function (g) {
+      var exp = !!s.expanded[g.id];
+      var multi = g.variants.length > 1;
+      return {
+        name: g.name, initial: g.name.charAt(0), cat: g.cat, catColor: g.catColor,
+        tx: g.tx, spent: g.spent, last: g.last,
+        multi: multi, single: !multi, expanded: exp, collapsed: !exp, showVariants: exp && multi,
+        variantLabel: g.variants.length + ' nazwy z banku',
+        toggleLabel: (exp ? 'Zwiń ' : 'Rozwiń ') + g.name,
+        variants: g.variants.map(function (v) { return { raw: v[0], tx: self.plural(v[1]) }; }),
+        toggle: function () { var e = Object.assign({}, s.expanded); e[g.id] = !exp; self.setState({ expanded: e }); }
+      };
+    });
+    var raw = this.itemsData();
+    var selCount = raw.filter(function (it) { return s.selected[it.id]; }).length;
+    var selTx = 0;
+    var items = raw.map(function (it) {
+      var sel = !!s.selected[it.id];
+      if (sel) selTx += it.tx;
+      return {
+        name: it.name, hint: it.hint, tx: self.plural(it.tx),
+        reason: reasons[it.kind][0], badgeStyle: reasons[it.kind][1],
+        selected: sel, checkLabel: 'Zaznacz ' + it.name,
+        rowStyle: sel ? 'background: #1C1C1F;' : '',
+        toggle: function () { var n = Object.assign({}, s.selected); n[it.id] = !sel; self.setState({ selected: n }); }
+      };
+    });
+    var selectedItems = items.filter(function (it) { return it.selected; });
+    var on = 'background: #26262A; color: #EDEDEF;';
+    var off = 'background: transparent; color: #8B8B93;';
+    return {
+      isAll: s.view === 'all', isCleanup: s.view === 'cleanup',
+      segAll: s.view === 'all' ? on : off, segClean: s.view === 'cleanup' ? on : off,
+      showAll: function () { self.setState({ view: 'all', merging: false }); },
+      showCleanup: function () { self.setState({ view: 'cleanup' }); },
+      groups: groups,
+      items: items,
+      selectedItems: selectedItems,
+      selCount: selCount,
+      hasSelection: selCount > 0,
+      allSelected: selCount === raw.length,
+      toggleAll: function () {
+        var n = {};
+        if (selCount !== raw.length) raw.forEach(function (it) { n[it.id] = true; });
+        self.setState({ selected: n });
+      },
+      clearSel: function () { self.setState({ selected: {} }); },
+      merging: s.merging && selCount > 1,
+      mergeSummary: self.plural(selTx).replace(/^(\d+)/, '$1') + ' przejdzie do jednego sklepu.',
+      openMerge: function () { if (selCount > 1) self.setState({ merging: true }); },
+      closeMerge: function () { self.setState({ merging: false }); },
+      confirmMerge: function () { self.setState({ merging: false, selected: {} }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

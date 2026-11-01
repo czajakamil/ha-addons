@@ -30,6 +30,7 @@ const AccountsPage = lazy(() => import('./pages/AccountsPage'));
 const AccountDetailsPage = lazy(() => import('./pages/accounts/AccountDetailsPage'));
 const BudgetPage = lazy(() => import('./pages/BudgetPage'));
 const StoresPage = lazy(() => import('./pages/StoresPage'));
+const StoreDetailsPage = lazy(() => import('./pages/stores/StoreDetailsPage'));
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage'));
 const TransactionDetailsPage = lazy(() => import('./pages/TransactionDetailsPage'));
 const ItemsPage = lazy(() => import('./pages/ItemsPage'));
@@ -353,6 +354,7 @@ const App = () => {
                   <Route path="/accounts/:accountId" element={<AccountDetailsPage />} />
                   <Route path="/budget" element={<BudgetPage />} />
                   <Route path="/stores" element={<StoresPage />} />
+                  <Route path="/payees/:storeId" element={<StoreDetailsPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/transactions/untagged" element={<UntaggedQueuePage />} />
                   <Route path="/transactions/:transactionId" element={<TransactionDetailsPage />} />

@@ -10,9 +10,12 @@ type AccountNameInputProps = {
   className?: string;
   onSave: (name: string) => void;
   onCancel: () => void;
+  // Sklepy korzystają z tego samego pola, z własnymi tekstami
+  ariaLabel?: string;
+  tooShortMessage?: string;
 };
 
-const AccountNameInput = ({ name, className, onSave, onCancel }: AccountNameInputProps) => {
+const AccountNameInput = ({ name, className, onSave, onCancel, ariaLabel, tooShortMessage }: AccountNameInputProps) => {
   const [value, setValue] = useState(name);
   // Esc i Enter kończą edycję; blur, który po nich przychodzi, nie może zapisać drugi raz.
   const settledRef = useRef(false);
@@ -26,7 +29,7 @@ const AccountNameInput = ({ name, className, onSave, onCancel }: AccountNameInpu
       return;
     }
     if (next.length < 2) {
-      toast.error(labels.nameTooShort);
+      toast.error(tooShortMessage ?? labels.nameTooShort);
       return;
     }
     settledRef.current = true;
@@ -36,7 +39,7 @@ const AccountNameInput = ({ name, className, onSave, onCancel }: AccountNameInpu
   return (
     <input
       className={className}
-      aria-label={labels.rename(name)}
+      aria-label={ariaLabel ?? labels.rename(name)}
       title={labels.renameHint}
       autoFocus
       value={value}

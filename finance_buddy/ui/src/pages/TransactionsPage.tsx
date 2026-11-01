@@ -9,7 +9,7 @@ import {
   type ColSpanArgs
 } from 'react-data-grid';
 import { ChevronDown, ChevronRight, ListFilter, PanelRightOpen, Plus, Receipt, Tags } from 'lucide-react';
-import { Transaction, deleteTransaction, updateTransaction } from '../api';
+import { Store, Transaction, deleteTransaction, updateTransaction } from '../api';
 import { TagChip } from '../components/tags/TagChip';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUntaggedCount } from '../hooks/useUntaggedCount';
@@ -60,6 +60,8 @@ export type TransactionsAccountScope = {
   reloadKey: number;
   onChanged: () => void;
 };
+
+const getStoreFilterLabel = (store?: Store) => store?.group_name?.trim() || store?.name || labels.storeFilter;
 
 const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const navigate = useNavigate();
@@ -677,7 +679,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const noResults = !loading && !error && transactions.length === 0;
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
-    Boolean(filters.startDate || filters.endDate || filters.categoryId || (filters.accountId && !scope));
+    Boolean(filters.startDate || filters.endDate || filters.categoryId || filters.storeIds?.length || (filters.accountId && !scope));
 
   // Kolejne strony doładowują się same, zanim użytkownik dojedzie do końca listy
   const handleGridScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -720,6 +722,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         onSearchChange={setSearchQuery}
         activeAccounts={activeAccounts}
         categories={categories}
+        storeLabel={filters.storeIds?.length ? getStoreFilterLabel(storeMap.get(filters.storeIds[0])) : undefined}
         accountLocked={Boolean(scope)}
       />
 

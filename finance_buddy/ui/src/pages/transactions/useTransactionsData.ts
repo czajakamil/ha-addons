@@ -30,11 +30,16 @@ export const useTransactionsData = (scopedAccountId?: string) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   // Liczba wszystkich pasujących transakcji; null, gdy nie jest jeszcze znana (filtr kategorii).
   const [totalCount, setTotalCount] = useState<number | null>(0);
-  // Szczegóły konta prowadzą tu z gotowym filtrem (?account=)
-  const [initialFilters] = useState<FilterState>(() => ({
-    ...EMPTY_FILTERS,
-    accountId: scopedAccountId ?? new URLSearchParams(window.location.search).get('account') ?? ''
-  }));
+  // Szczegóły konta i sklepu prowadzą tu z gotowym filtrem (?account=, ?stores=)
+  const [initialFilters] = useState<FilterState>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const storeIds = scopedAccountId ? [] : (params.get('stores') ?? '').split(',').filter(Boolean);
+    return {
+      ...EMPTY_FILTERS,
+      accountId: scopedAccountId ?? params.get('account') ?? '',
+      ...(storeIds.length ? { storeIds } : {})
+    };
+  });
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);

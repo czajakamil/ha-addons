@@ -17,6 +17,7 @@ type TransactionsFiltersProps = {
   onSearchChange: (value: string) => void;
   activeAccounts: Account[];
   categories: Category[];
+  storeLabel?: string;
   // Lista stale zawężona do konta: bez wyboru konta, a czyszczenie filtrów go nie zdejmuje
   accountLocked?: boolean;
 };
@@ -28,6 +29,7 @@ const TransactionsFilters = ({
   onSearchChange,
   activeAccounts,
   categories,
+  storeLabel,
   accountLocked = false
 }: TransactionsFiltersProps) => {
   const [preset, setPreset] = useState<DatePreset>('all');
@@ -53,6 +55,9 @@ const TransactionsFilters = ({
           .join(' – ');
 
   const chips = [
+    filters.storeIds?.length
+      ? { key: 'store', label: storeLabel ?? labels.storeFilter, onRemove: () => onChange({ ...filters, storeIds: undefined }) }
+      : null,
     hasDates ? { key: 'dates', label: dateChip, onRemove: clearDates } : null,
     filters.accountId && !accountLocked
       ? {
