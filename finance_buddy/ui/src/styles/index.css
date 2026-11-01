@@ -2,6 +2,6 @@
 @import './base.css';
 @import './layout.css';
 @import './components.css';
-@import './pages/index.css';
 @import './foundation.css';
 @import './ui.css';
+@import './pages/index.css';

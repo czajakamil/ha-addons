@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AutoAssignCard from './budget/components/AutoAssignCard';
 import BudgetSummaryCard from './budget/components/BudgetSummaryCard';
 import BudgetTable from './budget/components/BudgetTable';
 import BudgetToolbar from './budget/components/BudgetToolbar';
 import {
+  BUDGET_STATUS_FILTERS,
   buildCategoryTree,
   collectLeafCategories,
   countByFilter,
@@ -16,7 +18,12 @@ import { useBudgetEditing } from './budget/useBudgetEditing';
 
 const BudgetPage = () => {
   const [activeMonth, setActiveMonth] = useState<string>(() => toMonthKey(new Date()));
-  const [statusFilter, setStatusFilter] = useState<BudgetStatusFilter>('all');
+  // Alerty ze Startu prowadzą tu z gotowym filtrem (?filter=overspent)
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState<BudgetStatusFilter>(() => {
+    const requested = searchParams.get('filter') as BudgetStatusFilter | null;
+    return requested && BUDGET_STATUS_FILTERS.includes(requested) ? requested : 'all';
+  });
   const { budget, loading, error, setError, loadBudget, lastMonthBudget, activeMonthDate } =
     useBudgetData(activeMonth);
 

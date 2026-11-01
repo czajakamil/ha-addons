@@ -43,7 +43,14 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Enter i Esc oddają fokus komórce**, a Tab i Shift+Tab przechodzą po widocznych kategoriach, z pominięciem zwiniętych grup. Niezmieniona kwota nie wysyła żądania do API.
 - **Kwoty zawsze grupowane spacją.** Domyślnie `pl-PL` grupuje dopiero od 10 000, a brief wymaga separatora tysięcy. Zmiana w `formatMoney` działa w całej aplikacji.
 
-## Do rozstrzygnięcia
+## Kontrast
 
-- **`--text-faint` nie spełnia kontrastu 4.5:1.** Wartości z briefu dają od 2.3 do 2.7:1, a zera są w tym kolorze. Do decyzji zostają wartości z briefu.
-- **`--negative` w jasnym motywie na `--surface-2`** ma 4.39:1, czyli nieco poniżej progu.
+- **`--text-faint` zostaje z briefu jako świadomy wyjątek** (2,3–2,7:1), tylko dla zer i placeholderów. Przy 4,5:1 zlewałby się z `--text-muted` i zera przestałyby ustępować kwotom.
+- **`--negative` w jasnym motywie to `#CF2020`, nie `#DC2626`:** wartość z briefu miała 4,39:1 na `--surface-2`, nowa ma 4,92:1.
+
+## Start
+
+- **„Możesz jeszcze wydać” to `available_cents` z podsumowania miesiąca Budżetu**, czyli suma dostępnych środków we wszystkich kategoriach. Brief nie definiuje tej liczby.
+- **„Kategorie blisko limitu”, nie „Koperty”**, dla spójności z rozstrzygniętym terminem. Dotyczy też alertu „Kategoria ponad budżet”.
+- **Alerty budżetowe otwierają Budżet z filtrem** (`/budget?filter=overspent`).
+- **Korekty salda znikają ze Startu** przez zmianę w `services/home.py`, którą właściciel ma w drzewie roboczym. Etykieta „Korekta salda” działa też bez niej.
