@@ -39,6 +39,12 @@ def _api_key_path_allowed(path: str) -> bool:
 
 
 def _hash_api_key(key: str) -> str:
+    # Klucz to 256 bitów losowości z `secrets.token_urlsafe`, nie hasło wybrane przez
+    # człowieka — brute-force nie ma tu czego zgadywać, więc wolny KDF (bcrypt/argon2)
+    # niczego nie dodaje. Szybki, deterministyczny SHA-256 jest wręcz wymagany:
+    # hasz służy jako klucz wyszukiwania (unikalny indeks) przy każdym żądaniu,
+    # a sól uniemożliwiłaby to wyszukiwanie. CodeQL py/weak-sensitive-data-hashing
+    # to tu fałszywy alarm.
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 

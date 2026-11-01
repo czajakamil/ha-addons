@@ -16,7 +16,6 @@ MealPilot database. Inside the add-on, prefer the HTTP/SSE transport
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import os
 import sys
 
@@ -24,6 +23,7 @@ from mcp.server.stdio import stdio_server
 
 from app import models
 from app.db import SessionLocal
+from app.dependencies import _hash_api_key
 from app.mcpserver.server import TOOLS, Principal, current_principal, server
 
 __all__ = ["TOOLS", "current_principal", "server"]
@@ -33,7 +33,7 @@ def _principal_from_env() -> Principal:
     raw = os.environ.get("MEALPILOT_API_KEY", "").strip()
     if not raw:
         raise SystemExit("MEALPILOT_API_KEY is required (create one in MealPilot → Ustawienia → Klucze API).")
-    digest = hashlib.sha256(raw.encode()).hexdigest()
+    digest = _hash_api_key(raw)
     db = SessionLocal()
     try:
         api_key = db.query(models.ApiKey).filter(models.ApiKey.key_hash == digest).one_or_none()

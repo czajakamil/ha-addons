@@ -23,7 +23,6 @@ Two things this layer is responsible for beyond plumbing:
 
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -35,6 +34,7 @@ from starlette.types import Receive, Scope, Send
 
 from .. import models, oauth
 from ..db import SessionLocal
+from ..dependencies import _hash_api_key
 from ..mcpserver.server import Principal, current_principal, server
 from ..ratelimit import mcp_auth_limiter, mcp_message_limiter, mcp_session_limiter
 
@@ -78,7 +78,7 @@ def _throttle(limiter, key: str, what: str) -> None:
 
 def _resolve_principal(raw_key: str, client: str) -> Principal:
     """Map an API key to its owner and scope, or raise 401."""
-    digest = hashlib.sha256(raw_key.encode()).hexdigest()
+    digest = _hash_api_key(raw_key)
     db: Session = SessionLocal()
     try:
         api_key = db.query(models.ApiKey).filter(models.ApiKey.key_hash == digest).one_or_none()

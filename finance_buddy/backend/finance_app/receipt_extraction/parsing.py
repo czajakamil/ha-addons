@@ -232,7 +232,7 @@ TOTAL_DUE_REGEX = re.compile(r"(?i)\b(?:do\s*)?\w*zap[łl]aty\b[ :.]*(?:pln\b[ :
 # fallbacku, przyjmowanego wyłącznie po uzgodnieniu z pozycjami. Pierwsza
 # litera bywa zjedzona ("Jpłacono"), a "ł" czytane jako "t" ("Wptacono").
 TOTAL_PAID_REGEX = re.compile(
-    r"(?i)\b\w*p[łlt]acono\b(?:[ :.]*(?:razem|kart[ąa]?|pln|got[óo]wk\w*|\([^)]*\)))*"
+    r"(?i)\b\w*p[łlt]acono\b(?:[ :.]*(?:(?:razem|kart[ąa]?|pln|got[óo]wk\w*)\b|\([^)]*\)))*"
     r"[ :.]*(?P<tail>.*)$"
 )
 

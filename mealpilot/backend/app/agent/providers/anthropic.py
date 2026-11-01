@@ -11,13 +11,14 @@ import httpx
 from sqlalchemy.orm import Session
 
 from ... import models
+from ...services.macros import is_anthropic_endpoint
 from .. import MAX_STEPS
 from ..helpers import json_str, safe_json_parse
 from ..tools import TOOL_DEFS, call_tool
 
 
 def is_anthropic(endpoint: str) -> bool:
-    return "anthropic.com" in endpoint or "/v1/messages" in endpoint
+    return is_anthropic_endpoint(endpoint)
 
 
 def _error_message(payload: dict[str, Any]) -> str:

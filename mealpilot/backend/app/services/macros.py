@@ -6,6 +6,7 @@ import json
 import os
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy.orm import Session
@@ -18,7 +19,12 @@ _SYSTEM_PROMPT = "You are a nutrition data API. Always respond with raw JSON onl
 
 
 def is_anthropic_endpoint(endpoint: str) -> bool:
-    return "anthropic.com" in endpoint or "/v1/messages" in endpoint
+    """Anthropic's own host (or a subdomain), or a Messages-API path on a proxy."""
+    parsed = urlparse(endpoint)
+    host = (parsed.hostname or "").lower()
+    return (
+        host == "anthropic.com" or host.endswith(".anthropic.com") or parsed.path.rstrip("/").endswith("/v1/messages")
+    )
 
 
 async def call_llm(
