@@ -74,6 +74,18 @@
     box-shadow: none;
   }
 
+  .form-check-input {
+    border-color: var(--text-muted);
+    border-radius: var(--s-4);
+    background-color: var(--surface);
+    box-shadow: none;
+  }
+
+  .form-check-input:checked {
+    border-color: var(--text);
+    background-color: var(--text);
+  }
+
   .form-control::placeholder {
     color: var(--text-muted);
   }
@@ -88,6 +100,61 @@
     color: var(--text-muted);
     text-transform: none;
     letter-spacing: 0;
+  }
+
+  /* Siatka: linie tylko poziome, nagłówek bez wypełnienia */
+  .rdg {
+    --rdg-border-color: var(--border);
+    --rdg-background-color: var(--surface);
+    --rdg-header-background-color: var(--surface);
+    --rdg-row-hover-background-color: var(--surface-2);
+    --rdg-row-selected-background-color: var(--surface-2);
+    --rdg-selection-color: var(--accent);
+    --rdg-checkbox-focus-color: var(--accent);
+    --rdg-font-size: var(--text-13);
+    font-size: var(--text-13);
+  }
+
+  .rdg [role="columnheader"] {
+    line-height: inherit;
+  }
+
+  .rdg [role="row"] {
+    border-bottom: 0;
+  }
+
+  .rdg-cell {
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--border);
+    padding-inline: var(--s-12);
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-4);
+    height: 24px;
+    padding: 0 var(--s-8);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    font-weight: var(--weight-medium);
+  }
+
+  .filter-chip:hover:not(:disabled) {
+    transform: none;
+    color: var(--text-muted);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .badge {

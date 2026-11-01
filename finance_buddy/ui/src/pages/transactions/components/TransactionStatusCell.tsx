@@ -1,16 +1,17 @@
-// Przycisk statusu transakcji (Przetwarzana → Cleared → Reconciled) w komórce tabeli.
-import { IconCheck, IconCircleDot, IconClock } from '@tabler/icons-react';
+// Status transakcji w komórce tabeli. Widać go tylko przy niezatwierdzonych, reszta odsłania
+// przycisk dopiero po najechaniu na wiersz: wyróżniamy wyjątek, nie normę.
+import { Check, CheckCheck, Clock } from 'lucide-react';
 import { Transaction } from '../../../api';
 import { STATUS_PRESENTATION, getTransactionStatusState, type TransactionStatusState } from '../model';
 
 const renderTransactionStatusIcon = (status: TransactionStatusState) => {
   switch (status) {
     case 'pending':
-      return <IconClock size={13} aria-hidden="true" />;
+      return <Clock size={14} aria-hidden="true" />;
     case 'cleared':
-      return <IconCircleDot size={13} aria-hidden="true" />;
+      return <Check size={14} aria-hidden="true" />;
     case 'reconciled':
-      return <IconCheck size={13} aria-hidden="true" />;
+      return <CheckCheck size={14} aria-hidden="true" />;
   }
 };
 

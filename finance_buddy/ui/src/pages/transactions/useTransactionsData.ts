@@ -12,13 +12,12 @@ import {
   getAccounts,
   getAllCategories,
   getAllItems,
-  getAllStores,
-  getTransactionsPage
+  getAllStores
 } from '../../api';
 import { type EditableLookupField, type FilterState } from './model';
-import { SEARCH_DEBOUNCE_MS, appendTransactionsPage, buildTransactionsPageQuery } from './listQuery';
+import { SEARCH_DEBOUNCE_MS, appendTransactionsPage, fetchTransactionsPage } from './listQuery';
 
-const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountId: '' };
+const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountId: '', categoryId: '' };
 
 export const useTransactionsData = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -28,8 +27,8 @@ export const useTransactionsData = () => {
   // pozycje z samym product_id — bez słownika nie ma czego pokazać.
   const [products, setProducts] = useState<Item[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  // Liczba wszystkich transakcji pasujących do filtrów i frazy (nie tylko wczytanych).
-  const [totalCount, setTotalCount] = useState(0);
+  // Liczba wszystkich pasujących transakcji; null, gdy nie jest jeszcze znana (filtr kategorii).
+  const [totalCount, setTotalCount] = useState<number | null>(0);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,8 +37,7 @@ export const useTransactionsData = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Ostatnio zastosowane filtry i fraza: formularz filtrów działa dopiero po
-  // „Zastosuj”, więc wyszukiwarka i „Załaduj więcej” nie mogą brać stanu formularza.
+  // Ostatnio zastosowane filtry i fraza, dla doładowania kolejnych stron.
   const appliedFiltersRef = useRef<FilterState>(EMPTY_FILTERS);
   const appliedSearchRef = useRef('');
   const loadedCountRef = useRef(0);
@@ -57,7 +55,7 @@ export const useTransactionsData = () => {
     appliedSearchRef.current = search;
     try {
       setRefreshing(true);
-      const page = await getTransactionsPage(buildTransactionsPageQuery(currentFilters, search));
+      const page = await fetchTransactionsPage(currentFilters, search);
       if (seq !== requestSeqRef.current) return;
       setTransactions(page.items);
       setTotalCount(page.total);
@@ -76,16 +74,23 @@ export const useTransactionsData = () => {
     [fetchFirstPage]
   );
 
+  // Filtry działają od razu, bez przycisku.
+  const applyFilters = useCallback(
+    (next: FilterState) => {
+      setFilters(next);
+      void fetchFirstPage(next, appliedSearchRef.current);
+    },
+    [fetchFirstPage]
+  );
+
   const loadMoreTransactions = useCallback(async () => {
     const seq = ++requestSeqRef.current;
     try {
       setLoadingMore(true);
-      const page = await getTransactionsPage(
-        buildTransactionsPageQuery(
-          appliedFiltersRef.current,
-          appliedSearchRef.current,
-          loadedCountRef.current
-        )
+      const page = await fetchTransactionsPage(
+        appliedFiltersRef.current,
+        appliedSearchRef.current,
+        loadedCountRef.current
       );
       if (seq !== requestSeqRef.current) return;
       setTransactions((prev) => appendTransactionsPage(prev, page.items));
@@ -156,9 +161,9 @@ export const useTransactionsData = () => {
     (tx: Transaction) => {
       if (!tx.transfer_account_id) return null;
       const counterparty = accountMap.get(tx.transfer_account_id);
-      if (!counterparty) return 'Transfer';
+      if (!counterparty) return 'Przelew';
       const currencyLabel = counterparty.currency ? ` (${counterparty.currency})` : '';
-      return `Transfer: ${counterparty.name}${currencyLabel}`;
+      return `Przelew: ${counterparty.name}${currencyLabel}`;
     },
     [accountMap]
   );
@@ -192,7 +197,7 @@ export const useTransactionsData = () => {
     setTransactions,
     totalCount,
     filters: effectiveFilters,
-    setFilters,
+    applyFilters,
     searchQuery,
     setSearchQuery,
     loading,

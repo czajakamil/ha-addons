@@ -1,0 +1,276 @@
+/* ==========================================================================
+   Ekran Transakcje.
+   ========================================================================== */
+
+@layer components {
+  .transactions-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+
+  .transactions-page .page-heading {
+    margin-block-end: 0;
+  }
+
+  .transactions-filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+    border: 0;
+  }
+
+  .transactions-filters__bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-8);
+  }
+
+  .transactions-page .form-select,
+  .transactions-page .form-control {
+    height: var(--row-height-compact);
+    min-height: 0;
+    padding-block: 0;
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+  }
+
+  .transactions-filters__bar > .form-select,
+  .transactions-filters__bar > .form-control {
+    width: auto;
+    max-width: 200px;
+  }
+
+  .transactions-filters__search {
+    position: relative;
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  .transactions-filters__search svg {
+    position: absolute;
+    inset-block-start: var(--s-8);
+    inset-inline-start: var(--s-8);
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .transactions-filters__search .form-control {
+    padding-inline-start: var(--s-32);
+  }
+
+  .transactions-filters__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-4);
+  }
+
+  .transactions-filters__chips .text-button {
+    height: 24px;
+    font-size: var(--text-12);
+  }
+
+  .transactions-page .text-button {
+    gap: var(--s-4);
+  }
+
+  .transactions-bulk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-8);
+    padding: var(--s-8) var(--s-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+  }
+
+  .transactions-bulk__count {
+    font-size: var(--text-13);
+    font-weight: var(--weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .transactions-bulk .form-select {
+    width: auto;
+    max-width: 240px;
+  }
+
+  .transactions-error {
+    margin: 0;
+    color: var(--negative);
+    font-size: var(--text-13);
+  }
+
+  .transactions-count {
+    margin: 0;
+    min-height: var(--leading-12);
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .transactions-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .transactions-card + .transactions-count {
+    margin-block-start: 0;
+  }
+
+  /* Lista zajmuje resztę ekranu; przewija się sama siatka z przyklejonym nagłówkiem */
+  .transactions-grid.rdg {
+    block-size: calc(100dvh - 216px);
+    min-block-size: 320px;
+  }
+
+  .transactions-grid__row--day .rdg-cell {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    font-weight: var(--weight-medium);
+  }
+
+  .transactions-day {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-16);
+    height: 100%;
+  }
+
+  .transactions-day .money {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+  }
+
+  .transactions-grid .transactions-grid__cell--numeric {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    text-align: end;
+  }
+
+  .transactions-grid__cell--actions,
+  .transactions-grid .transactions-grid__cell--status {
+    padding-inline: 0;
+    text-align: center;
+  }
+
+  .transactions-transfer {
+    display: flex;
+    align-items: center;
+    gap: var(--s-8);
+    min-width: 0;
+    height: 100%;
+  }
+
+  .transactions-transfer svg {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .transactions-muted {
+    color: var(--text-muted);
+  }
+
+  .transactions-grid .truncate {
+    line-height: var(--row-height);
+  }
+
+  /* Wyjątek widoczny, norma odsłaniana na hover wiersza */
+  .transactions-grid .transactions-status__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--s-24);
+    height: var(--s-24);
+    padding: 0;
+    border: 0;
+    border-radius: var(--s-4);
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+  }
+
+  .transactions-grid .transactions-status__button--pending {
+    color: var(--warning);
+  }
+
+  .transactions-grid .transactions-status__button--cleared,
+  .transactions-grid .transactions-status__button--reconciled,
+  .transactions-row-action {
+    opacity: 0;
+    transition: opacity var(--motion-fast);
+  }
+
+  .rdg-row:hover .transactions-status__button,
+  .rdg-row:hover .transactions-row-action,
+  .transactions-status__button:focus-visible,
+  .transactions-row-action:focus-visible {
+    opacity: 1;
+  }
+
+  .transactions-row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--s-24);
+    height: var(--s-24);
+    padding: 0;
+    border-radius: var(--s-4);
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .transactions-row-action:hover:not(:disabled) {
+    color: var(--text);
+    transform: none;
+  }
+
+  .transactions-grid .form-check-input {
+    width: var(--s-16);
+    height: var(--s-16);
+    margin: 0;
+    vertical-align: middle;
+  }
+
+  .transactions-compact {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    min-width: 0;
+  }
+
+  .transactions-compact .truncate,
+  .transactions-compact .transactions-transfer {
+    height: auto;
+    line-height: var(--leading-13);
+  }
+
+  .transactions-compact__meta {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @media (max-width: 700px) {
+    .transactions-grid.rdg {
+      block-size: calc(100dvh - 300px);
+    }
+
+    .transactions-filters__bar > .form-select,
+    .transactions-filters__bar > .form-control {
+      flex: 1 1 40%;
+      max-width: none;
+    }
+  }
+}

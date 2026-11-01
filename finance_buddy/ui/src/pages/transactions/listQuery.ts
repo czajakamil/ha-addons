@@ -1,13 +1,30 @@
-// Czysta logika listy transakcji: zapytanie o stronę, doklejanie kolejnych stron
-// i opisy liczników. Filtrowanie i wyszukiwanie robi serwer (/transactions/page),
-// więc tu nie ma już żadnego przeszukiwania danych w przeglądarce.
-import type { Transaction, TransactionPageParams } from '../../api';
+// Logika listy transakcji: zapytanie o stronę, doklejanie kolejnych stron i opisy
+// liczników. Filtrowanie i wyszukiwanie robi serwer, więc tu nie ma żadnego
+// przeszukiwania danych w przeglądarce.
+import { getTransactions, getTransactionsPage, type Transaction, type TransactionPageParams } from '../../api';
 import { pluralPL } from '../../utils/format';
 import type { FilterState } from './model';
 
 export const TRANSACTIONS_PAGE_SIZE = 100;
 // Wyszukiwarka pyta serwer dopiero po chwili bez pisania, nie po każdym znaku.
 export const SEARCH_DEBOUNCE_MS = 300;
+
+// /transactions/page nie filtruje po kategorii. Z filtrem kategorii lista idzie przez
+// /transactions, który nie zwraca liczby wszystkich wyników; `total` jest wtedy znany
+// dopiero po wczytaniu ostatniej, niepełnej strony.
+export const fetchTransactionsPage = async (
+  filters: FilterState,
+  search: string,
+  offset = 0
+): Promise<{ items: Transaction[]; total: number | null }> => {
+  const query = buildTransactionsPageQuery(filters, search, offset);
+  if (!filters.categoryId) {
+    const page = await getTransactionsPage(query);
+    return { items: page.items, total: page.total };
+  }
+  const items = await getTransactions({ ...query, category_id: filters.categoryId });
+  return { items, total: items.length < TRANSACTIONS_PAGE_SIZE ? offset + items.length : null };
+};
 
 export const buildTransactionsPageQuery = (
   filters: FilterState,
@@ -40,13 +57,5 @@ export const appendTransactionsPage = (
   return [...loaded, ...page.filter((tx) => !seen.has(tx.id))];
 };
 
-export const remainingTransactions = (loadedCount: number, total: number) =>
-  Math.max(0, total - loadedCount);
-
 export const formatOperationsCount = (count: number) =>
   `${count} ${pluralPL(count, 'operacja', 'operacje', 'operacji')}`;
-
-export const formatLoadMoreLabel = (loadedCount: number, total: number) => {
-  const next = Math.min(TRANSACTIONS_PAGE_SIZE, remainingTransactions(loadedCount, total));
-  return `Załaduj ${next} ${pluralPL(next, 'następną', 'następne', 'następnych')}`;
-};

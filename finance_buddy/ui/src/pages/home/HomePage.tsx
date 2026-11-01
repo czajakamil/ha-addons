@@ -39,7 +39,6 @@ import { BALANCE_ADJUSTMENT_LABEL, isBalanceAdjustment, userComment } from '../.
 import { toMonthKey } from '../budget/model';
 import { backupHealth } from '../panel/backupStatus';
 import {
-  HOME_CURRENCY,
   buildTodoItems,
   describeDaysLeft,
   envelopeNote,

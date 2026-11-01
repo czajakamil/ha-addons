@@ -1,22 +1,43 @@
 // Typy, stałe i czyste helpery strony transakcji — bez stanu i bez JSX.
 import { Transaction } from '../../api';
-import { DATA_TABLE_ROW_HEIGHT } from '../../components/DataTable';
+import { toIsoDate } from '../../utils/date';
 
 export type FilterState = {
   startDate: string;
   endDate: string;
   accountId: string;
+  categoryId: string;
+};
+
+export type DatePreset = 'all' | 'thisMonth' | 'previousMonth' | 'last90' | 'year' | 'custom';
+
+// Zakres dat presetu. „custom" nie ma tu zakresu: daty wybiera użytkownik.
+export const datePresetRange = (preset: DatePreset, now = new Date()) => {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const today = toIsoDate(now);
+  switch (preset) {
+    case 'thisMonth':
+      return { startDate: toIsoDate(new Date(year, month, 1)), endDate: today };
+    case 'previousMonth':
+      return { startDate: toIsoDate(new Date(year, month - 1, 1)), endDate: toIsoDate(new Date(year, month, 0)) };
+    case 'last90':
+      return { startDate: toIsoDate(new Date(year, month, now.getDate() - 90)), endDate: today };
+    case 'year':
+      return { startDate: toIsoDate(new Date(year, 0, 1)), endDate: today };
+    default:
+      return { startDate: '', endDate: '' };
+  }
 };
 
 export type TransactionColumnId =
+  | 'select'
   | 'open'
-  | 'date'
   | 'account'
   | 'store'
   | 'category'
   | 'comment'
-  | 'outflow'
-  | 'inflow'
+  | 'amount'
   | 'status';
 
 export type TransactionStatusState = 'pending' | 'cleared' | 'reconciled';
@@ -25,9 +46,9 @@ export const STATUS_PRESENTATION: Record<
   TransactionStatusState,
   { short: string; label: string; nextAction: string }
 > = {
-  pending: { short: 'P', label: 'Przetwarzana', nextAction: 'oznaczyć jako Cleared' },
-  cleared: { short: 'C', label: 'Cleared', nextAction: 'oznaczyć jako Reconciled' },
-  reconciled: { short: 'R', label: 'Reconciled', nextAction: 'oznaczyć jako Przetwarzana' }
+  pending: { short: 'N', label: 'Niezatwierdzona', nextAction: 'zatwierdzić' },
+  cleared: { short: 'Z', label: 'Zatwierdzona', nextAction: 'oznaczyć jako uzgodnioną' },
+  reconciled: { short: 'U', label: 'Uzgodniona', nextAction: 'cofnąć zatwierdzenie' }
 };
 
 export const getTransactionStatusState = (transaction: Transaction): TransactionStatusState => {
@@ -54,41 +75,28 @@ export const getNextStatusPayload = (transaction: Transaction): StatusUpdatePayl
 
 export const MIN_COLUMN_WIDTH = 10;
 export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>> = {
-  open: 54,
-  date: 100,
-  account: 110,
-  store: 180,
-  category: 170,
-  comment: 450,
-  outflow: 120,
-  inflow: 120,
+  select: 40,
+  open: 44,
+  store: 260,
+  account: 160,
+  category: 200,
+  amount: 128,
   status: 40
 };
 export const COLUMN_WIDTH_TABLE_ID = 'transactions';
 export const COLUMN_WIDTH_PERSIST_DELAY = 400;
-const TRANSACTIONS_GRID_MIN_HEIGHT = 280;
-const TRANSACTIONS_GRID_MAX_HEIGHT = 720;
 export const TRANSACTION_COLUMN_ORDER: readonly TransactionColumnId[] = [
-  'open',
-  'date',
-  'account',
+  'select',
   'store',
+  'account',
   'category',
   'comment',
-  'outflow',
-  'inflow',
-  'status'
+  'amount',
+  'status',
+  'open'
 ];
 
 export const TRANSACTION_COLUMN_IDS = new Set<TransactionColumnId>(TRANSACTION_COLUMN_ORDER);
-
-export const getTransactionsGridHeight = (rowCount: number) => {
-  if (rowCount <= 0) {
-    return TRANSACTIONS_GRID_MIN_HEIGHT;
-  }
-  const estimated = 64 + DATA_TABLE_ROW_HEIGHT * rowCount;
-  return Math.min(TRANSACTIONS_GRID_MAX_HEIGHT, Math.max(TRANSACTIONS_GRID_MIN_HEIGHT, estimated));
-};
 
 export const sanitizeStoredColumnWidths = (
   widths: Record<string, unknown>
@@ -123,4 +131,3 @@ export const toPersistableColumnWidths = (
 };
 
 export type EditableLookupField = 'account' | 'store' | 'category';
-export type EditableAmountField = 'outflow' | 'inflow';

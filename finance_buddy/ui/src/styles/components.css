@@ -156,14 +156,14 @@
     gap: calc(var(--space-1) * 0.7);
   }
 
-  input,
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
   select,
   textarea {
     padding: var(--space-2);
     border: 1px solid var(--border-muted);
     border-radius: var(--r);
     background: var(--panel);
-    font-size: 0.95rem;
+    font-size: var(--text-14);
     transition: border var(--dur) var(--ease);
   }
 

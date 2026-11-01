@@ -18,8 +18,8 @@ import DataGrid, {
 } from 'react-data-grid';
 import { useTheme } from '../hooks/useTheme';
 
-export const DATA_TABLE_ROW_HEIGHT = 30;
-export const DATA_TABLE_HEADER_ROW_HEIGHT = 25;
+export const DATA_TABLE_ROW_HEIGHT = 40;
+export const DATA_TABLE_HEADER_ROW_HEIGHT = 32;
 
 const currencyFormatter = new Intl.NumberFormat('pl-PL', {
   minimumFractionDigits: 2,

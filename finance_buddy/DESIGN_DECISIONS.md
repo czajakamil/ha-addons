@@ -54,3 +54,14 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **„Kategorie blisko limitu”, nie „Koperty”**, dla spójności z rozstrzygniętym terminem. Dotyczy też alertu „Kategoria ponad budżet”.
 - **Alerty budżetowe otwierają Budżet z filtrem** (`/budget?filter=overspent`).
 - **Korekty salda znikają ze Startu** przez zmianę w `services/home.py`, którą właściciel ma w drzewie roboczym. Etykieta „Korekta salda” działa też bez niej.
+
+## Transakcje
+
+- **react-data-grid zamiast TanStack Table.** Siatka jest już w projekcie, wirtualizuje wiersze, zapamiętuje szerokości kolumn i ma działającą edycję w komórkach. Pomiar na 3400 podstawionych wierszach: 17,6 ms na klatkę w p95. TanStack wymagałby przepisania edycji bez zysku dla użytkownika.
+- **Bez kolumny daty.** Datę niesie nagłówek dnia, a zmienia się ją w szczegółach transakcji.
+- **Kwota edytowana ze znakiem:** wydatek z minusem, wpływ bez znaku.
+- **Suma dnia dotyczy wczytanych wierszy.** Na granicy strony może być chwilowo niepełna; kolejne strony doładowują się same przed końcem listy.
+- **Filtr kategorii idzie przez `/transactions`,** bo `/transactions/page` go nie obsługuje, a API zostaje bez zmian. Liczba wyników jest wtedy znana dopiero po ostatniej stronie, więc do tego czasu nie pokazujemy łącznej liczby.
+- **Status:** niezatwierdzona ma stałą ikonę, a zatwierdzona i uzgodniona tylko na hover. „Cleared” to „Zatwierdzona”, „Reconciled” to „Uzgodniona”.
+- **Akcje zbiorcze idą pojedynczymi żądaniami, po 5 naraz,** bo API nie ma zapisu zbiorczego. Zmiana kategorii pomija przelewy.
+- **Telefon (do 700 px):** sklep z kontem pod spodem i kwota, a dotknięcie otwiera szczegóły. Edycja w komórkach i zaznaczanie są tylko na większych ekranach.
