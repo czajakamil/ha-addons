@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import contextlib
 import datetime as dt
 import json
 import logging
@@ -11,7 +10,6 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
-from fido2 import features as fido2_features
 from fido2.server import Fido2Server
 from fido2.webauthn import (
     AttestedCredentialData,
@@ -84,10 +82,6 @@ def _resolve_user_verification(raw_value: str | None) -> UserVerificationRequire
         raise ValueError(f"Unsupported PASSKEY_USER_VERIFICATION value: {raw_value}")
     return mapping[normalized]
 
-
-with contextlib.suppress(ValueError):
-    # Feature already configured elsewhere; keep the existing setting.
-    fido2_features.webauthn_json_mapping.enabled = True
 
 allowed_origins = _split_csv(settings.allowed_origins) or ["http://localhost:5173"]
 passkey_origins = _split_csv(settings.passkey_origins) or allowed_origins

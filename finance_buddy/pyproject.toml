@@ -17,18 +17,18 @@ requires-python = ">=3.12,<3.14"
 # pliku, a nie skutkiem ubocznym przeliczenia locka.
 dependencies = [
     "alembic==1.18.4",
-    "fastapi==0.121.2",
-    "fido2==1.1.1",                   # passkeys
+    "fastapi==0.162.0",
+    "fido2==2.2.1",                   # passkeys
     "keyring==25.2.1",
     "keyrings-alt==5.0.2",            # backend plikowy dla Dockera/HA (bez pęku kluczy)
     "numpy==2.5.1",                   # importowany wprost w receipt_extraction/rapidocr.py
-    "pillow==10.4.0",
+    "pillow==13.0.0",
     "pydantic==2.12.4",
-    "pydantic-settings==2.12.0",
+    "pydantic-settings==2.14.2",
     "pypdfium2==5.13.0",              # render PDF bez systemowego popplera
     "pytesseract==0.3.13",
     "python-dateutil==2.9.0.post0",
-    "python-multipart==0.0.20",       # bez importu, ale wymagany przez UploadFile
+    "python-multipart==0.0.33",       # bez importu, ale wymagany przez UploadFile
     "rapidfuzz==3.10.1",
     "rapidocr-onnxruntime==1.2.3",
     "sqlalchemy==2.0.44",
@@ -46,7 +46,7 @@ dev = [
     # ty jest przed 1.0: inferencja zmienia się między wydaniami i podbicie
     # potrafi zapalić błędy w nietkniętym kodzie.
     "ty==0.0.74",
-    "pytest==8.4.2",
+    "pytest==9.0.3",
     "ruff==0.16.3",
 ]
 # Narzędzia z `tools/` — etykieciarka i pomiar jakości ekstrakcji.
