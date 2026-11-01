@@ -65,6 +65,18 @@ const StoreDetailsPage = () => {
     [group, stats]
   );
 
+  const otherGroups = useMemo(
+    () =>
+      buildStoreGroups(stores.data ?? [], emptyStats)
+        .filter((entry) => !entry.isArchived && entry.key !== group?.key)
+        .sort((a, b) => a.name.localeCompare(b.name, 'pl')),
+    [stores.data, emptyStats, group?.key]
+  );
+
+  const reloadAll = useCallback(async () => {
+    await Promise.all([stores.refetch(), refetchDetails()]);
+  }, [stores.refetch, refetchDetails]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const applyUpdated = useCallback(
     (updated: Store[]) => {
       const byId = new Map(updated.map((store) => [store.id, store]));
@@ -191,6 +203,9 @@ const StoreDetailsPage = () => {
                 categoryPath={(group.categoryId && categoryMap.get(group.categoryId)?.path) || ''}
                 ensureCategory={ensureCategory}
                 save={save}
+                otherGroups={otherGroups}
+                categoryMap={categoryMap}
+                onChanged={reloadAll}
               />
             )}
           </div>

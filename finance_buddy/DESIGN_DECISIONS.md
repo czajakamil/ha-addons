@@ -109,6 +109,12 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Tylko końcowa gwiazdka jest wieloznaczna,** bo `PayU*Allegro` to prawdziwa nazwa z banku.
 - **Podgląd aliasu porównuje z nazwą sklepu transakcji i nazwą z opisu CSV.** „Z innych sklepów” nie liczy transakcji bez sklepu. Alias działa na przyszłe importy i nie przenosi obecnych transakcji.
 - **Nazwy z banku w rozwinięciu listy to nadal `Store.name`,** a aliasy widać w Ustawieniach sklepu.
+- **Scalanie: celem z listy jest sklep z największą liczbą transakcji,** a na stronie sklepu sklep wybrany. Scalany jest cały bieżący sklep z grupy; pozostałe sklepy grupy docelowej zostają obok.
+- **Konflikt blokuje podgląd, a 409 to zabezpieczenie.** Blokuje tylko ten sam numer paragonu z tego samego dnia. Różne NIP-y i powtórzone nazwy produktów to ostrzeżenia.
+- **NIP przechodzi tylko, gdy cel go nie ma i jest jeden.** Pozostałe zostają na ukrytych źródłach i dalej rozpoznają paragony, kierując je do celu. Adres przechodzi, gdy cel go nie ma.
+- **Cofanie działa od końca.** Późniejsze scalenie trzeba cofnąć najpierw. Cofnięcie zwraca tylko transakcje, które nadal są w sklepie docelowym; nowe i ręcznie przeniesione zostają. Liczba zwróconych i pozostawionych jest w odpowiedzi API.
+- **Cofanie przez 30 dni jest na stronie sklepu docelowego** („Ostatnie scalenia”), a nie tylko w toaście. Stan sprzed scalenia zostaje w bazie także po tym czasie, bo tak jest prościej; nie jest już używany.
+- **Scalony sklep znika z `GET /stores`** i nie da się go przywrócić archiwizacją. Stary adres `/payees/:id` pokazuje „Nie znaleziono”.
 - **Telefon (do 700 px):** lista pokazuje nazwę i Wydano, a porządki nazwę z powodem pod spodem. Sortowanie to pole wyboru jak w Kontach, a nie klik w nagłówek.
 
 ## Raporty

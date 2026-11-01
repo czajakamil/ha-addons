@@ -131,3 +131,52 @@ export const addStoreAlias = (storeId: string, pattern: string) =>
 
 export const deleteStoreAlias = (aliasId: string) =>
   request<void>(`/stores/aliases/${aliasId}`, { method: 'DELETE' });
+
+export interface StoreMergeConflict {
+  kind: string;
+  message: string;
+  blocking: boolean;
+}
+
+export interface StoreMergePreview {
+  transactions: number;
+  receipts: number;
+  aliases: number;
+  conflicts: StoreMergeConflict[];
+  can_merge: boolean;
+}
+
+export interface StoreMergeResult {
+  merge_id: string;
+  target_id: string;
+  transactions: number;
+  expires_at: string;
+}
+
+export interface StoreMerge {
+  id: string;
+  target_store_id: string;
+  source_names: string[];
+  transactions: number;
+  created_at: string;
+  expires_at: string;
+}
+
+type StoreMergeRequest = { source_ids: string[]; target_id: string };
+
+export const previewStoreMerge = (payload: StoreMergeRequest) =>
+  request<StoreMergePreview>('/stores/merge', {
+    method: 'POST',
+    body: JSON.stringify({ ...payload, dry_run: true })
+  });
+
+export const mergeStores = (payload: StoreMergeRequest & { name?: string; category_id?: string | null }) =>
+  request<StoreMergeResult>('/stores/merge', { method: 'POST', body: JSON.stringify(payload) });
+
+export const getStoreMerges = (storeIds: readonly string[]) =>
+  request<StoreMerge[]>(`/stores/merges?${storeIdsQuery(storeIds)}`);
+
+export const undoStoreMerge = (mergeId: string) =>
+  request<{ restored_transactions: number; kept_transactions: number }>(`/stores/merges/${mergeId}/undo`, {
+    method: 'POST'
+  });

@@ -7,7 +7,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import TruncatedText from '../../../components/ui/TruncatedText';
 import { copy } from '../../../copy/pl';
 import { maskAccountNumbers, type CleanupItem, type CleanupReason } from '../cleanup';
-import type { StoreStat } from '../groups';
+import { getGroupLabel, type StoreStat } from '../groups';
 import CategoryDialog from './CategoryDialog';
 import MergeDialog from './MergeDialog';
 
@@ -41,9 +41,21 @@ type StoresCleanupProps = {
   onOpen: (storeId: string) => void;
   onArchive: (item: CleanupItem) => void;
   onSetCategory: (items: CleanupItem[], path: string) => Promise<boolean>;
+  ensureCategory: (path: string) => Promise<string>;
+  onMerged: () => Promise<void>;
 };
 
-const StoresCleanup = ({ items, stats, categories, categoryMap, onOpen, onArchive, onSetCategory }: StoresCleanupProps) => {
+const StoresCleanup = ({
+  items,
+  stats,
+  categories,
+  categoryMap,
+  onOpen,
+  onArchive,
+  onSetCategory,
+  ensureCategory,
+  onMerged
+}: StoresCleanupProps) => {
   const [reason, setReason] = useState<CleanupReason | 'all'>('all');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -92,7 +104,12 @@ const StoresCleanup = ({ items, stats, categories, categoryMap, onOpen, onArchiv
     setDialog('category');
   };
 
-  const firstCategoryId = selectedItems.find((item) => item.store.automatic_category_id)?.store.automatic_category_id;
+  // Celem jest sklep z największą liczbą transakcji, żeby przenieść jak najmniej.
+  const mergeOrder = selectedItems
+    .slice()
+    .sort((a, b) => (stats?.get(b.store.id)?.count ?? 0) - (stats?.get(a.store.id)?.count ?? 0));
+  const mergeTarget = mergeOrder[0]?.store;
+  const mergeCategoryId = mergeOrder.find((item) => item.store.automatic_category_id)?.store.automatic_category_id;
 
   return (
     <div className="stores-cleanup">
@@ -224,15 +241,21 @@ const StoresCleanup = ({ items, stats, categories, categoryMap, onOpen, onArchiv
         </div>
       )}
 
-      {dialog === 'merge' && (
+      {dialog === 'merge' && mergeTarget && (
         <MergeDialog
-          items={selectedItems.map((item) => ({
-            id: item.store.id,
-            name: item.store.name,
-            count: stats ? stats.get(item.store.id)?.count ?? 0 : null
-          }))}
-          categoryLabel={(firstCategoryId && categoryMap.get(firstCategoryId)?.name) || ''}
+          sourceIds={mergeOrder.slice(1).map((item) => item.store.id)}
+          targetId={mergeTarget.id}
+          defaultName={getGroupLabel(mergeTarget)}
+          names={mergeOrder.map((item) => item.store.name)}
+          categories={categories}
+          categoryPath={(mergeCategoryId && categoryMap.get(mergeCategoryId)?.path) || ''}
+          ensureCategory={ensureCategory}
           onClose={() => setDialog(null)}
+          onMerged={async () => {
+            setDialog(null);
+            await onMerged();
+          }}
+          onUndone={onMerged}
         />
       )}
       {dialog === 'category' && (

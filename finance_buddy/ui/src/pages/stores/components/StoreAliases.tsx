@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   addStoreAlias,
-  ApiError,
   deleteStoreAlias,
   getStoreAliases,
   previewStoreAlias,
@@ -13,17 +12,12 @@ import {
 import SkeletonRows from '../../../components/ui/SkeletonRows';
 import { copy } from '../../../copy/pl';
 import { useApi } from '../../../hooks/useApi';
+import { errorDetail } from '../apiError';
 import { maskAccountNumbers } from '../cleanup';
 
 const labels = copy.stores;
 const text = labels.settings;
 const PREVIEW_DEBOUNCE_MS = 300;
-
-// Komunikat z backendu, np. kto już ma ten alias. FastAPI przy walidacji zwraca listę, nie tekst.
-const errorDetail = (err: unknown) => {
-  const detail = err instanceof ApiError ? (err.data as { detail?: unknown } | null)?.detail : null;
-  return typeof detail === 'string' ? detail : null;
-};
 
 type StoreAliasesProps = {
   storeIds: string[];

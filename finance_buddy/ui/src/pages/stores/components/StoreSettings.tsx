@@ -10,6 +10,7 @@ import { maskAccountNumbers } from '../cleanup';
 import type { StoreGroup } from '../groups';
 import { categoryPayload } from '../useStoreGroupSave';
 import StoreAliases from './StoreAliases';
+import StoreMergeCard from './StoreMergeCard';
 
 const labels = copy.stores;
 const text = labels.settings;
@@ -24,6 +25,9 @@ type StoreSettingsProps = {
   categoryPath: string;
   ensureCategory: (path: string) => Promise<string>;
   save: Save;
+  otherGroups: StoreGroup[];
+  categoryMap: Map<string, Category>;
+  onChanged: () => Promise<void>;
 };
 
 const CategoryField = ({ group, categories, categoryPath, ensureCategory, save }: Pick<StoreSettingsProps, 'group' | 'categories' | 'categoryPath' | 'ensureCategory' | 'save'>) => {
@@ -106,7 +110,10 @@ const StoreSettings = ({
   categories,
   categoryPath,
   ensureCategory,
-  save
+  save,
+  otherGroups,
+  categoryMap,
+  onChanged
 }: StoreSettingsProps) => {
   const navigate = useNavigate();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -192,16 +199,14 @@ const StoreSettings = ({
         </div>
       </section>
 
-      <div className="account-zone stores-zone">
-        <div>
-          <strong>{text.mergeTitle}</strong>
-          <p className="account-hint">{text.mergeHint}</p>
-          <p className="account-hint">{labels.mergeDialog.requiresStage2}</p>
-        </div>
-        <button type="button" className="account-button" disabled>
-          {text.mergeButton}
-        </button>
-      </div>
+      <StoreMergeCard
+        group={group}
+        otherGroups={otherGroups}
+        categories={categories}
+        categoryMap={categoryMap}
+        ensureCategory={ensureCategory}
+        onChanged={onChanged}
+      />
 
       <div className="account-zone stores-zone">
         <div>

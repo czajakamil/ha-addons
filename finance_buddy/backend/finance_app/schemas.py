@@ -200,6 +200,50 @@ class StoreAliasPreview(BaseModel):
     conflict: str | None = None
 
 
+class StoreMergeRequest(BaseModel):
+    source_ids: list[str] = Field(min_length=1)
+    target_id: str
+    name: str | None = Field(default=None, min_length=2)
+    category_id: str | None = None
+    dry_run: bool = False
+
+
+class StoreMergeConflict(BaseModel):
+    kind: str
+    message: str
+    blocking: bool
+
+
+class StoreMergePreview(BaseModel):
+    transactions: int
+    receipts: int
+    aliases: int
+    conflicts: list[StoreMergeConflict]
+    can_merge: bool
+
+
+class StoreMergeResult(BaseModel):
+    merge_id: str
+    target_id: str
+    transactions: int
+    expires_at: AwareDatetime
+
+
+class StoreMergeRead(BaseModel):
+    id: str
+    target_store_id: str
+    source_names: list[str]
+    transactions: int
+    created_at: AwareDatetime
+    expires_at: AwareDatetime
+
+
+class StoreMergeUndoResult(BaseModel):
+    restored_transactions: int
+    # Przeszły do sklepu docelowego po scaleniu albo zmieniono im sklep, więc zostają.
+    kept_transactions: int
+
+
 class ItemBase(BaseModel):
     name: str
     group_name: str | None = None

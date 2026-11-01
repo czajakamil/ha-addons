@@ -308,6 +308,49 @@
     transform: none;
   }
 
+  .stores-merge-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+    padding: var(--s-12) var(--s-16);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  .stores-merge-card__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-12);
+  }
+
+  .stores-merge-card__copy {
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+
+  .stores-merge-card__picker {
+    flex: 0 1 320px;
+    min-width: 220px;
+  }
+
+  .stores-merge-conflict {
+    margin: 0;
+    padding: var(--s-8);
+    border-radius: var(--radius-control);
+    background: var(--warning-tint);
+    color: var(--warning);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+  }
+
+  .stores-merge-conflict.is-blocking {
+    background: color-mix(in srgb, var(--negative) 12%, transparent);
+    color: var(--negative);
+  }
+
   .stores-table-foot {
     display: flex;
     flex-wrap: wrap;

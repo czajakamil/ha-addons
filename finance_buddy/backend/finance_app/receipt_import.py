@@ -126,7 +126,13 @@ def _cap_for_ocr(image: Image.Image) -> Image.Image:
 
 def build_store_index(db: Session, user_id: str) -> dict[str, Store]:
     stores = db.scalars(select(Store).where(Store.user_id == user_id, Store.nip.is_not(None))).all()
-    return {nip: store for store in stores if (nip := normalize_nip(store.nip))}
+    # NIP scalonego sklepu wskazuje sklep docelowy.
+    by_id = {store.id: store for store in db.scalars(select(Store).where(Store.user_id == user_id))}
+    return {
+        nip: by_id.get(store.merged_into_id, store) if store.merged_into_id else store
+        for store in stores
+        if (nip := normalize_nip(store.nip))
+    }
 
 
 def match_store(store_index: dict[str, Store], nip: str | None) -> Store | None:

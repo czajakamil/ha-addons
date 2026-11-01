@@ -251,6 +251,10 @@ const StoresPage = () => {
           onOpen={(storeId) => navigate(`/payees/${storeId}`)}
           onArchive={({ store }) => void save([{ store, payload: { is_deleted: true } }], labels.archived)}
           onSetCategory={setCategoryForItems}
+          ensureCategory={ensureCategory}
+          onMerged={async () => {
+            await Promise.all([refetch(), statsRequest.refetch(), ambiguous.refetch()]);
+          }}
         />
       )}
 

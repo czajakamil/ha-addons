@@ -421,6 +421,11 @@ class Store(Base):
         Boolean, nullable=False, default=False, server_default="0"
     )
 
+    # Sklep scalony: ukryty, a import YNAB kieruje jego payee do sklepu docelowego.
+    merged_into_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("stores.id", ondelete="SET NULL")
+    )
+
     transactions: Mapped[list[Transaction]] = relationship(back_populates="store")
 
     __table_args__ = (UniqueConstraint("user_id", "nip", name="uq_stores_user_nip"),)
@@ -537,6 +542,21 @@ class StoreAlias(Base):
             sqlite_where=text("is_ambiguous = 0"),
         ),
     )
+
+
+class StoreMerge(Base):
+    """Scalenie sklepów ze stanem sprzed niego, potrzebnym do cofania."""
+
+    __tablename__ = "store_merges"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"))
+    target_store_id: Mapped[str] = mapped_column(
+        String, ForeignKey("stores.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    undone_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
 
 class Transaction(Base):

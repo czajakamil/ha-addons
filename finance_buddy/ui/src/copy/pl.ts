@@ -210,10 +210,18 @@ export const copy = {
       name: 'Nazwa po scaleniu',
       category: 'Domyślna kategoria',
       names: 'Łączone nazwy',
-      summary: (count: number) =>
-        `${count} ${pluralPL(count, 'transakcja przejdzie', 'transakcje przejdą', 'transakcji przejdzie')} do jednego sklepu. Stare nazwy zostaną zapamiętane jako aliasy, więc kolejny import z banku sam przypisze je do tego sklepu.`,
+      summaryLoading: 'Sprawdzamy, co się zmieni…',
+      summaryFailed: 'Nie udało się przygotować podglądu.',
+      summary: (transactions: number, receipts: number, aliases: number) =>
+        `Przejdzie do jednego sklepu: ${transactions} ${pluralPL(transactions, 'transakcja', 'transakcje', 'transakcji')}, ${receipts} ${pluralPL(receipts, 'paragon', 'paragony', 'paragonów')}, ${aliases} ${pluralPL(aliases, 'alias', 'aliasy', 'aliasów')}. Kolejny import z banku sam przypisze te nazwy do tego sklepu.`,
+      undoHint: 'Możesz to cofnąć przez 30 dni na stronie sklepu.',
       confirm: 'Scal',
-      requiresStage2: 'Wymaga etapu 2'
+      merging: 'Scalanie…',
+      nameTooShort: 'Nazwa musi mieć co najmniej 2 znaki.',
+      merged: 'Scalono sklepy',
+      failed: 'Nie udało się scalić sklepów.',
+      undone: 'Cofnięto scalenie',
+      undoFailed: 'Nie udało się cofnąć scalenia.'
     },
     categoryDialog: {
       title: (count: number) => `Ustaw kategorię: ${count} ${pluralPL(count, 'sklep', 'sklepy', 'sklepów')}`,
@@ -273,6 +281,12 @@ export const copy = {
       mergeTitle: 'Scal z innym sklepem',
       mergeHint: 'Transakcje i aliasy przejdą do wybranego sklepu. Ten sklep zniknie z listy.',
       mergeButton: 'Scal z…',
+      mergePick: 'Wybierz sklep',
+      mergeSearch: 'Szukaj sklepu…',
+      mergeNoResults: 'Brak wyników',
+      mergesTitle: 'Ostatnie scalenia',
+      mergeEntry: (names: string, count: number, until: string) =>
+        `${names} · ${count} ${pluralPL(count, 'transakcja', 'transakcje', 'transakcji')} · można cofnąć do ${until}`,
       archiveTitle: 'Zarchiwizuj sklep',
       archiveHint: 'Ukrywa sklep na liście. Transakcje zostają, a import przestaje go dopasowywać.',
       restoreTitle: 'Sklep jest zarchiwizowany',

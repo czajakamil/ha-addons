@@ -26,6 +26,7 @@ from ..finance_app.models import (
 )
 from ..finance_app.services.categories import READY_TO_ASSIGN_TAG_NAME
 from ..finance_app.services.store_aliases import register_store_name
+from ..finance_app.services.store_merges import resolve_merged_store
 
 setup_logging(
     log_level=settings.log_level,
@@ -307,6 +308,9 @@ def import_payees_as_stores(
         except Exception:
             log.warning("Payee id is not a valid UUID: %r", pid)
         store = s.get(Store, pid)
+        if store and store.merged_into_id:
+            mapping[pid] = resolve_merged_store(s, store).id
+            continue
         if not store:
             store = Store(
                 id=pid,

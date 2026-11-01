@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -14,19 +14,25 @@ from ..dependencies import (
     apply_pagination,
     get_current_user,
 )
-from ..models import Store, StoreAlias, User
+from ..models import Store, StoreAlias, Transaction, User
 from ..schemas import (
     StoreAliasCreate,
     StoreAliasPreview,
     StoreAliasPreviewRequest,
     StoreAliasRead,
     StoreCreate,
+    StoreMergePreview,
+    StoreMergeRead,
+    StoreMergeRequest,
+    StoreMergeResult,
+    StoreMergeUndoResult,
     StoreMonthlySpend,
     StoreRead,
     StoreStats,
     StoreUpdate,
 )
 from ..services import store_aliases as aliases_service
+from ..services import store_merges as merges_service
 from ..services import store_stats as store_stats_service
 
 router = APIRouter()
@@ -42,7 +48,7 @@ def list_stores(
 ):
     stmt = (
         select(Store)
-        .where(Store.user_id == current_user.id)
+        .where(Store.user_id == current_user.id, Store.merged_into_id.is_(None))
         .order_by(
             Store.is_deleted.asc(),
             func.lower(func.coalesce(Store.group_name, Store.name)),
@@ -126,6 +132,12 @@ def delete_store(
 ):
     store = _get_owned_or_404(db, Store, store_id, current_user.id, "Store")
 
+    count = db.scalar(select(func.count(Transaction.id)).where(Transaction.store_id == store_id))
+    if count:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Sklep ma transakcje ({count}), więc nie można go usunąć. Najpierw go scal.",
+        )
     names = aliases_service.exact_names_of(db, store)
     db.delete(store)
     aliases_service.resolve_names(db, current_user.id, names)
@@ -175,3 +187,41 @@ def delete_store_alias(
 ):
     alias = _get_owned_or_404(db, StoreAlias, alias_id, current_user.id, "Store alias")
     aliases_service.remove_alias(db, alias)
+
+
+@router.post("/stores/merge", response_model=StoreMergeResult | StoreMergePreview)
+def merge_stores(
+    payload: StoreMergeRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.dry_run:
+        return merges_service.preview_merge(
+            db, current_user.id, payload.source_ids, payload.target_id
+        )
+    return merges_service.merge_stores(
+        db,
+        current_user.id,
+        payload.source_ids,
+        payload.target_id,
+        name=payload.name,
+        category_id=payload.category_id,
+    )
+
+
+@router.get("/stores/merges", response_model=list[StoreMergeRead])
+def list_store_merges(
+    store_ids: Annotated[list[str], Query(min_length=1)],
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return merges_service.list_merges(db, current_user.id, store_ids)
+
+
+@router.post("/stores/merges/{merge_id}/undo", response_model=StoreMergeUndoResult)
+def undo_store_merge(
+    merge_id: str,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return merges_service.undo_merge(db, current_user.id, merge_id)
