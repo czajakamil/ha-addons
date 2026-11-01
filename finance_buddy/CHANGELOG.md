@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7
+
+- Konta: lista nie miga już przy wejściu na ekran. Puste konta od razu są ukryte pod „Pokaż puste”,
+  bo do wczytania ostatniej aktywności kont widać szkielet wierszy.
+
 ## 0.1.6
 
 - Zarchiwizowane konta nie pojawiają się już przy wyborze konta: w przelewach na liście Transakcji,
