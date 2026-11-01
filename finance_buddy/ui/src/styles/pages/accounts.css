@@ -1004,3 +1004,12 @@
     }
   }
 }
+
+@layer components {
+  .accounts-page .accounts-page__header {
+    margin: 0 0 var(--s-16);
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+}

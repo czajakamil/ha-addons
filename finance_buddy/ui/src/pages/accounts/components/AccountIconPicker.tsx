@@ -3,7 +3,7 @@
 // Paleta i siatka są zwijane: domyślnie widać tylko podgląd, resztę rozwija się
 // klikając nagłówek (mniej wizualnego szumu w formularzu konta).
 import { useId, useState } from 'react';
-import { ChevronDownIcon, type LucideIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { ACCOUNT_COLOR_OPTIONS, ACCOUNT_ICON_OPTIONS } from '../accountPresentation';
 import AccountAvatar from './AccountAvatar';
 

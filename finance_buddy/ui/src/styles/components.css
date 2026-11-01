@@ -162,7 +162,7 @@
     padding: var(--space-2);
     border: 1px solid var(--border-muted);
     border-radius: var(--r);
-    background: var(--panel);
+    background: var(--surface);
     font-size: var(--text-14);
     transition: border var(--dur) var(--ease);
   }

@@ -74,6 +74,19 @@
     box-shadow: none;
   }
 
+  label.form-check {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-8);
+    padding-inline-start: 0;
+    font-weight: var(--weight-regular);
+  }
+
+  label.form-check .form-check-input {
+    float: none;
+    margin: 0;
+  }
+
   .form-check-input {
     border-color: var(--text-muted);
     border-radius: var(--s-4);
