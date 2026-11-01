@@ -11,6 +11,7 @@ import type { StoreGroup } from '../groups';
 import { categoryPayload } from '../useStoreGroupSave';
 import StoreAliases from './StoreAliases';
 import StoreMergeCard from './StoreMergeCard';
+import StoreTransfersCard from './StoreTransfersCard';
 
 const labels = copy.stores;
 const text = labels.settings;
@@ -198,6 +199,8 @@ const StoreSettings = ({
           />
         </div>
       </section>
+
+      <StoreTransfersCard storeIds={group.members.map((store) => store.id)} onChanged={onChanged} />
 
       <StoreMergeCard
         group={group}

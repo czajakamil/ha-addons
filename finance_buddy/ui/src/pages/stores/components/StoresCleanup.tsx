@@ -10,6 +10,7 @@ import { maskAccountNumbers, type CleanupItem, type CleanupReason } from '../cle
 import { getGroupLabel, type StoreStat } from '../groups';
 import CategoryDialog from './CategoryDialog';
 import MergeDialog from './MergeDialog';
+import SelfTransferDialog from './SelfTransferDialog';
 
 const labels = copy.stores;
 const PAGE_SIZE = 100;
@@ -61,6 +62,7 @@ const StoresCleanup = ({
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [dialog, setDialog] = useState<'merge' | 'category' | null>(null);
   const [categoryTargets, setCategoryTargets] = useState<CleanupItem[]>([]);
+  const [transferStore, setTransferStore] = useState<string | null>(null);
 
   // Sklep, który wypadł z listy (np. dostał kategorię), wypada też z zaznaczenia
   useEffect(() => {
@@ -218,6 +220,9 @@ const StoresCleanup = ({
                             <DropdownMenu.Item className="menu__item" onSelect={() => openCategory([item])}>
                               {labels.setCategory}
                             </DropdownMenu.Item>
+                            <DropdownMenu.Item className="menu__item" onSelect={() => setTransferStore(item.store.id)}>
+                              {labels.transfers.menu}
+                            </DropdownMenu.Item>
                             <DropdownMenu.Item className="menu__item" onSelect={() => onArchive(item)}>
                               {labels.archive}
                             </DropdownMenu.Item>
@@ -257,6 +262,9 @@ const StoresCleanup = ({
           }}
           onUndone={onMerged}
         />
+      )}
+      {transferStore && (
+        <SelfTransferDialog storeIds={[transferStore]} onClose={() => setTransferStore(null)} onChanged={onMerged} />
       )}
       {dialog === 'category' && (
         <CategoryDialog

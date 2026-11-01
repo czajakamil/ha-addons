@@ -351,6 +351,36 @@
     color: var(--negative);
   }
 
+  .stores-dialog--wide {
+    max-width: 720px;
+  }
+
+  .stores-transfer-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+    padding-block: var(--s-8);
+    border-block-end: 1px solid var(--border);
+    font-size: var(--text-13);
+  }
+
+  .stores-transfer-row:last-child {
+    border-block-end: 0;
+  }
+
+  .stores-transfer-row__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--s-8);
+  }
+
+  .stores-transfer-list {
+    max-height: 48vh;
+    overflow-y: auto;
+    padding-inline-end: var(--s-8);
+  }
+
   .stores-table-foot {
     display: flex;
     flex-wrap: wrap;

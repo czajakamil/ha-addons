@@ -559,6 +559,18 @@ class StoreMerge(Base):
     undone_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
 
+class StoreTransferConversion(Base):
+    """Zamiana transakcji sklepu na przelewy ze stanem sprzed niej, potrzebnym do cofania."""
+
+    __tablename__ = "store_transfer_conversions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"))
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    undone_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 

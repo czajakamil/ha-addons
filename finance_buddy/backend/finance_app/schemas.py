@@ -244,6 +244,60 @@ class StoreMergeUndoResult(BaseModel):
     kept_transactions: int
 
 
+class SelfTransferPreviewRequest(BaseModel):
+    store_ids: list[str] = Field(min_length=1)
+
+
+class SelfTransferCandidate(BaseModel):
+    id: str
+    date: dt.date
+    amount_cents: int
+    currency: str
+    account_id: str
+    account_name: str
+    description: str | None = None
+
+
+class SelfTransferRow(SelfTransferCandidate):
+    # 'paired' | 'ambiguous' | 'other_currency' | 'no_partner' | 'covered' | 'has_items'
+    status: str
+    suggested: str | None = None
+    candidates: list[SelfTransferCandidate]
+
+
+class SelfTransferPreview(BaseModel):
+    rows: list[SelfTransferRow]
+    already_transfers: int
+
+
+class SelfTransferDecision(BaseModel):
+    transaction_id: str
+    partner_id: str | None = None
+    account_id: str | None = None
+
+
+class SelfTransferConvertRequest(BaseModel):
+    decisions: list[SelfTransferDecision] = Field(min_length=1)
+
+
+class SelfTransferConvertResult(BaseModel):
+    conversion_id: str
+    converted: int
+    expires_at: AwareDatetime
+
+
+class SelfTransferConversionRead(BaseModel):
+    id: str
+    converted: int
+    created_at: AwareDatetime
+    expires_at: AwareDatetime
+
+
+class SelfTransferUndoResult(BaseModel):
+    restored: int
+    kept: int
+
+
 class ItemBase(BaseModel):
     name: str
     group_name: str | None = None

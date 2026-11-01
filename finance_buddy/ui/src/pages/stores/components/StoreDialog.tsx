@@ -8,10 +8,11 @@ type StoreDialogProps = {
   title: string;
   onClose: () => void;
   footer: ReactNode;
+  wide?: boolean;
   children: ReactNode;
 };
 
-const StoreDialog = ({ title, onClose, footer, children }: StoreDialogProps) => {
+const StoreDialog = ({ title, onClose, footer, wide = false, children }: StoreDialogProps) => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -22,7 +23,7 @@ const StoreDialog = ({ title, onClose, footer, children }: StoreDialogProps) => 
 
   return createPortal(
     <div className="stores-dialog__overlay">
-      <div className="stores-dialog" role="dialog" aria-modal="true" aria-labelledby="stores-dialog-title">
+      <div className={`stores-dialog${wide ? ' stores-dialog--wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="stores-dialog-title">
         <header className="stores-dialog__head">
           <h2 id="stores-dialog-title" className="stores-dialog__title">
             {title}

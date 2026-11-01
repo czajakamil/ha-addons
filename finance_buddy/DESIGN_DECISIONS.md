@@ -115,6 +115,11 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Cofanie działa od końca.** Późniejsze scalenie trzeba cofnąć najpierw. Cofnięcie zwraca tylko transakcje, które nadal są w sklepie docelowym; nowe i ręcznie przeniesione zostają. Liczba zwróconych i pozostawionych jest w odpowiedzi API.
 - **Cofanie przez 30 dni jest na stronie sklepu docelowego** („Ostatnie scalenia”), a nie tylko w toaście. Stan sprzed scalenia zostaje w bazie także po tym czasie, bo tak jest prościej; nie jest już używany.
 - **Scalony sklep znika z `GET /stores`** i nie da się go przywrócić archiwizacją. Stary adres `/payees/:id` pokazuje „Nie znaleziono”.
+- **Zamiana na przelewy jest dostępna w każdym sklepie,** a nie tylko oznaczonym jako przelew własny: reguła działa po nazwie i może go nie wykryć. Wstępnie wybrane są tylko pewne pary.
+- **Przelew bez drugiej strony jest jednostronny.** Importer CSV tworzy w tej sytuacji drugą połówkę, ale przy zamianie starej transakcji zmieniłoby to saldo konta docelowego.
+- **Przelew między walutami łączy dwie istniejące transakcje z ich kwotami,** bez przeliczania. Import CSV nadal dopuszcza tylko tę samą walutę.
+- **Transakcji z pozycjami paragonu nie zamieniamy,** bo przelew nie ma pozycji.
+- **Cofnięcie zamiany pomija transakcje zmienione po niej.** Zamiany cofa się na stronie sklepu przez 30 dni.
 - **Telefon (do 700 px):** lista pokazuje nazwę i Wydano, a porządki nazwę z powodem pod spodem. Sortowanie to pole wyboru jak w Kontach, a nie klik w nagłówek.
 
 ## Raporty

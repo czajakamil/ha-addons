@@ -180,3 +180,57 @@ export const undoStoreMerge = (mergeId: string) =>
   request<{ restored_transactions: number; kept_transactions: number }>(`/stores/merges/${mergeId}/undo`, {
     method: 'POST'
   });
+
+export interface SelfTransferCandidate {
+  id: string;
+  date: string;
+  amount_cents: number;
+  currency: string;
+  account_id: string;
+  account_name: string;
+  description?: string | null;
+}
+
+export type SelfTransferStatus = 'paired' | 'ambiguous' | 'other_currency' | 'no_partner' | 'covered' | 'has_items';
+
+export interface SelfTransferRow extends SelfTransferCandidate {
+  status: SelfTransferStatus;
+  suggested?: string | null;
+  candidates: SelfTransferCandidate[];
+}
+
+export interface SelfTransferPreview {
+  rows: SelfTransferRow[];
+  already_transfers: number;
+}
+
+export interface SelfTransferDecision {
+  transaction_id: string;
+  partner_id?: string | null;
+  account_id?: string | null;
+}
+
+export interface SelfTransferConversion {
+  id: string;
+  converted: number;
+  created_at: string;
+  expires_at: string;
+}
+
+export const previewSelfTransfers = (storeIds: string[]) =>
+  request<SelfTransferPreview>('/stores/self-transfers/preview', {
+    method: 'POST',
+    body: JSON.stringify({ store_ids: storeIds })
+  });
+
+export const convertSelfTransfers = (decisions: SelfTransferDecision[]) =>
+  request<{ conversion_id: string; converted: number; expires_at: string }>('/stores/self-transfers/convert', {
+    method: 'POST',
+    body: JSON.stringify({ decisions })
+  });
+
+export const getSelfTransferConversions = (storeIds: readonly string[]) =>
+  request<SelfTransferConversion[]>(`/stores/self-transfers/conversions?${storeIdsQuery(storeIds)}`);
+
+export const undoSelfTransferConversion = (id: string) =>
+  request<{ restored: number; kept: number }>(`/stores/self-transfers/conversions/${id}/undo`, { method: 'POST' });

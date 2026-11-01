@@ -223,6 +223,42 @@ export const copy = {
       undone: 'Cofnięto scalenie',
       undoFailed: 'Nie udało się cofnąć scalenia.'
     },
+    transfers: {
+      menu: 'Zamień na przelewy…',
+      cardTitle: 'Zamień na przelewy między kontami',
+      cardHint: 'Dla przelewów własnych. Najpierw zobaczysz podgląd, a bez Twojego wyboru nic się nie zmieni.',
+      open: 'Pokaż podgląd…',
+      title: 'Zamień na przelewy',
+      effect: 'Wybrane transakcje stracą sklep i kategorię, więc znikną z wydatków w raportach i budżecie. Saldo kont się nie zmieni.',
+      loading: 'Szukamy drugiej strony przelewów…',
+      failed: 'Nie udało się przygotować podglądu.',
+      empty: 'Ten sklep nie ma transakcji do zamiany.',
+      alreadyTransfers: (count: number) => `Pominięte, bo już są przelewami: ${count}.`,
+      status: {
+        paired: 'Pewna druga strona',
+        ambiguous: 'Kilka kandydatek — wybierz',
+        other_currency: 'Inna waluta — wybierz ręcznie, bez przeliczania',
+        no_partner: 'Brak drugiej strony — wskaż konto, jeśli to przelew',
+        covered: 'Druga strona innego wiersza',
+        has_items: 'Ma pozycje paragonu — nie można zamienić'
+      },
+      choiceLabel: (date: string) => `Co zrobić z transakcją z ${date}`,
+      skip: 'Nie zamieniaj',
+      withPartner: 'Połącz z',
+      oneSided: 'Bez drugiej strony, konto',
+      confirm: (count: number) => `Zamień (${count})`,
+      saving: 'Zamieniamy…',
+      done: (count: number) => `Zamieniono: ${count}`,
+      saveFailed: 'Nie udało się zamienić transakcji.',
+      undone: (restored: number, kept: number) =>
+        kept
+          ? `Cofnięto zamianę, transakcje: ${restored}. Bez zmian: ${kept}, bo zmieniły się po zamianie.`
+          : `Cofnięto zamianę, transakcje: ${restored}.`,
+      undoFailed: 'Nie udało się cofnąć zamiany.',
+      history: 'Ostatnie zamiany',
+      entry: (count: number, until: string) =>
+        `${count} ${pluralPL(count, 'przelew', 'przelewy', 'przelewów')} · można cofnąć do ${until}`
+    },
     categoryDialog: {
       title: (count: number) => `Ustaw kategorię: ${count} ${pluralPL(count, 'sklep', 'sklepy', 'sklepów')}`,
       label: 'Domyślna kategoria',

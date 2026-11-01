@@ -16,6 +16,12 @@ from ..dependencies import (
 )
 from ..models import Store, StoreAlias, Transaction, User
 from ..schemas import (
+    SelfTransferConversionRead,
+    SelfTransferConvertRequest,
+    SelfTransferConvertResult,
+    SelfTransferPreview,
+    SelfTransferPreviewRequest,
+    SelfTransferUndoResult,
     StoreAliasCreate,
     StoreAliasPreview,
     StoreAliasPreviewRequest,
@@ -31,6 +37,7 @@ from ..schemas import (
     StoreStats,
     StoreUpdate,
 )
+from ..services import self_transfers
 from ..services import store_aliases as aliases_service
 from ..services import store_merges as merges_service
 from ..services import store_stats as store_stats_service
@@ -225,3 +232,43 @@ def undo_store_merge(
     current_user: User = Depends(get_current_user),
 ):
     return merges_service.undo_merge(db, current_user.id, merge_id)
+
+
+@router.post("/stores/self-transfers/preview", response_model=SelfTransferPreview)
+def preview_self_transfers(
+    payload: SelfTransferPreviewRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return self_transfers.preview(db, current_user.id, payload.store_ids)
+
+
+@router.post("/stores/self-transfers/convert", response_model=SelfTransferConvertResult)
+def convert_self_transfers(
+    payload: SelfTransferConvertRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    decisions = [self_transfers.Decision(**item.model_dump()) for item in payload.decisions]
+    return self_transfers.convert(db, current_user.id, decisions)
+
+
+@router.get("/stores/self-transfers/conversions", response_model=list[SelfTransferConversionRead])
+def list_self_transfer_conversions(
+    store_ids: Annotated[list[str], Query(min_length=1)],
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return self_transfers.list_conversions(db, current_user.id, store_ids)
+
+
+@router.post(
+    "/stores/self-transfers/conversions/{conversion_id}/undo",
+    response_model=SelfTransferUndoResult,
+)
+def undo_self_transfer_conversion(
+    conversion_id: str,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return self_transfers.undo(db, current_user.id, conversion_id)

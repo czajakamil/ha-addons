@@ -12,6 +12,7 @@ Status: zaakceptowany ze zmianami, wdrażany krokami. Poniższa lista ma pierwsz
 - **Scalanie:** `POST /stores/merge` z `dry_run` zwraca liczby i konflikty, okno pokazuje podgląd, a 409 jest tylko zabezpieczeniem. Łańcuchy `merged_into_id` są spłaszczane. Cofanie przez 30 dni przywraca transakcje, aliasy i domyślną kategorię.
 - **Test migracji `d2f4a6c8e1b3`:** wykonany tylko na danych syntetycznych (decyzja właściciela: na razie bez produkcyjnej bazy). Test na kopii prawdziwej bazy jest warunkiem uruchomienia na produkcji.
 - **Test migracji `e7a1b3c5d9f2`:** też tylko na danych syntetycznych, z tym samym warunkiem.
+- **Test migracji `a9c3e5f7b1d4`:** też tylko na danych syntetycznych, z tym samym warunkiem.
 - **Przelewy własne:** pomijamy kandydatki, które już są przelewami. Różne waluty to wybór ręczny, bez przeliczania kursów.
 
 ## Decyzje do akceptacji
