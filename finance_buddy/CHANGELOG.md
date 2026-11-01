@@ -1,6 +1,6 @@
 # Changelog
 
-## Niewydane
+## 0.1.3
 
 - Konto edytuje się na jego stronie: zakładki Transakcje i Ustawienia, zmiana nazwy w miejscu, „Uzgodnij saldo”,
   autozapis z „Cofnij”, a przy statusie, walucie i typie potwierdzenie ze skutkiem.
