@@ -17,6 +17,8 @@ type TransactionsFiltersProps = {
   onSearchChange: (value: string) => void;
   activeAccounts: Account[];
   categories: Category[];
+  // Lista stale zawężona do konta: bez wyboru konta, a czyszczenie filtrów go nie zdejmuje
+  accountLocked?: boolean;
 };
 
 const TransactionsFilters = ({
@@ -25,7 +27,8 @@ const TransactionsFilters = ({
   searchQuery,
   onSearchChange,
   activeAccounts,
-  categories
+  categories,
+  accountLocked = false
 }: TransactionsFiltersProps) => {
   const [preset, setPreset] = useState<DatePreset>('all');
 
@@ -51,7 +54,7 @@ const TransactionsFilters = ({
 
   const chips = [
     hasDates ? { key: 'dates', label: dateChip, onRemove: clearDates } : null,
-    filters.accountId
+    filters.accountId && !accountLocked
       ? {
           key: 'account',
           label: activeAccounts.find((account) => account.id === filters.accountId)?.name ?? labels.account,
@@ -111,19 +114,21 @@ const TransactionsFilters = ({
             />
           </>
         )}
-        <select
-          className="form-select"
-          aria-label={labels.account}
-          value={filters.accountId}
-          onChange={(event) => onChange({ ...filters, accountId: event.target.value })}
-        >
-          <option value="">{labels.allAccounts}</option>
-          {activeAccounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
+        {!accountLocked && (
+          <select
+            className="form-select"
+            aria-label={labels.account}
+            value={filters.accountId}
+            onChange={(event) => onChange({ ...filters, accountId: event.target.value })}
+          >
+            <option value="">{labels.allAccounts}</option>
+            {activeAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           className="form-select"
           aria-label={labels.category}
@@ -158,7 +163,7 @@ const TransactionsFilters = ({
             className="text-button"
             onClick={() => {
               setPreset('all');
-              onChange(NO_FILTERS);
+              onChange(accountLocked ? { ...NO_FILTERS, accountId: filters.accountId } : NO_FILTERS);
             }}
           >
             {labels.clearFilters}

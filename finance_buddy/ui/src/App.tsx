@@ -374,7 +374,10 @@ const App = () => {
         </div>
       </div>
       <CommandPalette />
-      <Toaster position="bottom-right" toastOptions={{ className: 'toast-item', unstyled: true }} />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{ className: 'toast-item', unstyled: true, classNames: { actionButton: 'toast-item__action' } }}
+      />
     </div>
     </Tooltip.Provider>
   );

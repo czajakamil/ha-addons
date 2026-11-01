@@ -1,5 +1,5 @@
 // Wybór ikony i koloru awatara konta: podgląd + paleta kolorów + siatka ikon.
-// Sterowany (controlled) — stan trzyma modal, tu tylko prezentacja i callbacki.
+// Sterowany (controlled) — stan trzyma rodzic, tu tylko prezentacja i callbacki.
 // Paleta i siatka są zwijane: domyślnie widać tylko podgląd, resztę rozwija się
 // klikając nagłówek (mniej wizualnego szumu w formularzu konta).
 import { useId, useState } from 'react';

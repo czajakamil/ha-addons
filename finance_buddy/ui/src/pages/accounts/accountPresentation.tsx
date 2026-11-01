@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 // Kuratorowany zestaw ikon i paleta kolorów dla awatara konta.
 // Ikony trzymamy pod krótkim, stabilnym id (kebab-case) zapisywanym w bazie —
 // dzięki temu nazwa komponentu Tabler może się zmienić bez migracji danych.
-// Kolory to klucze palety motywu (tokeny --cat-*), więc awatar sam dostosowuje
+// Kolory to klucze palety motywu (szarość i tokeny --chart-*), więc awatar sam dostosowuje
 // się do trybu jasnego/ciemnego.
 import { BanknoteIcon, BitcoinIcon, BriefcaseBusinessIcon, BriefcaseIcon, CarIcon, ChartLineIcon, CircleDollarSignIcon, CoinsIcon, CreditCardIcon, DollarSignIcon, EuroIcon, GiftIcon, GlobeIcon, HandCoinsIcon, HeartIcon, HouseIcon, LandmarkIcon, PiggyBankIcon, PlaneIcon, ReceiptIcon, ShoppingCartIcon, SmartphoneIcon, StoreIcon, WalletIcon } from 'lucide-react';
 
@@ -48,14 +48,15 @@ export const getAccountIcon = (id?: string | null): LucideIcon =>
 export type AccountColorOption = { id: string; label: string; value: string };
 
 export const ACCOUNT_COLOR_OPTIONS: AccountColorOption[] = [
-  { id: 'indigo', label: 'Indygo', value: 'var(--text-muted)' },
-  { id: 'teal', label: 'Morski', value: 'var(--text-muted)' },
-  { id: 'green', label: 'Zielony', value: 'var(--positive)' },
-  { id: 'coral', label: 'Koralowy', value: 'var(--negative)' },
-  { id: 'amber', label: 'Bursztynowy', value: 'var(--warning)' },
-  { id: 'pink', label: 'Różowy', value: 'var(--text-muted)' },
-  { id: 'blue', label: 'Niebieski', value: 'var(--accent)' },
-  { id: 'violet', label: 'Fioletowy', value: 'var(--text-muted)' }
+  // Id „indigo” zostaje dla szarości, bo jest zapisane w bazie jako domyślny kolor kont.
+  { id: 'indigo', label: 'Szary', value: 'var(--text-muted)' },
+  { id: 'blue', label: 'Niebieski', value: 'var(--chart-1)' },
+  { id: 'teal', label: 'Morski', value: 'var(--chart-3)' },
+  { id: 'amber', label: 'Bursztynowy', value: 'var(--chart-4)' },
+  { id: 'pink', label: 'Różowy', value: 'var(--chart-5)' },
+  { id: 'green', label: 'Zielony', value: 'var(--chart-6)' },
+  { id: 'violet', label: 'Fioletowy', value: 'var(--chart-7)' },
+  { id: 'coral', label: 'Koralowy', value: 'var(--chart-8)' }
 ];
 
 const ACCOUNT_COLOR_MAP = new Map(ACCOUNT_COLOR_OPTIONS.map((option) => [option.id, option]));

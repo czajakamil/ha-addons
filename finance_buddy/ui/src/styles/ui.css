@@ -407,6 +407,16 @@
     font-size: var(--text-13);
   }
 
+  .toast-item__action {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    padding: 0;
+    background: transparent;
+    color: var(--text);
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
+  }
+
   /* Kreator */
   .wizard-steps {
     display: flex;

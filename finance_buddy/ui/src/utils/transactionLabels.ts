@@ -1,6 +1,6 @@
 // Etykiety transakcji pochodzących z importu: automatyczne teksty YNAB nie trafiają do interfejsu.
-const AUTO_COMMENT = /^(imported from ynab\b|entered automatically by ynab\b)/i;
-const RECONCILIATION = /reconciliation balance adjustment/i;
+const AUTO_COMMENT = /^(imported from ynab\b|entered automatically by ynab\b|wyrównanie salda konta$)/i;
+const RECONCILIATION = /reconciliation balance adjustment|^wyrównanie salda konta$/i;
 
 export const BALANCE_ADJUSTMENT_LABEL = 'Korekta salda';
 

@@ -9,6 +9,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SkeletonRows from '../components/ui/SkeletonRows';
 import { copy } from '../copy/pl';
 import { useApi } from '../hooks/useApi';
+import { userComment } from '../utils/transactionLabels';
 import {
   ACCOUNT_KIND_OPTIONS,
   getAccountKindLabel,
@@ -20,12 +21,9 @@ import {
 import AccountsTable from './accounts/components/AccountsTable';
 import { useAccountActivity } from './accounts/useAccountActivity';
 import { useAccountCategories } from './accounts/useAccountCategories';
-import { useAccountsEditing } from './accounts/useAccountsEditing';
+import { useAccountSave } from './accounts/useAccountSave';
 import AccountsToolbarRight from './accounts/components/AccountsToolbarRight';
 import NewAccountModal from './accounts/components/NewAccountModal';
-import EditAccountModal from './accounts/components/EditAccountModal';
-import DeleteAccountModal from './accounts/components/DeleteAccountModal';
-import BalanceAdjustmentModal from './accounts/components/BalanceAdjustmentModal';
 import DebtDetailsModal from './accounts/components/DebtDetailsModal';
 
 const labels = copy.accounts;
@@ -36,7 +34,8 @@ const AccountsPage = () => {
     data: accounts = [],
     loading,
     error,
-    refetch: loadAccounts
+    refetch: loadAccounts,
+    setData: setAccounts
   } = useApi(async () => (await getAccounts()).accounts, {
     errorMessage: copy.accounts.loadFailed
   });
@@ -46,8 +45,6 @@ const AccountsPage = () => {
   const [showEmptyBudget, setShowEmptyBudget] = useState(false);
   const [showEmptyTracked, setShowEmptyTracked] = useState(false);
   const activity = useAccountActivity(accounts);
-  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
-  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const [debtAccountId, setDebtAccountId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('name_asc');
 
@@ -56,40 +53,16 @@ const AccountsPage = () => {
 
   const accountKindOptions = ACCOUNT_KIND_OPTIONS;
 
-  const {
-    inlineError,
-    renderBalanceCell,
-    startBalanceEditing,
-    balanceAdjustmentModal,
-    adjustingBalance,
-    handleCancelBalanceAdjustment,
-    handleConfirmBalanceAdjustment
-  } = useAccountsEditing({ loadAccounts });
+  const applyUpdated = useCallback(
+    (updated: Account) =>
+      setAccounts((current) => current?.map((account) => (account.id === updated.id ? updated : account))),
+    [setAccounts]
+  );
+  const saveAccount = useAccountSave(applyUpdated);
 
   const handleAccountCreated = useCallback(async () => {
     await loadAccounts();
   }, [loadAccounts]);
-
-  // Po zapisie w modalu odświeżamy listę i pilnujemy, by zarchiwizowane konto od
-  // razu było widoczne w archiwum (użytkownik właśnie je zarchiwizował).
-  const handleAccountSaved = useCallback(async () => {
-    const updated = await loadAccounts();
-    if (updated?.some((account) => account.is_closed)) {
-      setShowClosedAccounts(true);
-    }
-  }, [loadAccounts]);
-
-  // Trwałe usunięcie konta wypada z listy — po skasowaniu wystarczy odświeżyć dane.
-  const handleAccountDeleted = useCallback(async () => {
-    await loadAccounts();
-  }, [loadAccounts]);
-
-  // "Usuń konto" w modalu edycji zamyka edycję i otwiera osobne, potwierdzane
-  // okno kasowania dla tego samego konta.
-  const handleRequestDelete = useCallback(() => {
-    setDeletingAccountId(editingAccountId);
-    setEditingAccountId(null);
-  }, [editingAccountId]);
 
   const filteredAccounts = accounts.filter((account) => {
     if (!searchQuery.trim()) {
@@ -101,7 +74,7 @@ const AccountsPage = () => {
     return (
       account.name.toLowerCase().includes(needle) ||
       account.currency.toLowerCase().includes(needle) ||
-      (account.comment ?? '').toLowerCase().includes(needle) ||
+      (userComment(account.comment) ?? '').toLowerCase().includes(needle) ||
       kindLabel.toLowerCase().includes(needle) ||
       normalizeCategoryLabel(getCategoryLabel(account.category_id)).includes(normalizedNeedle)
     );
@@ -136,11 +109,19 @@ const AccountsPage = () => {
     <AccountsTable
       accounts={rows}
       activity={activity}
-      renderBalanceCell={renderBalanceCell}
       onOpen={(account) => navigate(`/accounts/${account.id}`)}
-      onEdit={(account) => setEditingAccountId(account.id)}
-      onChangeBalance={startBalanceEditing}
+      onSettings={(account) => navigate(`/accounts/${account.id}?tab=settings`)}
+      onReconcile={(account) => navigate(`/accounts/${account.id}?reconcile=1`)}
       onImport={(account) => navigate(`/bank-import?account=${encodeURIComponent(account.id)}`)}
+      onToggleArchived={(account) => {
+        if (!account.is_closed) setShowClosedAccounts(true);
+        void saveAccount(
+          account,
+          { is_closed: !account.is_closed },
+          { message: account.is_closed ? labels.settings.restored : labels.settings.archived }
+        );
+      }}
+      onRename={(account, name) => void saveAccount(account, { name })}
       onDebt={(account) => setDebtAccountId(account.id)}
     />
   );
@@ -170,14 +151,6 @@ const AccountsPage = () => {
     () => accounts.filter((account) => !account.is_closed),
     [accounts]
   );
-  const editingAccount = useMemo(
-    () => (editingAccountId ? accounts.find((account) => account.id === editingAccountId) ?? null : null),
-    [accounts, editingAccountId]
-  );
-  const deletingAccount = useMemo(
-    () => (deletingAccountId ? accounts.find((account) => account.id === deletingAccountId) ?? null : null),
-    [accounts, deletingAccountId]
-  );
   const debtAccount = useMemo(
     () => (debtAccountId ? accounts.find((account) => account.id === debtAccountId) ?? null : null),
     [accounts, debtAccountId]
@@ -201,7 +174,7 @@ const AccountsPage = () => {
         setSortOption={setSortOption}
       />
 
-      {[inlineError, categoryLoadError, !loading && error].filter(Boolean).map((message) => (
+      {[categoryLoadError, !loading && error].filter(Boolean).map((message) => (
         <p key={String(message)} className="accounts-error" role="alert">
           {message}
         </p>
@@ -236,34 +209,7 @@ const AccountsPage = () => {
           accountKindOptions={accountKindOptions}
         />
       )}
-      {editingAccount && (
-        <EditAccountModal
-          account={editingAccount}
-          onClose={() => setEditingAccountId(null)}
-          onSaved={handleAccountSaved}
-          onRequestDelete={handleRequestDelete}
-          categories={accountCategories}
-          ensureAccountCategory={ensureAccountCategory}
-          getCategoryLabel={getCategoryLabel}
-          accountKindOptions={accountKindOptions}
-        />
-      )}
-      {deletingAccount && (
-        <DeleteAccountModal
-          account={deletingAccount}
-          onClose={() => setDeletingAccountId(null)}
-          onDeleted={handleAccountDeleted}
-        />
-      )}
       {debtAccount && <DebtDetailsModal account={debtAccount} onClose={() => setDebtAccountId(null)} />}
-      {balanceAdjustmentModal && (
-        <BalanceAdjustmentModal
-          state={balanceAdjustmentModal}
-          submitting={adjustingBalance}
-          onCancel={handleCancelBalanceAdjustment}
-          onConfirm={() => void handleConfirmBalanceAdjustment()}
-        />
-      )}
     </div>
   );
 };

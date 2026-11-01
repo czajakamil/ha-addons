@@ -405,7 +405,7 @@ export const useTransactionsEditing = ({
       const storeGroupName = (store?.group_name ?? '').trim();
       const storeActualName = (store?.name ?? '').trim();
       const storeDisplayName = storeGroupName || storeActualName;
-      if (isBalanceAdjustment(storeDisplayName)) {
+      if (isBalanceAdjustment(storeDisplayName) || (!storeDisplayName && isBalanceAdjustment(transaction.comment))) {
         return <span className="transactions-muted">{BALANCE_ADJUSTMENT_LABEL}</span>;
       }
       return storeDisplayName ? (

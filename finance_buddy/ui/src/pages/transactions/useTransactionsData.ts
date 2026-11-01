@@ -19,7 +19,8 @@ import { SEARCH_DEBOUNCE_MS, appendTransactionsPage, fetchTransactionsPage } fro
 
 const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountId: '', categoryId: '' };
 
-export const useTransactionsData = () => {
+// `scopedAccountId`: lista na stronie konta, stale zawężona do tego konta (także zarchiwizowanego).
+export const useTransactionsData = (scopedAccountId?: string) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -32,7 +33,7 @@ export const useTransactionsData = () => {
   // Szczegóły konta prowadzą tu z gotowym filtrem (?account=)
   const [initialFilters] = useState<FilterState>(() => ({
     ...EMPTY_FILTERS,
-    accountId: new URLSearchParams(window.location.search).get('account') ?? ''
+    accountId: scopedAccountId ?? new URLSearchParams(window.location.search).get('account') ?? ''
   }));
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,12 +156,12 @@ export const useTransactionsData = () => {
   // Konto wybrane w filtrze mogło zostać zamknięte — traktujemy je wtedy jak brak
   // filtra (wyliczenie zamiast synchronizowania stanu w efekcie).
   const effectiveFilters = useMemo(() => {
-    if (!filters.accountId) {
+    if (!filters.accountId || scopedAccountId) {
       return filters;
     }
     const isActive = activeAccounts.some((account) => account.id === filters.accountId);
     return isActive ? filters : { ...filters, accountId: '' };
-  }, [filters, activeAccounts]);
+  }, [filters, activeAccounts, scopedAccountId]);
 
   const formatTransferLabel = useCallback(
     (tx: Transaction) => {

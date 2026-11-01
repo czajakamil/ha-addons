@@ -69,11 +69,20 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 
 ## Konta
 
-- **Lista kont bez edycji w komórkach.** Nazwę, typ, kategorię i walutę zmienia się w oknie „Edytuj”, a saldo przez „Zmień saldo” w menu „⋯”. Kliknięcie wiersza zajęły szczegóły konta. Z `useAccountsEditing` usunięto martwe renderery, a `renderBalanceCell` zostaje, bo obsługuje właśnie „Zmień saldo”.
+- **Edycja na stronie konta, nie w modalu.** Modal zostaje tylko dla „Nowe konto”. „Uzgodnij saldo” to dymek, a potwierdzenia zmian i usunięcia rozwijają się na stronie.
+- **Autozapis tylko dla nazwy, ikony, koloru i tagu,** z „Cofnij” po stronie frontendu (poprzednia wartość i ponowny PATCH). Status, waluta i typ wymagają potwierdzenia ze skutkiem i nie mają „Cofnij”, bo cofnięcie zmieniłoby budżet bez pokazania skutku.
+- **Skutek zmiany statusu podaje tylko pewną część kwoty.** Do przypisania to saldo kont budżetowych minus dostępne środki. Frontend zna saldo, a przesunięcia dostępnych środków nie policzy bez API, więc tekst mówi, że kwota może się dodatkowo zmienić.
+- **Dwuklik na nazwie na liście:** pojedynczy klik otwiera konto po 250 ms, inaczej dwuklik nigdy by nie zadziałał. Klawiatura otwiera od razu.
+- **„Saldo po” liczymy wstecz od bieżącego salda, w kolejności listy** (od najnowszego wpisu według `recorded_at`). Przy wyszukiwaniu i filtrach kolumna znika, bo brakujące wiersze dałyby złe kwoty.
+- **Kolumna Komentarz na stronie konta znika tylko, gdy żadna wczytana transakcja nie ma komentarza użytkownika.** Nazwy pozycji podziału trafiają wtedy do kolumny Sklep.
+- **Wykres zaczyna się od salda otwarcia,** czyli miesiąca przed pierwszą transakcją. Konto z jednego miesiąca dałoby inaczej pojedynczy punkt. Poniżej 700 px widać 6 ostatnich miesięcy. `@nivo/line` dochodzi jako zależność, zgodnie z decyzją o Nivo.
+- **Kolory konta:** szarość i 7 kolorów z `--chart-*`, bez `--chart-2`. Id `indigo` zostaje dla szarości, bo jest zapisane w bazie.
+- **Korekta salda:** API zapisuje komentarz „Wyrównanie salda konta”. Frontend pokazuje go jako „Korekta salda” i nie traktuje jako komentarza użytkownika.
+- **Waluta PLN przy kontach walutowych z YNAB pochodzi z importu,** który wpisuje PLN każdemu nowemu kontu (`scripts/import_ynab_data.py`). To nie błąd prezentacji; danych nie poprawiamy automatycznie.
 - **Szczegóły konta to osobny adres** (`/accounts/:id`) z wykresem salda na koniec miesiąca z ostatnich 12 miesięcy, odtworzonym wstecz z transakcji konta. API nie ma historii sald.
 - **Ostatnia aktywność to jedno żądanie na konto** (`/transactions?limit=1`), bo lista kont jej nie zwraca.
 - **Suma grupy obejmuje tylko konta w PLN.** Bez kursów nie da się uczciwie zsumować innych walut.
-- **Kolumna Komentarz i Tag zniknęły z listy.** Zostają w oknie edycji.
+- **Kolumna Komentarz i Tag zniknęły z listy.** Tag ustawia się w zakładce Ustawienia. Komentarz konta nie ma już pola edycji, a wyszukiwarka pomija automatyczne komentarze z importu.
 
 ## Raporty
 
@@ -90,7 +99,7 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Panel użytkownika ma nowy wygląd przez style globalne, bez przepisywania układu.** Sklepy i Przedmioty mają dodatkowo menu „Kolumny”, a Import z banku kreator w 3 krokach.
 - **Paleta Cmd+K:** dodanie wydatku, ekrany, konta i kategorie. Wybór kategorii otwiera Budżet. Skrót N działa poza polami tekstowymi.
 - **Dialog wydatku ma jedno pole kwoty ze znakiem,** jak Transakcje: wydatek z minusem, wpływ bez znaku. Pole startuje od „-”, więc zwykłe wpisanie kwoty daje wydatek, a wpływ wymaga skasowania znaku. Klawiatura dziesiętna iPhone'a nie ma minusa, więc inaczej nie dałoby się na niej wpisać wydatku. Pod polem na bieżąco widać „Wydatek: …” albo „Wpływ: …”. Kwota jest na górze z autofokusem. Podpowiedź kategorii to domyślna kategoria sklepu.
-- **Toasty (Sonner)** potwierdzają na razie tylko dodanie transakcji z palety. Akcji „cofnij” nie ma.
+- **Toasty (Sonner)** są na dole pośrodku. Potwierdzają dodanie transakcji z palety i zapisy na stronie konta, gdzie mają „Cofnij”.
 
 ## Układ przebudowanych ekranów
 

@@ -17,12 +17,14 @@ import Button from '../components/Button';
 import NewTransactionModal from '../components/transactions/NewTransactionModal';
 import DataTable, { type MoneyColumn } from '../components/DataTable';
 import EmptyState from '../components/ui/EmptyState';
-import Money from '../components/ui/Money';
+import Money, { formatSignedMoney } from '../components/ui/Money';
 import PageHeader from '../components/ui/PageHeader';
 import SkeletonRows from '../components/ui/SkeletonRows';
 import TruncatedText from '../components/ui/TruncatedText';
 import { copy } from '../copy/pl';
 import { formatDayHeading } from '../utils/date';
+import { userComment } from '../utils/transactionLabels';
+import { buildBalanceAfter } from './accounts/balanceHistory';
 import { DEFAULT_COLUMN_WIDTHS, type FilterState } from './transactions/model';
 import {
   buildTransactionGridRows,
@@ -45,8 +47,21 @@ const DAY_ROW_HEIGHT = 32;
 const COMPACT_ROW_HEIGHT = 56;
 const LOAD_MORE_THRESHOLD_PX = 600;
 const COLUMN_WIDTH_TABLE_ID = 'transactions';
+const ACCOUNT_COLUMN_WIDTH_TABLE_ID = 'account-transactions';
+const BALANCE_AFTER_WIDTH = 128;
 
-const TransactionsPage = () => {
+// Ta sama lista na stronie konta: bez nagłówka strony, wyboru konta i kolumny konta,
+// za to z saldem po transakcji.
+export type TransactionsAccountScope = {
+  accountId: string;
+  balanceCents: number;
+  currency: string;
+  // Zmiana wartości wczytuje listę od nowa, np. po korekcie salda
+  reloadKey: number;
+  onChanged: () => void;
+};
+
+const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const navigate = useNavigate();
   const untaggedCount = useUntaggedCount();
   // Na telefonie wiersz to sklep, konto i kwota; szczegóły otwiera dotknięcie
@@ -99,13 +114,31 @@ const TransactionsPage = () => {
     categoryMap,
     productMap,
     getLookupDisplayValue
-  } = useTransactionsData();
+  } = useTransactionsData(scope?.accountId);
 
   const openTransactionDetails = useCallback(
     (transactionId: string) => {
       navigate(`/transactions/${transactionId}`);
     },
     [navigate]
+  );
+
+  const onScopeChanged = scope?.onChanged;
+  const scopeReloadKey = scope?.reloadKey;
+  const appliedReloadKeyRef = useRef(scopeReloadKey);
+  useEffect(() => {
+    if (appliedReloadKeyRef.current === scopeReloadKey) return;
+    appliedReloadKeyRef.current = scopeReloadKey;
+    void loadTransactions(filters);
+  }, [scopeReloadKey, filters, loadTransactions]);
+
+  // Edycja w komórce może zmienić kwotę, a więc saldo i wykres na stronie konta
+  const setEditedTransactions = useCallback<typeof setTransactions>(
+    (update) => {
+      setTransactions(update);
+      onScopeChanged?.();
+    },
+    [setTransactions, onScopeChanged]
   );
 
   const {
@@ -120,7 +153,7 @@ const TransactionsPage = () => {
     handleGridCellKeyDown: handleEditingCellKeyDown
   } = useTransactionsEditing({
     transactions,
-    setTransactions,
+    setTransactions: setEditedTransactions,
     accounts,
     activeAccounts,
     stores,
@@ -225,6 +258,7 @@ const TransactionsPage = () => {
     try {
       await deleteTransaction(transaction.id);
       await loadTransactions(filters);
+      onScopeChanged?.();
     } catch (err) {
       console.error(err);
       setInlineError(labels.deleteFailed);
@@ -271,6 +305,20 @@ const TransactionsPage = () => {
     () => buildTransactionGridRows(transactions, expandedIds, productMap, categoryMap),
     [transactions, expandedIds, productMap, categoryMap]
   );
+
+  // Saldo po transakcji liczymy wstecz od bieżącego, więc lista musi być ciągła od
+  // najnowszej: przy wyszukiwaniu lub filtrach brakujące wiersze dałyby złe kwoty.
+  const listIsContinuous =
+    !searchQuery.trim() && !filters.startDate && !filters.endDate && !filters.categoryId;
+  const scopeBalanceCents = scope?.balanceCents;
+  const balanceAfter = useMemo(
+    () =>
+      scopeBalanceCents !== undefined && listIsContinuous
+        ? buildBalanceAfter(scopeBalanceCents, transactions)
+        : null,
+    [scopeBalanceCents, listIsContinuous, transactions]
+  );
+  const hideCommentColumn = Boolean(scope) && !transactions.some((tx) => userComment(tx.comment));
 
   const renderSplitToggle = (transaction: Transaction) => {
     const { itemCount, tagCount } = splitInfoOf(transaction, productMap);
@@ -325,7 +373,9 @@ const TransactionsPage = () => {
         return (
           <div className="transactions-compact">
             {renderLookupCell(row.transaction, 'store')}
-            <span className="transactions-compact__meta">{accountMap.get(row.transaction.account_id)?.name}</span>
+            {!scope && (
+              <span className="transactions-compact__meta">{accountMap.get(row.transaction.account_id)?.name}</span>
+            )}
           </div>
         );
       }
@@ -333,16 +383,28 @@ const TransactionsPage = () => {
     {
       key: 'amount',
       name: labels.columns.amount,
-      width: 112,
+      // Na stronie konta mieści też podpis z saldem
+      width: scope ? 144 : 112,
       resizable: false,
       cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
       headerCellClass: 'transactions-grid__cell--numeric',
       renderCell: ({ row }) =>
         row.kind === 'transaction' ? (
-          <Money cents={row.transaction.total_cents} currency={row.transaction.currency} />
+          <div className="transactions-compact transactions-compact--numeric">
+            <Money cents={row.transaction.total_cents} currency={row.transaction.currency} />
+            {balanceAfter?.has(row.transaction.id) && (
+              <span className="transactions-compact__meta">
+                {labels.balanceAfterShort}{' '}
+                {formatSignedMoney(balanceAfter.get(row.transaction.id) ?? 0, scope?.currency)}
+              </span>
+            )}
+          </div>
         ) : null
     }
   ];
+
+  // Wiersz dnia sięga do kolumny kwoty, a jej pozycja zależy od ukrytych kolumn
+  const dayRowColumns = 6 - (scope ? 1 : 0) - (hideCommentColumn ? 1 : 0);
 
   const fullColumns: readonly MoneyColumn<TransactionGridRow>[] = [
     {
@@ -350,7 +412,7 @@ const TransactionsPage = () => {
       name: '',
       width: DEFAULT_COLUMN_WIDTHS.select,
       resizable: false,
-      colSpan: dayRowSpan(6),
+      colSpan: dayRowSpan(dayRowColumns),
       renderHeaderCell: () => {
         const allSelected = transactions.length > 0 && transactions.every((tx) => selectedIds.has(tx.id));
         return (
@@ -383,17 +445,27 @@ const TransactionsPage = () => {
     {
       key: 'store',
       name: labels.columns.store,
-      width: DEFAULT_COLUMN_WIDTHS.store,
-      renderCell: ({ row }) =>
-        row.kind === 'transaction' ? renderLookupCell(row.transaction, 'store') : null
+      width: hideCommentColumn ? undefined : DEFAULT_COLUMN_WIDTHS.store,
+      renderCell: ({ row }) => {
+        if (row.kind === 'transaction') return renderLookupCell(row.transaction, 'store');
+        // Bez kolumny komentarza nazwa pozycji podziału trafia tutaj
+        if (row.kind === 'item' && hideCommentColumn) {
+          return <TruncatedText text={itemLabel(row.productName, row.item)} />;
+        }
+        return null;
+      }
     },
-    {
-      key: 'account',
-      name: labels.columns.account,
-      width: DEFAULT_COLUMN_WIDTHS.account,
-      renderCell: ({ row }) =>
-        row.kind === 'transaction' ? renderLookupCell(row.transaction, 'account') : null
-    },
+    ...(scope
+      ? []
+      : [
+          {
+            key: 'account',
+            name: labels.columns.account,
+            width: DEFAULT_COLUMN_WIDTHS.account,
+            renderCell: ({ row }: { row: TransactionGridRow }) =>
+              row.kind === 'transaction' ? renderLookupCell(row.transaction, 'account') : null
+          }
+        ]),
     {
       key: 'category',
       name: labels.columns.category,
@@ -411,16 +483,20 @@ const TransactionsPage = () => {
         );
       }
     },
-    {
-      key: 'comment',
-      name: labels.columns.comment,
-      width: DEFAULT_COLUMN_WIDTHS.comment,
-      renderCell: ({ row }) => {
-        if (row.kind === 'day') return null;
-        if (row.kind === 'item') return <TruncatedText text={itemLabel(row.productName, row.item)} />;
-        return renderCommentCell(row.transaction);
-      }
-    },
+    ...(hideCommentColumn
+      ? []
+      : [
+          {
+            key: 'comment',
+            name: labels.columns.comment,
+            width: DEFAULT_COLUMN_WIDTHS.comment,
+            renderCell: ({ row }: { row: TransactionGridRow }) => {
+              if (row.kind === 'day') return null;
+              if (row.kind === 'item') return <TruncatedText text={itemLabel(row.productName, row.item)} />;
+              return renderCommentCell(row.transaction);
+            }
+          }
+        ]),
     {
       key: 'amount',
       name: labels.columns.amount,
@@ -436,6 +512,23 @@ const TransactionsPage = () => {
         return renderAmountCell(row.transaction);
       }
     },
+    ...(balanceAfter
+      ? [
+          {
+            key: 'balance_after',
+            name: labels.columns.balanceAfter,
+            width: BALANCE_AFTER_WIDTH,
+            cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
+            headerCellClass: 'transactions-grid__cell--numeric',
+            renderCell: ({ row }: { row: TransactionGridRow }) => {
+              const cents = row.kind === 'transaction' ? balanceAfter.get(row.transaction.id) : undefined;
+              return cents === undefined ? null : (
+                <Money cents={cents} currency={scope?.currency} tone={cents < 0 ? 'negative' : 'neutral'} />
+              );
+            }
+          }
+        ]
+      : []),
     {
       key: 'status',
       name: '',
@@ -583,7 +676,8 @@ const TransactionsPage = () => {
   const hasMore = totalCount === null || transactions.length < totalCount;
   const noResults = !loading && !error && transactions.length === 0;
   const hasActiveFilters =
-    Boolean(searchQuery.trim()) || Object.values(filters).some((value) => Boolean(value));
+    Boolean(searchQuery.trim()) ||
+    Boolean(filters.startDate || filters.endDate || filters.categoryId || (filters.accountId && !scope));
 
   // Kolejne strony doładowują się same, zanim użytkownik dojedzie do końca listy
   const handleGridScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -596,23 +690,25 @@ const TransactionsPage = () => {
   const countLabel = totalCount === null ? `${transactions.length}+` : String(totalCount);
 
   return (
-    <div className="page-shell transactions-page">
-      <PageHeader
-        title={labels.title}
-        actions={
-          <>
-            {untaggedCount ? (
-              <button type="button" className="text-button" onClick={() => navigate('/transactions/untagged')}>
-                <Tags size={14} aria-hidden="true" />
-                {labels.toTag(untaggedCount)}
-              </button>
-            ) : null}
-            <Button icon={<Plus size={16} aria-hidden="true" />} onClick={() => setShowModal(true)}>
-              {labels.newTransaction}
-            </Button>
-          </>
-        }
-      />
+    <div className={scope ? 'transactions-page transactions-page--account' : 'page-shell transactions-page'}>
+      {!scope && (
+        <PageHeader
+          title={labels.title}
+          actions={
+            <>
+              {untaggedCount ? (
+                <button type="button" className="text-button" onClick={() => navigate('/transactions/untagged')}>
+                  <Tags size={14} aria-hidden="true" />
+                  {labels.toTag(untaggedCount)}
+                </button>
+              ) : null}
+              <Button icon={<Plus size={16} aria-hidden="true" />} onClick={() => setShowModal(true)}>
+                {labels.newTransaction}
+              </Button>
+            </>
+          }
+        />
+      )}
       <p className="sr-only" aria-live="polite">
         {loading ? '' : formatOperationsCount(transactions.length)}
       </p>
@@ -624,6 +720,7 @@ const TransactionsPage = () => {
         onSearchChange={setSearchQuery}
         activeAccounts={activeAccounts}
         categories={categories}
+        accountLocked={Boolean(scope)}
       />
 
       {selectedIds.size > 0 && (
@@ -686,7 +783,7 @@ const TransactionsPage = () => {
         {!loading && !error && !noResults && (
           <DataTable
             aria-label={labels.gridLabel}
-            tableId={COLUMN_WIDTH_TABLE_ID}
+            tableId={scope ? ACCOUNT_COLUMN_WIDTH_TABLE_ID : COLUMN_WIDTH_TABLE_ID}
             className="transactions-grid"
             columns={transactionsGridColumns}
             rows={gridRows}
@@ -718,6 +815,7 @@ const TransactionsPage = () => {
         onClose={() => setShowModal(false)}
         onCreated={async () => {
           await loadTransactions(filters);
+          onScopeChanged?.();
         }}
       />
 

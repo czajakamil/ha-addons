@@ -1,5 +1,12 @@
 # Changelog
 
+## Niewydane
+
+- Konto edytuje się na jego stronie: zakładki Transakcje i Ustawienia, zmiana nazwy w miejscu, „Uzgodnij saldo”,
+  autozapis z „Cofnij”, a przy statusie, walucie i typie potwierdzenie ze skutkiem.
+- Lista transakcji konta ma kolumnę „Saldo po”, a wykres salda to neutralna linia od pierwszej transakcji.
+- Lista kont: dwuklik zmienia nazwę, a menu „⋯” ma „Ustawienia konta” i archiwizację.
+
 ## 0.1.2
 
 - Ekran Start zajmuje całą szerokość, a na szerokim ekranie układa się w dwie kolumny.

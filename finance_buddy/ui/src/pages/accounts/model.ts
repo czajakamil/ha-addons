@@ -1,6 +1,9 @@
 // Typy, stałe i czyste helpery strony kont — bez stanu i bez JSX.
 import { Account, AccountKind } from '../../api';
 
+// Kolejność w selekcie: najczęstsze na górze, reszta alfabetycznie.
+export const TOP_CURRENCIES = ['PLN', 'EUR', 'USD'];
+
 export const currencyOptions = [
   { code: 'PLN', name: 'Polski złoty' },
   { code: 'USD', name: 'Dolar amerykański' },
@@ -31,7 +34,7 @@ export type BudgetLabelValue = 'on' | 'off';
 export const normalizeAccountKind = (value?: string | null) =>
   (value ?? '').trim().toLowerCase().replace(/\s+/g, '').replace(/_/g, '');
 
-export type AccountKindOption = { value: AccountKind; label: string };
+export type AccountKindOption = { value: AccountKind; label: string; description: string };
 
 // Typ konta niesie tylko jedną oś znaczenia: aktywo / kredyt odnawialny /
 // zobowiązanie. `creditcard` uruchamia specjalną logikę budżetu (kategoria
@@ -39,9 +42,9 @@ export type AccountKindOption = { value: AccountKind; label: string };
 // zbiera wszystkie aktywa. Rozróżnianie konta osobistego, oszczędnościowego
 // czy gotówki to organizacja — od tego są nazwa i tagi.
 export const ACCOUNT_KIND_OPTIONS: AccountKindOption[] = [
-  { value: 'cash', label: 'Aktywo' },
-  { value: 'creditcard', label: 'Karta kredytowa' },
-  { value: 'liability', label: 'Zobowiązanie' }
+  { value: 'cash', label: 'Aktywo', description: 'Pieniądze, które masz: rachunek, oszczędności, gotówka.' },
+  { value: 'creditcard', label: 'Karta kredytowa', description: 'Kredyt odnawialny: budżet śledzi kategorię spłaty.' },
+  { value: 'liability', label: 'Zobowiązanie', description: 'Dług: kredyt lub pożyczka, z widokiem rat i harmonogramu.' }
 ];
 
 const ACCOUNT_KIND_LABELS = new Map<string, string>(
@@ -71,17 +74,12 @@ export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'balance_asc', label: 'Saldo rosnąco' }
 ];
 
-export type BalanceAdjustmentModalState = {
-  account: Account;
-  targetBalanceCents: number;
-};
-
 // Znormalizowane porównywanie ścieżek kategorii ("A / B" ~ "a/b") przy wyszukiwaniu.
 export const normalizeCategoryLabel = (value: string) =>
   value.replace(/\s*\/\s*/g, '/').trim().toLowerCase();
 
 const DORMANT_AFTER_DAYS = 90;
-const MAIN_CURRENCY = 'PLN';
+export const MAIN_CURRENCY = 'PLN';
 
 /** Konto z zerowym saldem i bez ruchu od 90 dni. Brak daty oznacza, że aktywność jeszcze się wczytuje. */
 export const isDormantAccount = (account: Account, lastActivity: string | null | undefined) => {
