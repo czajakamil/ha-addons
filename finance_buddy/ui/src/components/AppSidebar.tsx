@@ -36,6 +36,10 @@ export const navGroups: { label: string; links: { to: string; label: string; ico
     ]
   },
   {
+    label: copy.nav.groups.analysis,
+    links: [{ to: '/reports', label: copy.nav.reports, icon: ChartColumn }]
+  },
+  {
     label: copy.nav.groups.data,
     links: [
       { to: '/accounts', label: copy.nav.accounts, icon: Wallet },
@@ -45,10 +49,6 @@ export const navGroups: { label: string; links: { to: string; label: string; ico
       { to: '/items', label: copy.nav.items, icon: Package },
       { to: '/tags', label: copy.nav.tags, icon: Tags }
     ]
-  },
-  {
-    label: copy.nav.groups.analysis,
-    links: [{ to: '/reports', label: copy.nav.reports, icon: ChartColumn }]
   }
 ];
 
