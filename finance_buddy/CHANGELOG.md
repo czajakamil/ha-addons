@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.5
+
+- Transakcje: poza telefonem osobne kolumny Wydatek i Wpływ. Kwotę wpisuje się bez znaku, a wpisanie jej
+  po drugiej stronie zamienia wydatek na wpływ i odwrotnie.
+- Lista wyboru w komórce ma sekcje „Sklepy” i „Przelew na konto” i zapisuje wybraną pozycję,
+  a nie jej nazwę.
+- Panel ma układ wierszy ustawień. Nowy użytkownik, reset dostępu i usunięcie konta idą przez okna,
+  a usunięcie wymaga wpisania nazwy.
+- Klucz `ynab_api_key` z konfiguracji ma pierwszeństwo przed zapisanym w aplikacji, a panel nie pokazuje
+  wtedy pola na klucz.
+
 ## 0.1.4
 
 - Nowa sekcja Sklepy: lista grupowana, strona sklepu i statystyki liczone z bazy.
