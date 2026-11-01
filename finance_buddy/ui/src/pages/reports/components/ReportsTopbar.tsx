@@ -1,4 +1,5 @@
 import { CSSProperties, useCallback, useMemo } from 'react';
+import { Calendar } from 'lucide-react';
 import Button from '../../../components/Button';
 import PopoverFilter from '../../../components/PopoverFilter';
 import {
@@ -211,7 +212,7 @@ const ReportsTopbar = ({ controller }: ReportsTopbarProps) => {
                   onClick={onToggle}
                 >
                   <span className="reports-date-trigger__icon" aria-hidden="true">
-                    📅
+                    <Calendar size={16} />
                   </span>
                   <div className="reports-date-trigger__labels">
                     <span className="reports-date-trigger__value">

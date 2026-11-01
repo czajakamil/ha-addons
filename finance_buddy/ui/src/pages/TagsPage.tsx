@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconAlertCircle, IconChevronDown, IconChevronRight, IconPlus, IconTrash } from '@tabler/icons-react';
+import { ChevronDownIcon, ChevronRightIcon, CircleAlertIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import {
   type Category,
   type CategoryDeletePreview,
@@ -205,9 +205,9 @@ const TagRow = ({
         >
           {children.length ? (
             isExpanded ? (
-              <IconChevronDown size={14} aria-hidden="true" />
+              <ChevronDownIcon size={14} aria-hidden="true" />
             ) : (
-              <IconChevronRight size={14} aria-hidden="true" />
+              <ChevronRightIcon size={14} aria-hidden="true" />
             )
           ) : (
             <span className="tags-tree__toggle-spacer" />
@@ -247,7 +247,7 @@ const TagRow = ({
             onClick={() => void handleDelete()}
             disabled={deleting}
           >
-            <IconTrash size={14} aria-hidden="true" />
+            <Trash2Icon size={14} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -407,7 +407,7 @@ const TagsPage = () => {
                   />
                 </div>
                 <Button
-                  icon={<IconPlus size={16} aria-hidden="true" />}
+                  icon={<PlusIcon size={16} aria-hidden="true" />}
                   onClick={() => void handleCreateTag()}
                   disabled={creating || !newTagPath.trim()}
                 >
@@ -419,7 +419,7 @@ const TagsPage = () => {
             {(error || rowsError) && (
               <div className="accounts-section-card__alert">
                 <div className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0" role="alert">
-                  <IconAlertCircle size={18} aria-hidden="true" />
+                  <CircleAlertIcon size={18} aria-hidden="true" />
                   <div>{rowsError ?? error}</div>
                 </div>
               </div>

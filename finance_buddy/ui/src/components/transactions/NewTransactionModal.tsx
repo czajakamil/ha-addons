@@ -116,8 +116,8 @@ const NewTransactionModal = ({
     let outflowCents: number;
     let inflowCents: number;
     try {
-      outflowCents = parseMoneyInput(formState.outflow, 'Outflow');
-      inflowCents = parseMoneyInput(formState.inflow, 'Inflow');
+      outflowCents = parseMoneyInput(formState.outflow, 'Wydatek');
+      inflowCents = parseMoneyInput(formState.inflow, 'Wpływ');
     } catch (parseError) {
       const message = parseError instanceof Error ? parseError.message : 'Podaj prawidłowe kwoty.';
       setError(message);
@@ -200,6 +200,53 @@ const NewTransactionModal = ({
                   </div>
                 )}
                 <div className="mb-3">
+                  <label className="form-label mb-2">Kwota</label>
+                  <div className="row g-3 align-items-end">
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="transaction-outflow">
+                        Wydatek
+                      </label>
+                      <div className="input-group">
+                        <span className="input-group-text">{selectedCurrency}</span>
+                        <input
+                          id="transaction-outflow"
+                          autoFocus
+                          type="number"
+                          className="form-control"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formState.outflow}
+                          onChange={(event) => handleInputChange('outflow', event.target.value)}
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="transaction-inflow">
+                        Wpływ
+                      </label>
+                      <div className="input-group">
+                        <span className="input-group-text">{selectedCurrency}</span>
+                        <input
+                          id="transaction-inflow"
+                          type="number"
+                          className="form-control"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formState.inflow}
+                          onChange={(event) => handleInputChange('inflow', event.target.value)}
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="form-hint mt-1">
+                    Wpisz kwotę bez znaku w polu Wydatek albo Wpływ.
+                  </div>
+                </div>
+                <div className="mb-3">
                   <label className="form-label" htmlFor="transaction-date">
                     Data
                   </label>
@@ -280,7 +327,16 @@ const NewTransactionModal = ({
                     id="transaction-store"
                     className="form-select"
                     value={formState.storeId}
-                    onChange={(event) => handleInputChange('storeId', event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      handleInputChange('storeId', value);
+                      // Podpowiedź kategorii: domyślna kategoria sklepu, gdy pole jest jeszcze puste
+                      const suggested = stores.find((store) => store.id === value)?.automatic_category_id;
+                      const category = categories.find((entry) => entry.id === suggested);
+                      if (category && !formState.categoryPath.trim()) {
+                        handleInputChange('categoryPath', category.path || category.name);
+                      }
+                    }}
                     disabled={submitting || !!formState.transferAccountId}
                   >
                     <option value="">Brak</option>
@@ -318,7 +374,7 @@ const NewTransactionModal = ({
                         onChange={(event) => handleInputChange('cleared', event.target.checked)}
                         disabled={submitting}
                       />
-                      <span className="form-check-label">Cleared</span>
+                      <span className="form-check-label">Zatwierdzona</span>
                     </label>
                     <label className="form-check">
                       <input
@@ -328,7 +384,7 @@ const NewTransactionModal = ({
                         onChange={(event) => handleInputChange('reconciled', event.target.checked)}
                         disabled={submitting}
                       />
-                      <span className="form-check-label">Reconciled</span>
+                      <span className="form-check-label">Uzgodniona</span>
                     </label>
                   </div>
                 </div>
@@ -344,52 +400,6 @@ const NewTransactionModal = ({
                     onChange={(event) => handleInputChange('comment', event.target.value)}
                     disabled={submitting}
                   />
-                </div>
-                <div className="mb-0">
-                  <label className="form-label mb-2">Kwota</label>
-                  <div className="row g-3 align-items-end">
-                    <div className="col-md-6">
-                      <label className="form-label" htmlFor="transaction-outflow">
-                        Outflow
-                      </label>
-                      <div className="input-group">
-                        <span className="input-group-text">{selectedCurrency}</span>
-                        <input
-                          id="transaction-outflow"
-                          type="number"
-                          className="form-control"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={formState.outflow}
-                          onChange={(event) => handleInputChange('outflow', event.target.value)}
-                          disabled={submitting}
-                        />
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label" htmlFor="transaction-inflow">
-                        Inflow
-                      </label>
-                      <div className="input-group">
-                        <span className="input-group-text">{selectedCurrency}</span>
-                        <input
-                          id="transaction-inflow"
-                          type="number"
-                          className="form-control"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={formState.inflow}
-                          onChange={(event) => handleInputChange('inflow', event.target.value)}
-                          disabled={submitting}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="form-hint mt-1">
-                    Wpisuj wartości dodatnie: Outflow zapisujemy w bazie jako kwotę ujemną, Inflow jako dodatnią.
-                  </div>
                 </div>
               </div>
               <div className="modal-footer">

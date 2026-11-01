@@ -1,13 +1,7 @@
 // Pure model layer for ReportsPage: types, constants and side-effect-free
 // helpers. Extracted from ReportsPage.tsx to keep the page component focused on
 // state and rendering. Nothing here touches React state or the DOM.
-import {
-  IconArrowsLeftRight,
-  IconChartAreaLine,
-  IconChartLine,
-  IconChartPie,
-  IconChartSankey
-} from '@tabler/icons-react';
+import { ArrowLeftRightIcon, ChartAreaIcon, ChartLineIcon, ChartPieIcon, WorkflowIcon } from 'lucide-react';
 import type { Category, IncomeExpenseCategoryRow, IncomeExpenseMonthRow } from '../../api';
 import { DATA_TABLE_ROW_HEIGHT } from '../../components/DataTable';
 import { formatMoney } from '../../utils/format';
@@ -200,12 +194,12 @@ export const aggregateCategories = (months: IncomeExpenseMonthRow[], type: 'inco
 };
 
 export const REPORT_TABS = [
-  { id: 'spending-breakdown', label: 'Struktura wydatków', icon: IconChartPie },
-  { id: 'account-categories', label: 'Tagi kont', icon: IconChartPie },
-  { id: 'spending-trends', label: 'Trendy', icon: IconChartLine },
-  { id: 'net-worth', label: 'Majątek netto', icon: IconChartAreaLine },
-  { id: 'snakey', label: 'Przepływy', icon: IconChartSankey },
-  { id: 'income-expense', label: 'Przychody i wydatki', icon: IconArrowsLeftRight }
+  { id: 'spending-breakdown', label: 'Struktura wydatków', icon: ChartPieIcon },
+  { id: 'account-categories', label: 'Tagi kont', icon: ChartPieIcon },
+  { id: 'spending-trends', label: 'Trendy', icon: ChartLineIcon },
+  { id: 'net-worth', label: 'Majątek netto', icon: ChartAreaIcon },
+  { id: 'snakey', label: 'Przepływy', icon: WorkflowIcon },
+  { id: 'income-expense', label: 'Przychody i wydatki', icon: ArrowLeftRightIcon }
 ] as const;
 
 export type ReportTabId = (typeof REPORT_TABS)[number]['id'];

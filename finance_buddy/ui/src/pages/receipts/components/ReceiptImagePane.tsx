@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconFileText, IconMinus, IconPlus, IconZoomScan } from '@tabler/icons-react';
+import { FileTextIcon, MinusIcon, PlusIcon, ScanSearchIcon } from 'lucide-react';
 import Button from '../../../components/Button';
 import { fetchReceiptDraftImage } from '../../../api';
 
@@ -77,7 +77,7 @@ const ReceiptImagePane = ({ draftId, hasImage, label }: ReceiptImagePaneProps) =
         <Button
           variant="outline-secondary"
           size="sm"
-          icon={<IconMinus size={16} />}
+          icon={<MinusIcon size={16} />}
           onClick={() => stepZoom(-1)}
           aria-label="Pomniejsz"
         >
@@ -89,7 +89,7 @@ const ReceiptImagePane = ({ draftId, hasImage, label }: ReceiptImagePaneProps) =
         <Button
           variant="outline-secondary"
           size="sm"
-          icon={<IconPlus size={16} />}
+          icon={<PlusIcon size={16} />}
           onClick={() => stepZoom(1)}
           aria-label="Powiększ"
         >
@@ -98,7 +98,7 @@ const ReceiptImagePane = ({ draftId, hasImage, label }: ReceiptImagePaneProps) =
         <Button
           variant="outline-secondary"
           size="sm"
-          icon={<IconZoomScan size={16} />}
+          icon={<ScanSearchIcon size={16} />}
           onClick={() => {
             setFitMode(true);
             setZoom(1);
@@ -117,7 +117,7 @@ const ReceiptImagePane = ({ draftId, hasImage, label }: ReceiptImagePaneProps) =
           />
         ) : (
           <div className="receipt-pane__empty text-secondary">
-            <IconFileText size={20} />
+            <FileTextIcon size={20} />
             <span>{error ?? (hasImage ? 'Wczytywanie obrazu…' : 'Ten szkic nie ma obrazu.')}</span>
           </div>
         )}

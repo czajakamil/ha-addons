@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  IconArrowRight,
-  IconBook,
-  IconDatabaseImport,
-  IconEye,
-  IconEyeOff,
-  IconLock,
-  IconRocket,
-  IconSparkles,
-} from '@tabler/icons-react';
+import { ArrowRightIcon, BookIcon, EyeIcon, EyeOffIcon, ImportIcon, LockIcon, RocketIcon, SparklesIcon } from 'lucide-react';
 import {
   getYnabSettings,
   importYnabBudget,
@@ -272,7 +263,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
           <section className="welcome__card welcome__card--primary">
             <header className="welcome__card-header">
               <div className="welcome__icon">
-                <IconRocket size={22} stroke={1.6} />
+                <RocketIcon size={22} strokeWidth={1.6} />
               </div>
               <div>
                 <p className="welcome__card-eyebrow">Szybki start</p>
@@ -292,7 +283,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 onClick={onStartFresh}
               >
                 Rozpocznij od zera
-                <IconArrowRight size={18} aria-hidden="true" />
+                <ArrowRightIcon size={18} aria-hidden="true" />
               </button>
 
               <button
@@ -302,7 +293,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 disabled={!hasDemo || loadingDemo}
               >
                 {loadingDemo ? 'Ładuję…' : 'Zobacz budżet testowy'}
-                <IconSparkles size={16} aria-hidden="true" />
+                <SparklesIcon size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -316,7 +307,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
           <section className="welcome__card welcome__card--accent">
             <header className="welcome__card-header">
               <div className="welcome__icon welcome__icon--accent">
-                <IconDatabaseImport size={22} stroke={1.6} />
+                <ImportIcon size={22} strokeWidth={1.6} />
               </div>
               <div>
                 <p className="welcome__card-eyebrow">Automatyczny import</p>
@@ -335,7 +326,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
 
             <div className={`welcome__control ${apiKeyInvalid ? 'welcome__control--error' : ''}`}>
               <div className="welcome__input-icon" aria-hidden="true">
-                <IconLock size={16} stroke={1.6} />
+                <LockIcon size={16} strokeWidth={1.6} />
               </div>
 
               <input
@@ -364,7 +355,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 aria-label={showApiKey ? 'Ukryj klucz API' : 'Pokaż klucz API'}
                 title={showApiKey ? 'Ukryj' : 'Pokaż'}
               >
-                {showApiKey ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                {showApiKey ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
               </button>
 
               <button
@@ -393,7 +384,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
 
                 <div className="welcome__control">
                   <div className="welcome__input-icon" aria-hidden="true">
-                    <IconDatabaseImport size={16} stroke={1.6} />
+                    <ImportIcon size={16} strokeWidth={1.6} />
                   </div>
 
                   <select
@@ -425,7 +416,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 disabled={busy || !canUseKey || !selectedBudgetId}
               >
                 {importing ? 'Importuję…' : importButtonLabel}
-                <IconArrowRight size={18} aria-hidden="true" />
+                <ArrowRightIcon size={18} aria-hidden="true" />
               </button>
 
               <button
@@ -437,7 +428,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                   setShowFaq((open) => !open);
                 }}
               >
-                <IconBook size={16} aria-hidden="true" />
+                <BookIcon size={16} aria-hidden="true" />
                 Dowiedz się więcej o imporcie YNAB
               </button>
             </div>
@@ -512,7 +503,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                   onClick={onImportComplete}
                 >
                   Przejdź do aplikacji
-                  <IconArrowRight size={18} aria-hidden="true" />
+                  <ArrowRightIcon size={18} aria-hidden="true" />
                 </button>
               </div>
             )}
@@ -521,7 +512,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
 
         <div className="welcome__footer">
           <div className="welcome__trust">
-            <IconLock size={16} aria-hidden="true" />
+            <LockIcon size={16} aria-hidden="true" />
             <span>
               Dane aplikacji są lokalnie. Import łączy się bezpośrednio z YNAB tylko po to, żeby je
               pobrać.

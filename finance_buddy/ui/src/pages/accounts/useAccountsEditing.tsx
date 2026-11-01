@@ -16,7 +16,7 @@ import {
 import TagEditCell from '../../components/tags/TagEditCell';
 import { useTagCellEditing } from '../../components/tags/useTagCellEditing';
 import Money from '../../components/ui/Money';
-import { formatMoney, parseAmountToCents } from '../../utils/format';
+import { parseAmountToCents } from '../../utils/format';
 import { captureGridCellAnchor, refocusGridCell } from '../../utils/gridFocus';
 import AccountAvatar from './components/AccountAvatar';
 import {

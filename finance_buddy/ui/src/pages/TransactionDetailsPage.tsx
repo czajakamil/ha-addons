@@ -1,18 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  IconAlertCircle,
-  IconArrowLeft,
-  IconCheck,
-  IconCircleDot,
-  IconFlag,
-  IconLink,
-  IconPhoto,
-  IconPhotoPlus,
-  IconRefresh,
-  IconTrash,
-  IconPlus
-} from '@tabler/icons-react';
+import { ArrowLeftIcon, CheckIcon, CircleAlertIcon, CircleDotIcon, FlagIcon, ImageIcon, ImagePlusIcon, LinkIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import Button from '../components/Button';
 import TagPathInput from '../components/tags/TagPathInput';
 import { TagChip } from '../components/tags/TagChip';
@@ -83,8 +71,8 @@ const STATUS_PRESENTATION: Record<
   { label: string; description: string; tone: 'neutral' | 'success' | 'info' }
 > = {
   pending: { label: 'Przetwarzana', description: 'Oczekuje na potwierdzenie', tone: 'info' },
-  cleared: { label: 'Cleared', description: 'Zaksięgowana w banku', tone: 'neutral' },
-  reconciled: { label: 'Reconciled', description: 'Sprawdzona i uzgodniona', tone: 'success' }
+  cleared: { label: 'Zatwierdzona', description: 'Zaksięgowana w banku', tone: 'neutral' },
+  reconciled: { label: 'Uzgodniona', description: 'Sprawdzona i uzgodniona', tone: 'success' }
 };
 
 const getStatusState = (transaction: TransactionDetail | null): TransactionStatusState => {
@@ -137,9 +125,9 @@ const AttachmentCard = ({ attachment, onDelete, deleting }: AttachmentCardProps)
                 aria-label="Wczytywanie załącznika"
               />
             ) : error ? (
-              <IconAlertCircle size={20} aria-hidden="true" />
+              <CircleAlertIcon size={20} aria-hidden="true" />
             ) : (
-              <IconPhoto size={20} aria-hidden="true" />
+              <ImageIcon size={20} aria-hidden="true" />
             )}
           </div>
         )}
@@ -160,7 +148,7 @@ const AttachmentCard = ({ attachment, onDelete, deleting }: AttachmentCardProps)
             target="_blank"
             rel="noreferrer"
           >
-            <IconLink size={14} aria-hidden="true" />
+            <LinkIcon size={14} aria-hidden="true" />
             <span>Otwórz</span>
           </a>
         ) : (
@@ -169,7 +157,7 @@ const AttachmentCard = ({ attachment, onDelete, deleting }: AttachmentCardProps)
             className="btn btn-light btn-sm d-inline-flex align-items-center gap-1 is-focusable"
             disabled
           >
-            <IconLink size={14} aria-hidden="true" />
+            <LinkIcon size={14} aria-hidden="true" />
             <span>{loading ? 'Ładowanie…' : 'Otwórz'}</span>
           </button>
         )}
@@ -179,7 +167,7 @@ const AttachmentCard = ({ attachment, onDelete, deleting }: AttachmentCardProps)
           onClick={() => onDelete(attachment.id)}
           disabled={deleting}
         >
-          <IconTrash size={14} aria-hidden="true" />
+          <Trash2Icon size={14} aria-hidden="true" />
           <span>Usuń</span>
         </button>
       </div>
@@ -506,7 +494,7 @@ const TransactionDetailsPage = ({
     <>
       {error && (
         <div className="alert alert-danger d-flex align-items-center gap-2" role="alert">
-          <IconAlertCircle size={18} aria-hidden="true" />
+          <CircleAlertIcon size={18} aria-hidden="true" />
           <div>{error}</div>
         </div>
       )}
@@ -532,7 +520,7 @@ const TransactionDetailsPage = ({
                 <form className="card-body d-flex flex-column gap-3" onSubmit={handleSaveFields}>
                   {formError && (
                     <div className="alert alert-danger d-flex align-items-center gap-2 mb-1" role="alert">
-                      <IconAlertCircle size={16} aria-hidden="true" />
+                      <CircleAlertIcon size={16} aria-hidden="true" />
                       <div>{formError}</div>
                     </div>
                   )}
@@ -593,9 +581,9 @@ const TransactionDetailsPage = ({
                     <div className="tx-detail__status mb-0">
                       <div className={`tx-badge tx-badge--${statusPresentation.tone}`}>
                         {statusState === 'reconciled' ? (
-                          <IconCheck size={14} aria-hidden="true" />
+                          <CheckIcon size={14} aria-hidden="true" />
                         ) : (
-                          <IconFlag size={14} aria-hidden="true" />
+                          <FlagIcon size={14} aria-hidden="true" />
                         )}
                         <span>{statusPresentation.label}</span>
                       </div>
@@ -609,7 +597,7 @@ const TransactionDetailsPage = ({
                       variant="outline-primary"
                       size="sm"
                       disabled={savingForm}
-                      icon={<IconCheck size={14} aria-hidden="true" />}
+                      icon={<CheckIcon size={14} aria-hidden="true" />}
                     >
                       {savingForm ? 'Zapisywanie…' : 'Zapisz zmiany'}
                     </Button>
@@ -665,7 +653,7 @@ const TransactionDetailsPage = ({
                   ) : (
                     <div className="empty m-0">
                       <div className="empty-icon">
-                        <IconCircleDot size={28} aria-hidden="true" />
+                        <CircleDotIcon size={28} aria-hidden="true" />
                       </div>
                       <p className="empty-title">Brak pozycji</p>
                       <p className="empty-subtitle text-secondary">Ta transakcja nie ma pozycji.</p>
@@ -676,7 +664,7 @@ const TransactionDetailsPage = ({
                     {itemError && (
                       <div className="col-12">
                         <div className="alert alert-danger d-flex align-items-center gap-2 mb-2" role="alert">
-                          <IconAlertCircle size={16} aria-hidden="true" />
+                          <CircleAlertIcon size={16} aria-hidden="true" />
                           <div>{itemError}</div>
                         </div>
                       </div>
@@ -742,7 +730,7 @@ const TransactionDetailsPage = ({
                         variant="outline-primary"
                         size="sm"
                         disabled={savingItem}
-                        icon={<IconPlus size={14} aria-hidden="true" />}
+                        icon={<PlusIcon size={14} aria-hidden="true" />}
                       >
                         {savingItem ? 'Dodawanie…' : 'Dodaj pozycję'}
                       </Button>
@@ -762,7 +750,7 @@ const TransactionDetailsPage = ({
                   <div className="btn-list ms-auto">
                     <Button
                       variant="outline-secondary"
-                      icon={<IconPhotoPlus size={16} aria-hidden="true" />}
+                      icon={<ImagePlusIcon size={16} aria-hidden="true" />}
                       onClick={openFilePicker}
                       disabled={uploading}
                     >
@@ -780,7 +768,7 @@ const TransactionDetailsPage = ({
                 {attachmentError && (
                   <div className="card-body pt-0">
                     <div className="alert alert-danger mb-0 d-flex align-items-center gap-2" role="alert">
-                      <IconAlertCircle size={16} aria-hidden="true" />
+                      <CircleAlertIcon size={16} aria-hidden="true" />
                       <div>{attachmentError}</div>
                     </div>
                   </div>
@@ -800,7 +788,7 @@ const TransactionDetailsPage = ({
                   ) : (
                     <div className="empty m-0">
                       <div className="empty-icon">
-                        <IconPhoto size={24} aria-hidden="true" />
+                        <ImageIcon size={24} aria-hidden="true" />
                       </div>
                       <p className="empty-title">Brak załączników</p>
                       <p className="empty-subtitle text-secondary">
@@ -827,20 +815,20 @@ const TransactionDetailsPage = ({
         <div className="page-header d-print-none">
           <div className="row align-items-center">
             <div className="col">
-              <div className="page-pretitle text-uppercase text-muted fw-semibold">Szczegóły transakcji</div>
+              <div className="page-pretitle text-muted fw-semibold">Szczegóły transakcji</div>
             </div>
             <div className="col-auto ms-auto mt-3 mt-md-0">
               <div className="btn-list">
                 <Button
                   variant="outline-secondary"
-                  icon={<IconArrowLeft size={16} aria-hidden="true" />}
+                  icon={<ArrowLeftIcon size={16} aria-hidden="true" />}
                   onClick={() => navigate('/transactions')}
                 >
                   Wróć do listy
                 </Button>
                 <Button
                   variant="outline-primary"
-                  icon={<IconRefresh size={16} aria-hidden="true" />}
+                  icon={<RefreshCwIcon size={16} aria-hidden="true" />}
                   onClick={() => void loadTransaction()}
                   disabled={loading}
                 >

@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  IconAlertTriangle,
-  IconFileImport,
-  IconPhoto,
-  IconRefresh,
-  IconTrash
-} from '@tabler/icons-react';
+import { FileInputIcon, ImageIcon, RefreshCwIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import Button from '../../components/Button';
 import {
   deleteReceiptDraft,
@@ -154,7 +148,7 @@ const ReceiptInboxPage = () => {
         <div className="page-header d-print-none">
           <div className="row align-items-center">
             <div className="col">
-              <h2 className="page-title">Skrzynka paragonów</h2>
+              <h2 className="page-title">Paragony</h2>
               <div className="text-secondary mt-1">
                 Wgrane paragony czekają tu jako szkice — transakcja powstaje dopiero po
                 zatwierdzeniu w edytorze.
@@ -177,14 +171,14 @@ const ReceiptInboxPage = () => {
                 />
                 <Button
                   type="submit"
-                  icon={<IconFileImport size={16} />}
+                  icon={<FileInputIcon size={16} />}
                   disabled={uploading || !selectedFiles.length}
                 >
                   {uploading ? 'Przetwarzanie…' : 'Wgraj i rozpoznaj'}
                 </Button>
                 <Button
                   variant="outline-secondary"
-                  icon={<IconRefresh size={16} />}
+                  icon={<RefreshCwIcon size={16} />}
                   onClick={() => void load(filter)}
                   disabled={loading}
                 >
@@ -230,7 +224,7 @@ const ReceiptInboxPage = () => {
             <span className="flex-grow-1" />
             {counts.review ? (
               <span className="receipt-badge receipt-badge--warn">
-                <IconAlertTriangle size={14} /> do przejrzenia: {counts.review}
+                <TriangleAlertIcon size={14} /> do przejrzenia: {counts.review}
               </span>
             ) : null}
             <span className="text-secondary small">
@@ -268,7 +262,7 @@ const ReceiptInboxPage = () => {
                       >
                         <td>
                           <div className="d-flex align-items-center gap-2">
-                            <IconPhoto size={16} className="text-secondary" />
+                            <ImageIcon size={16} className="text-secondary" />
                             <span>
                               {draft.source_name}
                               <span className="text-secondary"> · s.{draft.page_number}</span>
@@ -313,7 +307,7 @@ const ReceiptInboxPage = () => {
                           <Button
                             variant="link"
                             size="sm"
-                            icon={<IconTrash size={16} />}
+                            icon={<Trash2Icon size={16} />}
                             onClick={(event) => {
                               event.stopPropagation();
                               void handleDelete(draft);

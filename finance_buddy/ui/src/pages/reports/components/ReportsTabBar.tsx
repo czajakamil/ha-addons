@@ -18,7 +18,7 @@ const ReportsTabBar = ({ activeTab, onSelect }: ReportsTabBarProps) => (
           aria-selected={activeTab === tab.id}
           onClick={() => onSelect(tab.id)}
         >
-          <TabIcon className="reports-tab__icon" size={16} stroke={1.8} aria-hidden="true" />
+          <TabIcon className="reports-tab__icon" size={16} strokeWidth={1.8} aria-hidden="true" />
           <span className="reports-tab__label">{tab.label}</span>
         </button>
       );

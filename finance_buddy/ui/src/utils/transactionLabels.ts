@@ -10,4 +10,7 @@ export const userComment = (comment?: string | null) => {
   return trimmed && !AUTO_COMMENT.test(trimmed) ? trimmed : null;
 };
 
+/** Komentarz wstawiony automatycznie przez import z YNAB. */
+export const isAutoComment = (comment?: string | null) => Boolean(comment && AUTO_COMMENT.test(comment.trim()));
+
 export const isBalanceAdjustment = (label?: string | null) => Boolean(label && RECONCILIATION.test(label));

@@ -80,3 +80,11 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Donut w „Tagi kont” pojawia się tylko przy najwyżej 5 pozycjach.**
 - **Paleta wykresów `--chart-1…8`** to sprawdzona paleta kategorialna, osobno dla obu motywów. Nivo nie rozumie `var()`, więc kolory czytamy z tokenów w `utils/tokens.ts`, a zmiana motywu przebudowuje zakładkę.
 - **Przepływy:** Przychody → grupy → kategorie, 8 największych kategorii, reszta jako „Pozostałe wydatki”. Grupy biorą się ze ścieżki kategorii. Przelewy między kontami nie są już częścią diagramu. Gdy przychody przewyższają wydatki, nadwyżka to osobna gałąź; gdy są niższe, węzeł „Przychody” obrazuje tylko wydatki, a rzeczywiste kwoty stoją nad diagramem.
+
+## Pozostałe ekrany i porządki
+
+- **Tabler CSS zostaje.** Okna dialogowe, formularze i układ pozostałych ekranów nadal korzystają z jego klas, a tokeny sprowadzają je do jednego wyglądu. Pakiet `@tabler/icons-react` jest usunięty.
+- **Tagi, Paragony i Panel użytkownika dostały nowy wygląd przez style globalne, bez przepisywania układu.** Sklepy i Przedmioty mają dodatkowo menu „Kolumny”, a Import z banku kreator w 3 krokach.
+- **Paleta Cmd+K:** dodanie wydatku, ekrany, konta i kategorie. Wybór kategorii otwiera Budżet. Skrót N działa poza polami tekstowymi.
+- **Dialog wydatku zachowuje dwa pola kwoty** (Wydatek i Wpływ), bo tak działa jego zapis; kwota jest na górze z autofokusem. Podpowiedź kategorii to domyślna kategoria sklepu.
+- **Toasty (Sonner)** potwierdzają na razie tylko dodanie transakcji z palety. Akcji „cofnij” nie ma.

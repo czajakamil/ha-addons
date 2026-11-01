@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { IconArrowLeft, IconCheck, IconPlayerSkipForward, IconTags } from '@tabler/icons-react';
+import { ArrowLeftIcon, CheckIcon, SkipForwardIcon, TagsIcon } from 'lucide-react';
 import Button from '../../components/Button';
 import TagPathInput from '../../components/tags/TagPathInput';
 import { TagChip } from '../../components/tags/TagChip';
@@ -301,7 +301,7 @@ const UntaggedQueuePage = () => {
             </div>
             <div className="col-auto">
               <Link to="/transactions" className="btn btn-outline-secondary btn-sm">
-                <IconArrowLeft size={16} className="me-1" aria-hidden="true" />
+                <ArrowLeftIcon size={16} className="me-1" aria-hidden="true" />
                 Transakcje
               </Link>
             </div>
@@ -321,7 +321,7 @@ const UntaggedQueuePage = () => {
                 <p className="text-secondary mb-0">Ładuję…</p>
               ) : !items.length ? (
                 <div className="untagged-queue__empty">
-                  <IconCheck size={28} aria-hidden="true" />
+                  <CheckIcon size={28} aria-hidden="true" />
                   <div>
                     <strong>Wszystko otagowane.</strong>
                     <div className="text-secondary">Nowe transakcje bez tagu pojawią się tutaj.</div>
@@ -329,7 +329,7 @@ const UntaggedQueuePage = () => {
                 </div>
               ) : !current ? (
                 <div className="untagged-queue__empty">
-                  <IconPlayerSkipForward size={28} aria-hidden="true" />
+                  <SkipForwardIcon size={28} aria-hidden="true" />
                   <div>
                     <strong>Koniec kolejki.</strong>
                     <div className="text-secondary">
@@ -422,7 +422,7 @@ const UntaggedQueuePage = () => {
                     <div className="untagged-queue__actions">
                       <Button
                         size="sm"
-                        icon={<IconCheck size={16} />}
+                        icon={<CheckIcon size={16} />}
                         onClick={() => void tagCurrent(draftPath)}
                         disabled={busy || !draftPath.trim()}
                       >
@@ -438,7 +438,7 @@ const UntaggedQueuePage = () => {
                         <Button
                           size="sm"
                           variant="outline-secondary"
-                          icon={<IconTags size={16} />}
+                          icon={<TagsIcon size={16} />}
                           onClick={() => void askTagStore()}
                           disabled={busy || !draftPath.trim()}
                         >

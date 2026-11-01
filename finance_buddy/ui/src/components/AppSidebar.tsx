@@ -18,14 +18,15 @@ import {
   Store,
   Sun,
   Tags,
-  Wallet
+  Wallet,
+  type LucideIcon
 } from 'lucide-react';
 import type { AuthUser } from '../api';
 import { copy } from '../copy/pl';
 import type { ThemeMode } from '../hooks/useTheme';
 import UntaggedNavBadge from './UntaggedNavBadge';
 
-const navGroups = [
+export const navGroups: { label: string; links: { to: string; label: string; icon: LucideIcon }[] }[] = [
   {
     label: copy.nav.groups.daily,
     links: [

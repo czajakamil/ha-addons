@@ -27,6 +27,17 @@ export const copy = {
     themeDark: 'Motyw: ciemny',
     logout: 'Wyloguj'
   },
+  palette: {
+    title: 'Paleta poleceń',
+    placeholder: 'Dodaj wydatek, przejdź do konta lub kategorii…',
+    empty: 'Nic nie pasuje.',
+    actions: 'Akcje',
+    addExpense: 'Dodaj wydatek',
+    screens: 'Ekrany',
+    accounts: 'Konta',
+    categories: 'Kategorie',
+    expenseAdded: 'Dodano transakcję.'
+  },
   home: {
     title: 'Start',
     canSpend: 'Możesz jeszcze wydać w tym miesiącu',
@@ -121,6 +132,15 @@ export const copy = {
     noHistory: 'To konto nie ma jeszcze transakcji.',
     showTransactions: 'Transakcje konta',
     notFound: 'Nie znaleziono konta.'
+  },
+  bankImport: {
+    steps: ['Plik', 'Mapowanie kolumn', 'Podgląd i zatwierdzenie'],
+    stepsLabel: 'Kroki importu',
+    next: 'Dalej',
+    back: 'Wstecz'
+  },
+  columnsMenu: {
+    label: 'Kolumny'
   },
   budget: {
     title: 'Budżet',

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type CellClickArgs, type Column } from 'react-data-grid';
-import { IconAlertCircle, IconPencil, IconPlus } from '@tabler/icons-react';
+import { CircleAlertIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { Category, Store, ensureCategoryPath, getAllCategories, getAllStores } from '../api';
 import DataTable from '../components/DataTable';
 import Button from '../components/Button';
+import ColumnsMenu from '../components/ui/ColumnsMenu';
 import { useApi } from '../hooks/useApi';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { isAutoComment, userComment } from '../utils/transactionLabels';
 import {
   GROUP_NAME_DATALIST_ID,
   getGridHeight,
@@ -18,6 +21,14 @@ import StoresToolbarRight from './stores/components/StoresToolbarRight';
 import NewStoreModal from './stores/components/NewStoreModal';
 import ManageStoreModal from './stores/components/ManageStoreModal';
 import DeleteStoreModal from './stores/components/DeleteStoreModal';
+
+const OPTIONAL_COLUMNS = [
+  { key: 'group_name', label: 'Nazwa grupowa', hasValue: (row: Store) => Boolean(row.group_name?.trim()) },
+  { key: 'tag', label: 'Tag', hasValue: (row: Store) => Boolean(row.automatic_category_id) },
+  { key: 'nip', label: 'NIP', hasValue: (row: Store) => Boolean(row.nip?.trim()) },
+  { key: 'address', label: 'Adres', hasValue: (row: Store) => Boolean(row.address?.trim()) },
+  { key: 'comment', label: 'Komentarz', hasValue: (row: Store) => Boolean(userComment(row.comment)) }
+];
 
 const StoresPage = () => {
   const {
@@ -168,7 +179,9 @@ const StoresPage = () => {
     }
   };
 
-  const storeColumns: readonly Column<Store>[] = [
+  const { hiddenKeys, setVisible } = useColumnVisibility('stores', OPTIONAL_COLUMNS, stores);
+
+  const allColumns: readonly Column<Store>[] = [
     {
       key: 'actions',
       name: '',
@@ -191,7 +204,7 @@ const StoresPage = () => {
             }}
             disabled={openingDetailsStoreId === row.id}
           >
-            <IconPencil size={16} aria-hidden="true" />
+            <PencilIcon size={16} aria-hidden="true" />
           </button>
         </div>
       )
@@ -230,9 +243,13 @@ const StoresPage = () => {
       key: 'comment',
       name: 'Komentarz',
       minWidth: 200,
-      renderCell: ({ row }) => renderCell(row, 'comment')
+      renderCell: ({ row }) => (isAutoComment(row.comment) ? null : renderCell(row, 'comment'))
     }
   ];
+  // Ostatnia widoczna kolumna wypełnia szerokość, żeby po ukryciu pól tabela nie kończyła się w połowie
+  const storeColumns = allColumns
+    .filter((column) => !hiddenKeys.has(String(column.key)))
+    .map((column, index, visible) => (index === visible.length - 1 ? { ...column, width: undefined } : column));
 
   const getStoreRowId = useCallback((store: Store) => store.id, []);
 
@@ -289,7 +306,8 @@ const StoresPage = () => {
             </p>
           </div>
           <div className="accounts-page__actions">
-            <Button icon={<IconPlus size={16} aria-hidden="true" />} onClick={() => setShowNewStoreModal(true)}>
+            <ColumnsMenu columns={OPTIONAL_COLUMNS} hiddenKeys={hiddenKeys} onChange={setVisible} />
+            <Button icon={<PlusIcon size={16} aria-hidden="true" />} onClick={() => setShowNewStoreModal(true)}>
               Nowy sklep
             </Button>
           </div>
@@ -309,7 +327,7 @@ const StoresPage = () => {
             {inlineError && (
               <div className="accounts-section-card__alert">
                 <div className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0" role="alert">
-                  <IconAlertCircle size={18} aria-hidden="true" />
+                  <CircleAlertIcon size={18} aria-hidden="true" />
                   <div>{inlineError}</div>
                 </div>
               </div>

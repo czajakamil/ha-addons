@@ -14,7 +14,6 @@ import {
   type BreakdownChartEntry
 } from '../model';
 import { useBreakdownEditing } from '../useBreakdownEditing';
-import { useChartTheme } from '../useChartTheme';
 import { chartColor } from '../../../utils/tokens';
 import type { ReportsController } from '../useReports';
 
@@ -39,7 +38,6 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
 
   const [breakdownView, setBreakdownView] = useState<'categories' | 'groups'>('categories');
   const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
-  const chartTheme = useChartTheme();
 
   const {
     selectedBreakdownCategory,

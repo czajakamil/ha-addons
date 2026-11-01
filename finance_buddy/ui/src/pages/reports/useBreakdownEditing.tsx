@@ -4,7 +4,7 @@
 // self-contained and only the SpendingBreakdown tab consumes it.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconListDetails } from '@tabler/icons-react';
+import { ListIcon } from 'lucide-react';
 import { type CellClickArgs } from 'react-data-grid';
 import {
   Account,
@@ -92,9 +92,9 @@ export const useBreakdownEditing = ({
     (transaction: Transaction) => {
       if (!transaction.transfer_account_id) return null;
       const counterparty = accountLookup.get(transaction.transfer_account_id);
-      if (!counterparty) return 'Transfer';
+      if (!counterparty) return 'Przelew';
       const currencyLabel = counterparty.currency ? ` (${counterparty.currency})` : '';
-      return `Transfer: ${counterparty.name}${currencyLabel}`;
+      return `Przelew: ${counterparty.name}${currencyLabel}`;
     },
     [accountLookup]
   );
@@ -484,7 +484,7 @@ export const useBreakdownEditing = ({
             aria-label="Pokaż szczegóły transakcji"
             title="Pokaż szczegóły"
           >
-            <IconListDetails size={14} aria-hidden="true" />
+            <ListIcon size={14} aria-hidden="true" />
           </button>
         )
       },
@@ -514,14 +514,14 @@ export const useBreakdownEditing = ({
       },
       {
         key: 'outflow',
-        name: 'Outflow',
+        name: 'Wydatek',
         width: 120,
         cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
         renderCell: ({ row }) => renderBreakdownAmountCell(row, 'outflow')
       },
       {
         key: 'inflow',
-        name: 'Inflow',
+        name: 'Wpływ',
         width: 120,
         cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
         renderCell: ({ row }) => renderBreakdownAmountCell(row, 'inflow')

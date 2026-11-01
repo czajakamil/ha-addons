@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  IconArrowRight,
-  IconFingerprint,
-  IconId,
-  IconKey,
-  IconShieldLock,
-  IconSparkles,
-  IconUser,
-} from '@tabler/icons-react';
+import { ArrowRightIcon, FingerprintIcon, IdCardIcon, KeyIcon, ShieldCheckIcon, SparklesIcon, UserIcon } from 'lucide-react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import {
   beginPasskeyAuthentication,
@@ -188,7 +180,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
           <div className="welcome__card welcome__card--accent" style={{ margin: 0 }}>
             <header className="welcome__card-header">
               <div className="welcome__icon welcome__icon--accent">
-                <IconSparkles size={22} stroke={1.6} />
+                <SparklesIcon size={22} strokeWidth={1.6} />
               </div>
               <div>
                 <p className="welcome__card-eyebrow">
@@ -213,7 +205,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
           <section className="welcome__card welcome__card--primary">
             <header className="welcome__card-header">
               <div className="welcome__icon">
-                <IconShieldLock size={22} stroke={1.6} />
+                <ShieldCheckIcon size={22} strokeWidth={1.6} />
               </div>
               <div>
                 <p className="welcome__card-eyebrow">Mam już passkey</p>
@@ -234,7 +226,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                 onClick={handleLogin}
                 disabled={busy || !passkeySupported || needsFirstAccount}
               >
-                <IconFingerprint size={18} aria-hidden="true" />
+                <FingerprintIcon size={18} aria-hidden="true" />
                 {busy ? 'Otwieram…' : 'Zaloguj się passkey'}
               </button>
 
@@ -246,7 +238,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                   disabled={busy}
                   title="Logowanie deweloperskie — pomija passkey (tylko środowisko dev)"
                 >
-                  <IconKey size={18} aria-hidden="true" />
+                  <KeyIcon size={18} aria-hidden="true" />
                   {busy ? 'Loguję…' : 'Logowanie deweloperskie'}
                 </button>
               )}
@@ -256,7 +248,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
           <section className="welcome__card welcome__card--accent">
             <header className="welcome__card-header">
               <div className="welcome__icon welcome__icon--accent">
-                <IconKey size={22} stroke={1.6} />
+                <KeyIcon size={22} strokeWidth={1.6} />
               </div>
               <div>
                 <p className="welcome__card-eyebrow">Pierwsza konfiguracja</p>
@@ -273,7 +265,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
             </label>
             <div className="welcome__control">
               <div className="welcome__input-icon" aria-hidden="true">
-                <IconSparkles size={16} stroke={1.6} />
+                <SparklesIcon size={16} strokeWidth={1.6} />
               </div>
               <input
                 id="auth-invite"
@@ -289,7 +281,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
             </label>
             <div className="welcome__control">
               <div className="welcome__input-icon" aria-hidden="true">
-                <IconUser size={16} stroke={1.6} />
+                <UserIcon size={16} strokeWidth={1.6} />
               </div>
               <input
                 id="auth-username"
@@ -305,7 +297,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
             </label>
             <div className="welcome__control">
               <div className="welcome__input-icon" aria-hidden="true">
-                <IconId size={16} stroke={1.6} />
+                <IdCardIcon size={16} strokeWidth={1.6} />
               </div>
               <input
                 id="auth-displayname"
@@ -326,7 +318,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                 disabled={busy || !passkeySupported || (isFirstAdmin && !displayName.trim())}
               >
                 {busy ? 'Tworzę…' : 'Utwórz passkey'}
-                <IconArrowRight size={18} aria-hidden="true" />
+                <ArrowRightIcon size={18} aria-hidden="true" />
               </button>
             </div>
           </section>
@@ -344,7 +336,7 @@ const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
 
         <div className="welcome__footer">
           <div className="welcome__trust">
-            <IconShieldLock size={16} aria-hidden="true" />
+            <ShieldCheckIcon size={16} aria-hidden="true" />
             <span>
               Passkeys są przechowywane bezpiecznie na Twoim urządzeniu. Nie wysyłamy ani nie
               zapisujemy żadnych haseł.

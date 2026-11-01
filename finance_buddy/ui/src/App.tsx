@@ -3,7 +3,9 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Menu, X } from 'lucide-react';
+import { Toaster } from 'sonner';
 import AppSidebar from './components/AppSidebar';
+import CommandPalette from './components/CommandPalette';
 import WelcomeScreen from './components/WelcomeScreen';
 import AuthScreen from './components/AuthScreen';
 import {
@@ -371,6 +373,8 @@ const App = () => {
           </div>
         </div>
       </div>
+      <CommandPalette />
+      <Toaster position="bottom-right" toastOptions={{ className: 'toast-item', unstyled: true }} />
     </div>
     </Tooltip.Provider>
   );

@@ -277,7 +277,6 @@
   margin-top: 0;
 }
 
-/* Pełnoszerokościowa belka nagłówka sięga samej góry strony. */
 .page-shell > .accounts-page__header:first-child {
-  margin-top: calc(-1 * var(--shell-pad-block));
+  margin-top: 0;
 }
