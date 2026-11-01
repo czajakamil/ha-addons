@@ -1,0 +1,81 @@
+// Słownik interfejsu. Terminy są tu rozstrzygnięte raz, ekrany przenosimy na niego kolejno.
+export const copy = {
+  nav: {
+    groups: { daily: 'Codzienne', data: 'Dane', analysis: 'Analiza' },
+    home: 'Start',
+    budget: 'Budżet',
+    transactions: 'Transakcje',
+    accounts: 'Konta',
+    stores: 'Sklepy',
+    receipts: 'Paragony',
+    bankImport: 'Import z banku',
+    items: 'Przedmioty',
+    tags: 'Tagi',
+    reports: 'Raporty',
+    collapse: 'Zwiń menu',
+    expand: 'Rozwiń menu',
+    open: 'Otwórz menu',
+    close: 'Zamknij menu',
+    mainNavigation: 'Główna nawigacja'
+  },
+  user: {
+    fallbackName: 'Użytkownik',
+    menu: 'Menu użytkownika',
+    adminPanel: 'Panel administratora',
+    userPanel: 'Panel użytkownika',
+    themeLight: 'Motyw: jasny',
+    themeDark: 'Motyw: ciemny',
+    logout: 'Wyloguj'
+  },
+  budget: {
+    title: 'Budżet',
+    readyToAssign: 'Do przypisania',
+    fix: 'Napraw',
+    overassigned: 'Przypisano więcej niż masz',
+    filters: {
+      all: 'Wszystkie',
+      overspent: 'Przekroczone',
+      underfunded: 'Niedofinansowane',
+      available: 'Z wolnymi środkami'
+    },
+    filtersLabel: 'Filtry kategorii',
+    addGroup: '+ Grupa',
+    columns: { category: 'Kategoria', assigned: 'Przypisane', activity: 'Aktywność', available: 'Dostępne' },
+    emptyAll: 'Nie masz jeszcze kategorii do budżetowania.',
+    emptyFiltered: 'Żadna kategoria nie pasuje do tego filtra.',
+    showAll: 'Pokaż wszystkie',
+    expandGroup: 'Rozwiń grupę',
+    collapseGroup: 'Zwiń grupę',
+    editAssigned: (name: string) => `Przypisane: ${name}`,
+    invalidAmount: 'Podaj poprawną kwotę, np. 123,45.',
+    saveFailed: 'Nie udało się zapisać budżetu.',
+    loadFailed: 'Nie udało się pobrać budżetu.',
+    summary: {
+      title: 'Podsumowanie miesiąca',
+      assigned: 'Przypisane',
+      activity: 'Aktywność',
+      available: 'Dostępne',
+      onBudget: 'Na kontach budżetowych'
+    },
+    autoAssign: {
+      title: 'Przypisz automatycznie',
+      failed: 'Nie udało się przypisać automatycznie.',
+      underfunded: 'Niedofinansowane',
+      assignedLastMonth: 'Przypisane w zeszłym miesiącu',
+      spentLastMonth: 'Wydane w zeszłym miesiącu',
+      averageAssigned: 'Średnio przypisane',
+      averageSpent: 'Średnio wydane',
+      reduceOverfunding: 'Zmniejsz nadmiar',
+      resetAvailable: 'Wyzeruj dostępne',
+      resetAssigned: 'Wyzeruj przypisane'
+    },
+    month: {
+      navigation: 'Nawigacja miesięczna',
+      picker: 'Wybór miesiąca budżetu',
+      previous: 'Poprzedni miesiąc',
+      next: 'Następny miesiąc',
+      previousYear: 'Poprzedni rok',
+      nextYear: 'Następny rok'
+    }
+  }
+} as const;

@@ -5,11 +5,9 @@ import BudgetTable from './budget/components/BudgetTable';
 import BudgetToolbar from './budget/components/BudgetToolbar';
 import {
   buildCategoryTree,
-  capitalizeLabel,
   collectLeafCategories,
   countByFilter,
   filterCategoryTree,
-  formatMonthKeyLabel,
   toMonthKey,
   type BudgetStatusFilter
 } from './budget/model';
@@ -40,38 +38,32 @@ const BudgetPage = () => {
   });
 
   return (
-    <div className="page accounts-page budget-page compact-page">
-      <div className="page-shell">
-        <div className="page-body page-stack accounts-page__body">
-          <BudgetToolbar
-            activeMonth={activeMonth}
-            activeMonthDate={activeMonthDate}
-            onMonthChange={setActiveMonth}
-            rtaValue={budget?.summary.rta_cents ?? 0}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            filterCounts={filterCounts}
-          />
+    <div className="page-shell budget-page">
+      <BudgetToolbar
+        activeMonth={activeMonth}
+        activeMonthDate={activeMonthDate}
+        onMonthChange={setActiveMonth}
+        rtaValue={budget?.summary.rta_cents ?? 0}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        filterCounts={filterCounts}
+      />
 
-          <div className="budget-layout">
-            <BudgetTable
-              categoryTree={filteredCategoryTree}
-              statusFilter={statusFilter}
-              error={error}
-              loading={loading}
-              hasBudget={budget !== null}
-              editing={editing}
-            />
+      <div className="budget-layout">
+        <BudgetTable
+          categoryTree={filteredCategoryTree}
+          statusFilter={statusFilter}
+          onClearFilter={() => setStatusFilter('all')}
+          error={error}
+          loading={loading}
+          hasBudget={budget !== null}
+          editing={editing}
+        />
 
-            <aside className="budget-sidebar">
-              <BudgetSummaryCard
-                monthLabel={capitalizeLabel(formatMonthKeyLabel(activeMonth))}
-                summary={budget?.summary}
-              />
-              <AutoAssignCard editing={editing} />
-            </aside>
-          </div>
-        </div>
+        <aside className="budget-aside">
+          <BudgetSummaryCard summary={budget?.summary} />
+          <AutoAssignCard editing={editing} />
+        </aside>
       </div>
     </div>
   );

@@ -29,7 +29,8 @@
     color: var(--text);
   }
 
-  :where(button, [role="button"], a, input, select, textarea) {
+  /* .btn kolor i font bierze z Tablera (zmienne --tblr-btn-*) */
+  :where(button:not(.btn), [role="button"]:not(.btn), a:not(.btn), input, select, textarea) {
     color: inherit;
     font: inherit;
     transition: transform var(--dur) var(--ease);

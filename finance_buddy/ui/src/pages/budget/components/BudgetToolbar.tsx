@@ -1,11 +1,9 @@
-// Górny pasek budżetu: wybór miesiąca, baner „Do przypisania" i filtry statusu.
-import {
-  BUDGET_STATUS_FILTERS,
-  FILTER_LABELS,
-  moneyLabel,
-  signClass,
-  type BudgetStatusFilter
-} from '../model';
+// Górny pasek budżetu: miesiąc, główna liczba „Do przypisania" i filtry statusu.
+import { Link } from 'react-router-dom';
+import Money from '../../../components/ui/Money';
+import SegmentedControl from '../../../components/ui/SegmentedControl';
+import { copy } from '../../../copy/pl';
+import { BUDGET_STATUS_FILTERS, FILTER_LABELS, type BudgetStatusFilter } from '../model';
 import BudgetMonthNav from './BudgetMonthNav';
 
 type BudgetToolbarProps = {
@@ -26,47 +24,44 @@ const BudgetToolbar = ({
   statusFilter,
   onStatusFilterChange,
   filterCounts
-}: BudgetToolbarProps) => {
-  // „Napraw" przy ujemnym „Do przypisania" pokazuje przekroczone kategorie
-  const handleFixThisMonth = () => {
-    onStatusFilterChange(rtaValue < 0 ? 'overspent' : 'all');
-  };
-
-  return (
-    <section className="card budget-planner-toolbar" aria-label="Kontrolki budżetu">
-      <div className="budget-planner-toolbar__top">
-        <BudgetMonthNav activeMonth={activeMonth} activeMonthDate={activeMonthDate} onMonthChange={onMonthChange} />
-        <div className={`budget-rta-banner ${signClass(rtaValue)}`}>
-          <div className="budget-rta-banner__copy">
-            <div className="budget-rta-banner__label">Do przypisania</div>
-            <strong className="budget-rta-banner__value">{moneyLabel(rtaValue)}</strong>
-            <div className="budget-rta-banner__text">
-              {rtaValue < 0 ? 'Masz przypisane więcej niż dostępne środki.' : 'Budżet jest zbilansowany.'}
-            </div>
-          </div>
-          <button type="button" className="budget-rta-banner__action" onClick={handleFixThisMonth}>
-            Napraw
+}: BudgetToolbarProps) => (
+  <>
+    <header className="budget-top">
+      <BudgetMonthNav activeMonth={activeMonth} activeMonthDate={activeMonthDate} onMonthChange={onMonthChange} />
+      <div className="budget-rta">
+        {rtaValue < 0 && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            title={copy.budget.overassigned}
+            onClick={() => onStatusFilterChange('overspent')}
+          >
+            {copy.budget.fix}
           </button>
+        )}
+        <div className="budget-rta__figure">
+          <span className="budget-rta__label">{copy.budget.readyToAssign}</span>
+          <Money cents={rtaValue} tone={rtaValue < 0 ? 'negative' : 'positive'} className="budget-rta__value" />
         </div>
       </div>
+    </header>
 
-      <div className="budget-filter-row" role="tablist" aria-label="Filtry tagów">
-        {BUDGET_STATUS_FILTERS.map((filterKey) => (
-          <button
-            key={filterKey}
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === filterKey}
-            className={`budget-filter-chip${statusFilter === filterKey ? ' is-active' : ''}`}
-            onClick={() => onStatusFilterChange(filterKey)}
-          >
-            <span>{FILTER_LABELS[filterKey]}</span>
-            <span className="budget-filter-chip__count">{filterCounts[filterKey]}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-};
+    <div className="budget-filters">
+      <SegmentedControl
+        label={copy.budget.filtersLabel}
+        value={statusFilter}
+        onChange={onStatusFilterChange}
+        options={BUDGET_STATUS_FILTERS.map((value) => ({
+          value,
+          label: FILTER_LABELS[value],
+          count: filterCounts[value]
+        }))}
+      />
+      <Link to="/tags" className="text-button">
+        {copy.budget.addGroup}
+      </Link>
+    </div>
+  </>
+);
 
 export default BudgetToolbar;

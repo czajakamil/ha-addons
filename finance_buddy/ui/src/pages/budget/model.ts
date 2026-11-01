@@ -1,5 +1,6 @@
 // Typy, stałe i czyste helpery strony budżetu — bez stanu i bez JSX.
 import type { BudgetAssignmentUpdate, BudgetCategoryRow } from '../../api';
+import { copy } from '../../copy/pl';
 import { formatMoney } from '../../utils/format';
 
 export type CategoryNode = {
@@ -7,26 +8,11 @@ export type CategoryNode = {
   children: BudgetCategoryRow[];
 };
 
-export type CategoryProgress = {
-  availablePercent: number;
-  overspentPercent: number;
-};
-
-export type CategoryHintTone = 'neutral' | 'positive' | 'warning' | 'negative';
-
-export type CategoryHint = {
-  text: string;
-  tone: CategoryHintTone;
-};
+export type CategoryTone = 'neutral' | 'positive' | 'warning' | 'negative';
 
 export type BudgetStatusFilter = 'all' | 'overspent' | 'underfunded' | 'available';
 
-export const FILTER_LABELS: Record<BudgetStatusFilter, string> = {
-  all: 'Wszystkie',
-  overspent: 'Overspent',
-  underfunded: 'Niedofinansowane',
-  available: 'Money Available'
-};
+export const FILTER_LABELS: Record<BudgetStatusFilter, string> = copy.budget.filters;
 
 export const BUDGET_STATUS_FILTERS = Object.keys(FILTER_LABELS) as BudgetStatusFilter[];
 
@@ -82,10 +68,6 @@ export const capitalizeLabel = (value: string) => {
 export const BUDGET_CURRENCY = 'PLN';
 export const moneyLabel = (cents: number) => formatMoney(cents, BUDGET_CURRENCY);
 
-export const signClass = (value: number) => (value < 0 ? 'is-negative' : value > 0 ? 'is-positive' : '');
-
-export const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
-
 export const averageCents = (values: number[]) => {
   if (!values.length) return 0;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
@@ -112,7 +94,7 @@ export const categoryMatchesFilter = (row: BudgetCategoryRow, filter: BudgetStat
   return row.available_cents > 0 || normalizedStatus.includes('available');
 };
 
-export const resolveAvailableTone = (row: BudgetCategoryRow): CategoryHintTone => {
+export const resolveAvailableTone = (row: BudgetCategoryRow): CategoryTone => {
   const normalizedStatus = normalizeBudgetStatus(row.status);
   if (row.available_cents < 0 || normalizedStatus.includes('overspent')) {
     return 'negative';
@@ -126,57 +108,16 @@ export const resolveAvailableTone = (row: BudgetCategoryRow): CategoryHintTone =
   return 'neutral';
 };
 
-export const resolveAmountClass = (row: BudgetCategoryRow, value: number) => {
-  if (value < 0) {
-    if (row.status === 'overspent_credit' || row.is_credit_payment) {
-      return 'is-warning';
-    }
-    return 'is-negative';
-  }
-  if (value > 0) {
-    return 'is-positive';
-  }
-  return '';
-};
-
-export const buildCategoryHint = (row: BudgetCategoryRow): CategoryHint | null => {
-  void row;
-  return null;
-};
-
-export const buildCategoryProgress = (row: BudgetCategoryRow): CategoryProgress | null => {
-  const assigned = Math.max(row.assigned_cents, 0);
-  const available = row.available_cents;
-
-  if (assigned === 0 && available === 0 && row.activity_cents === 0) {
+// Ile środków koperty już wydano, w procentach; powyżej 100 oznacza przekroczenie.
+// Null, gdy kategoria nie ma ani przypisania, ani aktywności.
+export const buildEnvelopeUsage = (row: BudgetCategoryRow): number | null => {
+  if (row.assigned_cents === 0 && row.activity_cents === 0 && row.available_cents === 0) {
     return null;
   }
-
-  if (available < 0) {
-    const overspent = Math.abs(available);
-    const total = assigned + overspent;
-    if (total === 0) {
-      return { availablePercent: 0, overspentPercent: 100 };
-    }
-    return {
-      availablePercent: (assigned / total) * 100,
-      overspentPercent: (overspent / total) * 100
-    };
-  }
-
-  if (assigned > 0) {
-    const remaining = Math.max(Math.min(available, assigned), 0);
-    return {
-      availablePercent: (remaining / assigned) * 100,
-      overspentPercent: 0
-    };
-  }
-
-  if (available > 0) {
-    return { availablePercent: 100, overspentPercent: 0 };
-  }
-
-  return { availablePercent: 0, overspentPercent: 0 };
+  if (row.available_cents < 0) return 101;
+  const spent = Math.max(-row.activity_cents, 0);
+  const funds = spent + row.available_cents;
+  return funds > 0 ? (spent / funds) * 100 : 0;
 };
 
 // Nazwa podkategorii może nieść pełną ścieżkę z „/" — pokazujemy tylko ostatni człon
@@ -293,16 +234,16 @@ export type AutoAssignTotals = Record<AutoAssignMode, number>;
 
 export const AUTO_ASSIGN_OPTION_GROUPS: { mode: AutoAssignMode; label: string }[][] = [
   [
-    { mode: 'underfunded', label: 'Underfunded' },
-    { mode: 'assignedLastMonth', label: 'Assigned Last Month' },
-    { mode: 'spentLastMonth', label: 'Spent Last Month' },
-    { mode: 'averageAssigned', label: 'Average Assigned' },
-    { mode: 'averageSpent', label: 'Average Spent' }
+    { mode: 'underfunded', label: copy.budget.autoAssign.underfunded },
+    { mode: 'assignedLastMonth', label: copy.budget.autoAssign.assignedLastMonth },
+    { mode: 'spentLastMonth', label: copy.budget.autoAssign.spentLastMonth },
+    { mode: 'averageAssigned', label: copy.budget.autoAssign.averageAssigned },
+    { mode: 'averageSpent', label: copy.budget.autoAssign.averageSpent }
   ],
   [
-    { mode: 'reduceOverfunding', label: 'Reduce Overfunding' },
-    { mode: 'resetAvailable', label: 'Reset Available Amounts' },
-    { mode: 'resetAssigned', label: 'Reset Assigned Amounts' }
+    { mode: 'reduceOverfunding', label: copy.budget.autoAssign.reduceOverfunding },
+    { mode: 'resetAvailable', label: copy.budget.autoAssign.resetAvailable },
+    { mode: 'resetAssigned', label: copy.budget.autoAssign.resetAssigned }
   ]
 ];
 
