@@ -29,7 +29,12 @@ export const useTransactionsData = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   // Liczba wszystkich pasujących transakcji; null, gdy nie jest jeszcze znana (filtr kategorii).
   const [totalCount, setTotalCount] = useState<number | null>(0);
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  // Szczegóły konta prowadzą tu z gotowym filtrem (?account=)
+  const [initialFilters] = useState<FilterState>(() => ({
+    ...EMPTY_FILTERS,
+    accountId: new URLSearchParams(window.location.search).get('account') ?? ''
+  }));
+  const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   // Odświeżanie przy już pokazanej liście (fraza, filtry) — siatka zostaje na miejscu.
@@ -128,7 +133,7 @@ export const useTransactionsData = () => {
         setStores(storesData);
         setCategories(categoriesData);
         setProducts(productsData);
-        await loadTransactions(EMPTY_FILTERS);
+        await loadTransactions(initialFilters);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -139,7 +144,7 @@ export const useTransactionsData = () => {
     };
 
     void bootstrap();
-  }, [loadTransactions]);
+  }, [initialFilters, loadTransactions]);
 
   const activeAccounts = useMemo(() => accounts.filter((account) => !account.is_closed), [accounts]);
   const accountMap = useMemo(() => new Map(accounts.map((account) => [account.id, account])), [accounts]);

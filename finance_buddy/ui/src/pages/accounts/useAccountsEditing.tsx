@@ -15,6 +15,7 @@ import {
 } from '../../api';
 import TagEditCell from '../../components/tags/TagEditCell';
 import { useTagCellEditing } from '../../components/tags/useTagCellEditing';
+import Money from '../../components/ui/Money';
 import { formatMoney, parseAmountToCents } from '../../utils/format';
 import { captureGridCellAnchor, refocusGridCell } from '../../utils/gridFocus';
 import AccountAvatar from './components/AccountAvatar';
@@ -518,9 +519,11 @@ export const useAccountsEditing = ({
     }
 
     return (
-      <div className={cellClass} title="Dwuklik, aby edytować saldo">
-        {formatMoney(account.balance_cents, account.currency)}
-      </div>
+      <Money
+        cents={account.balance_cents}
+        currency={account.currency}
+        tone={account.balance_cents < 0 ? 'negative' : 'neutral'}
+      />
     );
   };
 

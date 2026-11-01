@@ -2,8 +2,7 @@ import { CSSProperties, useCallback, useMemo, useState } from 'react';
 import { ResponsiveBar, type BarCustomLayerProps } from '@nivo/bar';
 import type { IncomeExpenseMonthRow } from '../../../api';
 import {
-  BREAKDOWN_CHART_COLORS,
-  OTHER_CATEGORY_COLOR,
+  otherCategoryColor,
   SPENDING_TRENDS_CATEGORY_LIMIT,
   SPENDING_TRENDS_OTHER_KEY,
   SPENDING_TRENDS_OTHER_LABEL,
@@ -16,6 +15,7 @@ import {
 } from '../model';
 import { SpendingTrendsTooltip } from '../tooltips';
 import { useChartTheme } from '../useChartTheme';
+import { chartColor } from '../../../utils/tokens';
 import type { ReportsController } from '../useReports';
 
 type SpendingTrendsTabProps = {
@@ -72,7 +72,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
     const legend: TrendCategoryLegend[] = baseCategories.map(([key, meta], index) => ({
       key,
       label: meta.name || UNCATEGORIZED_CATEGORY_NAME,
-      color: BREAKDOWN_CHART_COLORS[index % BREAKDOWN_CHART_COLORS.length]
+      color: chartColor(index)
     }));
     const keys = legend.map((entry) => entry.key);
 
@@ -119,7 +119,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
       legend.push({
         key: SPENDING_TRENDS_OTHER_KEY,
         label: SPENDING_TRENDS_OTHER_LABEL,
-        color: OTHER_CATEGORY_COLOR
+        color: otherCategoryColor()
       });
       keys.push(SPENDING_TRENDS_OTHER_KEY);
     }
@@ -132,7 +132,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
       legend.push({
         key: fallbackKey,
         label: 'Wydatki',
-        color: BREAKDOWN_CHART_COLORS[0]
+        color: chartColor(0)
       });
       keys.push(fallbackKey);
     }
@@ -160,7 +160,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
   const spendingToggleIndex = spendingTrendView === 'categories' ? 0 : 1;
   const spendingTrendColors = useCallback(
     (bar: { id: string | number }) =>
-      spendingTrendLegendMap.get(String(bar.id))?.color ?? OTHER_CATEGORY_COLOR,
+      spendingTrendLegendMap.get(String(bar.id))?.color ?? otherCategoryColor(),
     [spendingTrendLegendMap]
   );
   const renderTrendLineLayer = useCallback(

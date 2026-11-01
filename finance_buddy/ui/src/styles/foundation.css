@@ -164,3 +164,9 @@
     letter-spacing: 0;
   }
 }
+
+@layer components {
+  .input-icon > .form-control {
+    padding-inline-start: var(--s-32);
+  }
+}

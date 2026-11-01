@@ -65,3 +65,18 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Status:** niezatwierdzona ma stałą ikonę, a zatwierdzona i uzgodniona tylko na hover. „Cleared” to „Zatwierdzona”, „Reconciled” to „Uzgodniona”.
 - **Akcje zbiorcze idą pojedynczymi żądaniami, po 5 naraz,** bo API nie ma zapisu zbiorczego. Zmiana kategorii pomija przelewy.
 - **Telefon (do 700 px):** sklep z kontem pod spodem i kwota, a dotknięcie otwiera szczegóły. Edycja w komórkach i zaznaczanie są tylko na większych ekranach.
+
+## Konta
+
+- **Lista kont bez edycji w komórkach.** Nazwę, typ, kategorię i walutę zmienia się w oknie „Edytuj”, a saldo przez „Zmień saldo” w menu „⋯”. Kliknięcie wiersza zajęły szczegóły konta.
+- **Szczegóły konta to osobny adres** (`/accounts/:id`) z wykresem salda na koniec miesiąca z ostatnich 12 miesięcy, odtworzonym wstecz z transakcji konta. API nie ma historii sald.
+- **Ostatnia aktywność to jedno żądanie na konto** (`/transactions?limit=1`), bo lista kont jej nie zwraca.
+- **Suma grupy obejmuje tylko konta w PLN.** Bez kursów nie da się uczciwie zsumować innych walut.
+- **Kolumna Komentarz i Tag zniknęły z listy.** Zostają w oknie edycji.
+
+## Raporty
+
+- **Struktura wydatków: lista z paskami pełni rolę poziomego wykresu.** Top 10 plus „Pozostałe”, posortowane malejąco, paski neutralne, klikalne jak wcześniej. Biblioteka wykresów nie dawałaby tu nic ponad to, a tekst pozostaje czytelny i dostępny.
+- **Donut w „Tagi kont” pojawia się tylko przy najwyżej 5 pozycjach.**
+- **Paleta wykresów `--chart-1…8`** to sprawdzona paleta kategorialna, osobno dla obu motywów. Nivo nie rozumie `var()`, więc kolory czytamy z tokenów w `utils/tokens.ts`, a zmiana motywu przebudowuje zakładkę.
+- **Przepływy:** Przychody → grupy → kategorie, 8 największych kategorii, reszta jako „Pozostałe wydatki”. Grupy biorą się ze ścieżki kategorii. Przelewy między kontami nie są już częścią diagramu. Gdy przychody przewyższają wydatki, nadwyżka to osobna gałąź; gdy są niższe, węzeł „Przychody” obrazuje tylko wydatki, a rzeczywiste kwoty stoją nad diagramem.

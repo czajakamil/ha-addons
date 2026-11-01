@@ -1926,3 +1926,56 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+@layer components {
+  /* Struktura wydatków: lista to wykres, słupki neutralne */
+  .breakdown-columns > .breakdown-categories-card {
+    flex: 1 1 100%;
+  }
+
+  .breakdown-columns .breakdown-list__items {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .breakdown-list__bar-fill {
+    background: var(--text-muted);
+  }
+
+  /* Statystyki: jeden rząd liczb bez ramek */
+  .report-kpi-row {
+    padding-inline: var(--s-4);
+  }
+
+  .report-kpi-row .report-kpis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-32);
+    margin: 0;
+  }
+
+  .report-kpi-row .report-kpi {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .report-kpi-row .report-kpi__value {
+    font-size: var(--text-16);
+    line-height: var(--leading-16);
+    font-weight: var(--weight-semibold);
+  }
+
+  .report-kpi-row .report-kpi__label,
+  .report-kpi-row .report-kpi__hint {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+  }
+
+  .report-card,
+  .reports-page .card {
+    box-shadow: none;
+  }
+}

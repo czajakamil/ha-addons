@@ -41,19 +41,6 @@ export const isAccountColumnKey = (value: string): value is AccountColumn =>
 export const isEditableFieldColumn = (column: AccountColumn): column is EditableField =>
   column === 'name' || column === 'currency' || column === 'comment';
 
-const ACCOUNT_GRID_MIN_HEIGHT = 260;
-const ACCOUNT_GRID_MAX_HEIGHT = 720;
-export const ACCOUNT_GRID_ROW_HEIGHT = 52;
-export const ACCOUNT_GRID_HEADER_HEIGHT = 44;
-
-export const getAccountsGridHeight = (rowCount: number) => {
-  if (rowCount <= 0) {
-    return ACCOUNT_GRID_MIN_HEIGHT;
-  }
-  const estimated = ACCOUNT_GRID_HEADER_HEIGHT + 16 + ACCOUNT_GRID_ROW_HEIGHT * rowCount;
-  return Math.min(ACCOUNT_GRID_MAX_HEIGHT, Math.max(ACCOUNT_GRID_MIN_HEIGHT, estimated));
-};
-
 export type BudgetLabelValue = 'on' | 'off';
 
 export const normalizeAccountKind = (value?: string | null) =>
@@ -136,3 +123,19 @@ export type BalanceAdjustmentModalState = {
 // Znormalizowane porównywanie ścieżek kategorii ("A / B" ~ "a/b") przy wyszukiwaniu.
 export const normalizeCategoryLabel = (value: string) =>
   value.replace(/\s*\/\s*/g, '/').trim().toLowerCase();
+
+const DORMANT_AFTER_DAYS = 90;
+const MAIN_CURRENCY = 'PLN';
+
+/** Konto z zerowym saldem i bez ruchu od 90 dni. Brak daty oznacza, że aktywność jeszcze się wczytuje. */
+export const isDormantAccount = (account: Account, lastActivity: string | null | undefined) => {
+  if (account.balance_cents !== 0 || lastActivity === undefined) return false;
+  if (lastActivity === null) return true;
+  return Date.now() - Date.parse(lastActivity) > DORMANT_AFTER_DAYS * 86_400_000;
+};
+
+// Suma grupy obejmuje konta w głównej walucie; kursów nie przeliczamy.
+export const sumInMainCurrency = (accounts: Account[]) =>
+  accounts
+    .filter((account) => account.currency === MAIN_CURRENCY)
+    .reduce((sum, account) => sum + account.balance_cents, 0);

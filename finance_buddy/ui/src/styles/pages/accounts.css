@@ -726,3 +726,281 @@
     flex: none;
   }
 }
+
+/* ==========================================================================
+   Ekran Konta: grupy, tabela, szczegóły.
+   ========================================================================== */
+
+@layer components {
+  .accounts-screen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-16);
+  }
+
+  .accounts-screen .page-heading {
+    margin-block-end: 0;
+  }
+
+  .accounts-screen .accounts-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-8);
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .accounts-screen .form-control,
+  .accounts-screen .form-select {
+    height: var(--row-height-compact);
+    min-height: 0;
+    padding-block: 0;
+    font-size: var(--text-13);
+  }
+
+  .accounts-error {
+    margin: 0;
+    color: var(--negative);
+    font-size: var(--text-13);
+  }
+
+  .accounts-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-8);
+  }
+
+  .accounts-group + .accounts-group {
+    margin-block-start: var(--s-8);
+  }
+
+  .accounts-group__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+    gap: var(--s-16);
+  }
+
+  .accounts-group__title {
+    margin: 0;
+    font-size: var(--text-16);
+    line-height: var(--leading-16);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0;
+  }
+
+  .accounts-group__sum {
+    font-size: var(--text-16);
+    line-height: var(--leading-16);
+    font-weight: var(--weight-semibold);
+  }
+
+  .accounts-table-card {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .accounts-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+  }
+
+  .accounts-table th {
+    height: var(--row-height-compact);
+    padding: 0 var(--s-16);
+    border-block-end: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    font-weight: var(--weight-medium);
+    text-align: start;
+  }
+
+  .accounts-table td {
+    height: 48px;
+    padding: var(--s-4) var(--s-16);
+    border-block-end: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .accounts-table tr:last-child td {
+    border-block-end: 0;
+  }
+
+  .accounts-table__row {
+    cursor: pointer;
+    transition: background var(--motion-fast);
+  }
+
+  .accounts-table__row:hover {
+    background: var(--surface-2);
+  }
+
+  .accounts-table th.accounts-table__amount,
+  .accounts-table td.accounts-table__amount {
+    width: 160px;
+    text-align: end;
+  }
+
+  .accounts-table th.accounts-table__activity,
+  .accounts-table td.accounts-table__activity {
+    width: 176px;
+    color: var(--text-muted);
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .accounts-table th.accounts-table__menu,
+  .accounts-table td.accounts-table__menu {
+    width: 48px;
+    padding-inline: var(--s-8);
+    text-align: center;
+  }
+
+  .accounts-name {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-width: 0;
+  }
+
+  .accounts-name__mark {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--s-24);
+    height: var(--s-24);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    font-weight: var(--weight-medium);
+  }
+
+  .accounts-name__copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .accounts-name__link {
+    padding: 0;
+    max-width: 100%;
+    background: transparent;
+    color: var(--text);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+    font-weight: var(--weight-medium);
+    text-align: start;
+  }
+
+  .accounts-name__link:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .accounts-name__meta {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+  }
+
+  .accounts-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--s-24);
+    height: var(--s-24);
+    padding: 0;
+    border-radius: var(--s-4);
+    background: transparent;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity var(--motion-fast);
+  }
+
+  .accounts-table__row:hover .accounts-menu-trigger,
+  .accounts-menu-trigger:focus-visible,
+  .accounts-menu-trigger[data-state="open"] {
+    opacity: 1;
+  }
+
+  .accounts-menu-trigger:hover:not(:disabled) {
+    color: var(--text);
+    transform: none;
+  }
+
+  .account-details {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-16);
+  }
+
+  .account-details__back {
+    align-self: flex-start;
+    gap: var(--s-4);
+    margin-inline-start: calc(-1 * var(--s-8));
+  }
+
+  .account-details__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-16);
+  }
+
+  .account-details__balance {
+    font-size: var(--text-32);
+    line-height: var(--leading-32);
+    font-weight: var(--weight-semibold);
+  }
+
+  .account-details__chart-card {
+    padding: var(--s-16);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  .account-details__chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .account-details__chart {
+    height: 280px;
+  }
+
+  @media (max-width: 700px) {
+    .accounts-table th,
+    .accounts-table td {
+      padding-inline: var(--s-8);
+    }
+
+    .accounts-table th.accounts-table__amount,
+    .accounts-table td.accounts-table__amount {
+      width: 120px;
+    }
+
+    .accounts-table__activity {
+      display: none;
+    }
+
+    .accounts-menu-trigger {
+      opacity: 1;
+    }
+  }
+}

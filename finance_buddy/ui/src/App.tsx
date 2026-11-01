@@ -25,6 +25,7 @@ import './App.css';
 
 const HomePage = lazy(() => import('./pages/home/HomePage'));
 const AccountsPage = lazy(() => import('./pages/AccountsPage'));
+const AccountDetailsPage = lazy(() => import('./pages/accounts/AccountDetailsPage'));
 const BudgetPage = lazy(() => import('./pages/BudgetPage'));
 const StoresPage = lazy(() => import('./pages/StoresPage'));
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage'));
@@ -347,6 +348,7 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/accounts" element={<AccountsPage />} />
+                  <Route path="/accounts/:accountId" element={<AccountDetailsPage />} />
                   <Route path="/budget" element={<BudgetPage />} />
                   <Route path="/stores" element={<StoresPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />

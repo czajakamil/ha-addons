@@ -4,7 +4,6 @@ import type { Category } from '../../../api';
 import {
   ACCOUNT_UNCATEGORIZED_ID,
   ACCOUNT_UNCATEGORIZED_NAME,
-  BREAKDOWN_CHART_COLORS,
   OTHER_ACCOUNT_KINDS_LABEL,
   OTHER_CATEGORIES_LABEL,
   getAccountKindLabel,
@@ -16,6 +15,7 @@ import {
 } from '../model';
 import { BreakdownPieTooltip } from '../tooltips';
 import { useChartTheme } from '../useChartTheme';
+import { chartColor } from '../../../utils/tokens';
 import type { ReportsController } from '../useReports';
 
 type AccountCategoriesTabProps = {
@@ -221,7 +221,7 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
     return entries.map((entry, index) => ({
       ...entry,
       percentage: percentBase > 0 ? entry.value / percentBase : 0,
-      color: BREAKDOWN_CHART_COLORS[index % BREAKDOWN_CHART_COLORS.length]
+      color: chartColor(index)
     }));
   }, [
     accountCategoryLookup,
@@ -254,7 +254,7 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
     return entries.map((entry, index) => ({
       ...entry,
       percentage: percentBase > 0 ? entry.value / percentBase : 0,
-      color: BREAKDOWN_CHART_COLORS[index % BREAKDOWN_CHART_COLORS.length]
+      color: chartColor(index)
     }));
   }, [accountCategorySummary]);
 
@@ -382,6 +382,7 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
         <p className="report-empty">Brak danych o saldach kont.</p>
       ) : (
         <div className="breakdown-layout">
+          {accountCategoryPieData.length <= 5 && (
           <div
             className="breakdown-chart"
             aria-label={`Udział ${accountCategoryView === 'types' ? 'typów' : 'kategorii'} kont według salda`}
@@ -399,7 +400,7 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
                   enableArcLinkLabels={false}
                   arcLabelsSkipAngle={16}
                   arcLabel={(datum) => percentLabel(datum.data.percentage)}
-                  arcLabelsTextColor="#0f172a"
+                  arcLabelsTextColor={chartTheme.surface}
                   theme={chartTheme.nivoTheme}
                   valueFormat={(value) => moneyLabel(Number(value))}
                   tooltip={(props) => <BreakdownPieTooltip {...props} />}
@@ -409,6 +410,7 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
               </div>
             </div>
           </div>
+          )}
           <aside
             className="breakdown-layout__categories"
             aria-label={

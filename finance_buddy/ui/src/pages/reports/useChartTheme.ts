@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { readToken } from '../../utils/tokens';
 
 export type ChartTheme = {
   /** Primary text color (chart center labels, emphasis). */
@@ -22,9 +23,6 @@ export type ChartTheme = {
   };
 };
 
-const readToken = (styles: CSSStyleDeclaration, name: string, fallback: string) =>
-  styles.getPropertyValue(name).trim() || fallback;
-
 /**
  * Kolory wykresów odczytane z tokenów motywu (tokens.css). Nivo nie rozumie
  * `var(--x)`, więc wartości trzeba pobrać z computed style; hook przelicza je
@@ -35,18 +33,14 @@ export const useChartTheme = (): ChartTheme => {
   const { theme } = useTheme();
 
   return useMemo(() => {
-    const styles =
-      typeof window !== 'undefined'
-        ? getComputedStyle(document.documentElement)
-        : ({ getPropertyValue: () => '' } as unknown as CSSStyleDeclaration);
     void theme;
 
-    const text = readToken(styles, '--text', '#15172a');
-    const muted = readToken(styles, '--muted', '#6a7090');
-    const grid = readToken(styles, '--border', '#e4e7f1');
-    const surface = readToken(styles, '--surface', '#ffffff');
-    const menuBg = readToken(styles, '--menu-bg', surface);
-    const fontFamily = readToken(styles, '--font-sans', 'sans-serif');
+    const text = readToken('--text');
+    const muted = readToken('--text-muted');
+    const grid = readToken('--border');
+    const surface = readToken('--surface');
+    const menuBg = readToken('--surface');
+    const fontFamily = readToken('--font-sans');
 
     return {
       text,
@@ -58,9 +52,9 @@ export const useChartTheme = (): ChartTheme => {
           domain: { line: { stroke: grid } },
           ticks: { line: { stroke: grid }, text: { fill: muted, fontSize: 12 } }
         },
-        grid: { line: { stroke: grid, strokeDasharray: '4 6' } },
+        grid: { line: { stroke: grid, strokeDasharray: '0' } },
         labels: { text: { fontFamily, fontWeight: 600 } },
-        tooltip: { container: { background: menuBg, color: text, fontFamily } }
+        tooltip: { container: { background: menuBg, color: text, fontFamily, fontSize: 12, borderRadius: 6 } }
       }
     };
   }, [theme]);

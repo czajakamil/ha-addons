@@ -1,26 +1,24 @@
 import { useCallback, useMemo, useState } from 'react';
-import {
-  IconAlertCircle,
-  IconFileSpreadsheet,
-  IconPencil,
-  IconPlus,
-  IconReceipt2
-} from '@tabler/icons-react';
+import { Plus, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Account, getAccounts } from '../api';
-import DataTable, { type MoneyColumn } from '../components/DataTable';
 import Button from '../components/Button';
+import EmptyState from '../components/ui/EmptyState';
+import Money from '../components/ui/Money';
+import PageHeader from '../components/ui/PageHeader';
+import SkeletonRows from '../components/ui/SkeletonRows';
+import { copy } from '../copy/pl';
 import { useApi } from '../hooks/useApi';
 import {
-  ACCOUNT_GRID_HEADER_HEIGHT,
-  ACCOUNT_GRID_ROW_HEIGHT,
   ACCOUNT_KIND_OPTIONS,
   getAccountKindLabel,
-  getAccountsGridHeight,
-  isLiabilityAccountKind,
+  isDormantAccount,
   normalizeCategoryLabel,
+  sumInMainCurrency,
   type SortOption
 } from './accounts/model';
+import AccountsTable from './accounts/components/AccountsTable';
+import { useAccountActivity } from './accounts/useAccountActivity';
 import { useAccountCategories } from './accounts/useAccountCategories';
 import { useAccountsEditing } from './accounts/useAccountsEditing';
 import AccountsToolbarRight from './accounts/components/AccountsToolbarRight';
@@ -29,6 +27,8 @@ import EditAccountModal from './accounts/components/EditAccountModal';
 import DeleteAccountModal from './accounts/components/DeleteAccountModal';
 import BalanceAdjustmentModal from './accounts/components/BalanceAdjustmentModal';
 import DebtDetailsModal from './accounts/components/DebtDetailsModal';
+
+const labels = copy.accounts;
 
 const AccountsPage = () => {
   const navigate = useNavigate();
@@ -39,11 +39,14 @@ const AccountsPage = () => {
     refetch: loadAccounts,
     setData: setAccounts
   } = useApi(async () => (await getAccounts()).accounts, {
-    errorMessage: 'Nie udało się wczytać kont.'
+    errorMessage: copy.accounts.loadFailed
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewAccountModal, setShowNewAccountModal] = useState(false);
   const [showClosedAccounts, setShowClosedAccounts] = useState(false);
+  const [showEmptyBudget, setShowEmptyBudget] = useState(false);
+  const [showEmptyTracked, setShowEmptyTracked] = useState(false);
+  const activity = useAccountActivity(accounts);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const [debtAccountId, setDebtAccountId] = useState<string | null>(null);
@@ -56,11 +59,7 @@ const AccountsPage = () => {
 
   const {
     inlineError,
-    renderCell,
-    renderCategoryCell,
     renderBalanceCell,
-    renderKindCell,
-    renderBudgetCell,
     handleGridDoubleClick,
     balanceAdjustmentModal,
     adjustingBalance,
@@ -101,111 +100,6 @@ const AccountsPage = () => {
     setEditingAccountId(null);
   }, [editingAccountId]);
 
-  const accountGridColumns: readonly MoneyColumn<Account>[] = [
-    {
-      key: 'actions',
-      name: '',
-      width: 124,
-      minWidth: 124,
-      maxWidth: 124,
-      resizable: false,
-      headerCellClass: 'text-center',
-      cellClass: 'text-center',
-      renderCell: ({ row }) => (
-        <div className="accounts-edit-cell">
-          <button
-            type="button"
-            className="btn btn-ghost-secondary btn-icon btn-sm accounts-edit-btn is-focusable"
-            aria-label={`Edytuj konto ${row.name}`}
-            title="Edytuj konto"
-            onClick={(event) => {
-              event.stopPropagation();
-              setEditingAccountId(row.id);
-            }}
-          >
-            <IconPencil size={16} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost-secondary btn-icon btn-sm accounts-edit-btn is-focusable"
-            aria-label={`Importuj wyciąg CSV na konto ${row.name}`}
-            title="Importuj wyciąg CSV"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`/bank-import?account=${encodeURIComponent(row.id)}`);
-            }}
-          >
-            <IconFileSpreadsheet size={16} aria-hidden="true" />
-          </button>
-          {/* Tylko zobowiązania: karty kredytowe mają własną ścieżkę (kategoria
-              spłaty), a dla aktywów nie ma czego prognozować. */}
-          {isLiabilityAccountKind(row.account_kind) && (
-            <button
-              type="button"
-              className="btn btn-ghost-secondary btn-icon btn-sm accounts-edit-btn is-focusable"
-              aria-label={`Pokaż szczegóły długu: ${row.name}`}
-              title="Szczegóły długu"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDebtAccountId(row.id);
-              }}
-            >
-              <IconReceipt2 size={16} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      )
-    },
-    {
-      key: 'name',
-      name: 'Nazwa',
-      width: 240,
-      renderCell: ({ row }) => renderCell(row, 'name')
-    },
-    {
-      key: 'category',
-      name: 'Tag',
-      width: 260,
-      renderCell: ({ row }) => renderCategoryCell(row)
-    },
-    {
-      key: 'currency',
-      name: 'Waluta',
-      width: 120,
-      renderCell: ({ row }) => renderCell(row, 'currency')
-    },
-    {
-      key: 'balance',
-      name: 'Saldo',
-      width: 200,
-      isMoney: true,
-      renderCell: ({ row }) => renderBalanceCell(row)
-    },
-    {
-      key: 'kind',
-      name: 'Typ',
-      width: 210,
-      headerCellClass: 'text-center',
-      cellClass: 'text-center',
-      renderCell: ({ row }) => renderKindCell(row)
-    },
-    {
-      key: 'budget',
-      name: 'Budżet',
-      width: 140,
-      headerCellClass: 'text-center',
-      cellClass: 'text-center',
-      renderCell: ({ row }) => renderBudgetCell(row)
-    },
-    {
-      key: 'comment',
-      name: 'Komentarz',
-      renderCell: ({ row }) => renderCell(row, 'comment')
-    }
-  ];
-
-  const getAccountRowId = useCallback((account: Account) => account.id, []);
-
   const filteredAccounts = accounts.filter((account) => {
     if (!searchQuery.trim()) {
       return true;
@@ -244,8 +138,41 @@ const AccountsPage = () => {
 
   const openAccounts = sortedAccounts.filter((account) => !account.is_closed);
   const closedAccounts = sortedAccounts.filter((account) => account.is_closed);
-  const openAccountsHeight = getAccountsGridHeight(openAccounts.length);
-  const closedAccountsHeight = getAccountsGridHeight(closedAccounts.length);
+  const budgetAccounts = openAccounts.filter((account) => account.is_on_budget);
+  const trackedAccounts = openAccounts.filter((account) => !account.is_on_budget);
+
+  const renderTable = (rows: Account[]) => (
+    <AccountsTable
+      accounts={rows}
+      activity={activity}
+      renderBalanceCell={renderBalanceCell}
+      onOpen={(account) => navigate(`/accounts/${account.id}`)}
+      onEdit={(account) => setEditingAccountId(account.id)}
+      onChangeBalance={(account) => handleGridDoubleClick({ column: { key: 'balance' }, row: account } as never)}
+      onImport={(account) => navigate(`/bank-import?account=${encodeURIComponent(account.id)}`)}
+      onDebt={(account) => setDebtAccountId(account.id)}
+    />
+  );
+
+  const renderGroup = (title: string, rows: Account[], showEmpty: boolean, onToggleEmpty: () => void) => {
+    if (!rows.length) return null;
+    const visible = rows.filter((account) => !isDormantAccount(account, activity.get(account.id)));
+    const dormantCount = rows.length - visible.length;
+    return (
+      <section className="accounts-group" aria-label={title}>
+        <header className="accounts-group__head">
+          <h2 className="accounts-group__title">{title}</h2>
+          <Money cents={sumInMainCurrency(rows)} tone="neutral" className="accounts-group__sum" />
+        </header>
+        {renderTable(showEmpty ? rows : visible)}
+        {dormantCount > 0 && (
+          <button type="button" className="text-button" onClick={onToggleEmpty}>
+            {showEmpty ? labels.hideEmpty : labels.showEmpty(dormantCount)}
+          </button>
+        )}
+      </section>
+    );
+  };
 
   const noResults = !loading && !error && filteredAccounts.length === 0;
   const activeAccounts = useMemo(
@@ -266,143 +193,49 @@ const AccountsPage = () => {
   );
 
   return (
-    <div className="page accounts-page">
-      <div className="page-shell">
-        <div className="d-print-none accounts-page__header">
-          <div className="accounts-page__title-wrap">
-            <h2 className="page-title accounts-page__title">Konta</h2>
-            <p className="accounts-page__subtitle">
-              {activeAccounts.length} aktywne / {closedAccounts.length} zarchiwizowane
-            </p>
-          </div>
-          <div className="accounts-page__actions">
-            <Button icon={<IconPlus size={16} aria-hidden="true" />} onClick={() => setShowNewAccountModal(true)}>
-              Nowe konto
-            </Button>
-          </div>
-        </div>
+    <div className="page-shell accounts-screen">
+      <PageHeader
+        title={labels.title}
+        count={activeAccounts.length}
+        actions={
+          <Button icon={<Plus size={16} aria-hidden="true" />} onClick={() => setShowNewAccountModal(true)}>
+            {labels.newAccount}
+          </Button>
+        }
+      />
+      <AccountsToolbarRight
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortOption={sortOption}
+        setSortOption={setSortOption}
+      />
 
-        <div className="page-body page-stack accounts-page__body">
-          <section className="card accounts-section-card">
-            <div className="accounts-section-card__header">
-              <AccountsToolbarRight
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                sortOption={sortOption}
-                setSortOption={setSortOption}
-              />
-            </div>
+      {[inlineError, categoryLoadError, !loading && error].filter(Boolean).map((message) => (
+        <p key={String(message)} className="accounts-error" role="alert">
+          {message}
+        </p>
+      ))}
 
-            {inlineError && (
-              <div className="accounts-section-card__alert">
-                <div className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0" role="alert">
-                  <IconAlertCircle size={18} aria-hidden="true" />
-                  <div>{inlineError}</div>
-                </div>
-              </div>
-            )}
+      {loading && <SkeletonRows rows={6} />}
+      {noResults && (
+        <EmptyState icon={Wallet} message={searchQuery.trim() ? labels.empty : labels.emptyAll} />
+      )}
 
-            {categoryLoadError && (
-              <div className="accounts-section-card__alert">
-                <div className="alert alert-warning alert-important d-flex align-items-center gap-2 mb-0" role="alert">
-                  <IconAlertCircle size={18} aria-hidden="true" />
-                  <div>{categoryLoadError}</div>
-                </div>
-              </div>
-            )}
-
-            {loading && (
-              <div className="accounts-section-card__body">
-                <div className="placeholder-glow">
-                  <div className="placeholder col-12 mb-2" />
-                  <div className="placeholder col-10 mb-2" />
-                  <div className="placeholder col-12 mb-2" />
-                  <div className="placeholder col-8 mb-0" />
-                </div>
-              </div>
-            )}
-
-            {error && !loading && (
-              <div className="accounts-section-card__body">
-                <div className="alert alert-danger mb-0" role="alert">
-                  {error}
-                </div>
-              </div>
-            )}
-
-            {!loading && !error && (
-              <div className="accounts-section-card__table">
-                {!noResults ? (
-                  <DataTable
-                    aria-label="Lista kont"
-                    className="accounts-grid"
-                    columns={accountGridColumns}
-                    rows={openAccounts}
-                    rowKeyGetter={getAccountRowId}
-                    onCellDoubleClick={handleGridDoubleClick}
-                    height={openAccountsHeight}
-                    rowHeight={ACCOUNT_GRID_ROW_HEIGHT}
-                    headerRowHeight={ACCOUNT_GRID_HEADER_HEIGHT}
-                    noRowsFallback={
-                      <div className="data-grid__empty text-secondary text-center">
-                        Brak aktywnych kont w wynikach filtrowania.
-                      </div>
-                    }
-                  />
-                ) : (
-                  <div className="accounts-empty-state">
-                    <div className="accounts-empty-state__title">Brak wyników</div>
-                    <p className="accounts-empty-state__subtitle">
-                      Nie znaleziono kont dla podanego filtra. Spróbuj innej frazy wyszukiwania.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
+      {!loading && !error && (
+        <>
+          {renderGroup(labels.onBudget, budgetAccounts, showEmptyBudget, () => setShowEmptyBudget((prev) => !prev))}
+          {renderGroup(labels.tracked, trackedAccounts, showEmptyTracked, () => setShowEmptyTracked((prev) => !prev))}
           {closedAccounts.length > 0 && (
-            <section className="card accounts-section-card accounts-section-card--closed">
-              <div className="accounts-section-card__header accounts-section-card__header--closed">
-                <div className="accounts-section-card__header-copy">
-                  <div className="accounts-section-card__eyebrow">Archiwum</div>
-                  <h3 className="accounts-section-card__title">Zarchiwizowane konta</h3>
-                  <p className="accounts-section-card__hint">
-                    Łącznie: {closedAccounts.length}. Rozwiń sekcję, jeśli chcesz przywrócić konto.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm is-focusable"
-                  onClick={() => setShowClosedAccounts((prev) => !prev)}
-                >
-                  {showClosedAccounts ? 'Ukryj' : 'Pokaż'}
-                </button>
-              </div>
-              {showClosedAccounts && (
-                <div className="accounts-section-card__table">
-                  <DataTable
-                    aria-label="Lista zarchiwizowanych kont"
-                    className="accounts-grid accounts-grid--archived"
-                    columns={accountGridColumns}
-                    rows={closedAccounts}
-                    rowKeyGetter={getAccountRowId}
-                    onCellDoubleClick={handleGridDoubleClick}
-                    height={closedAccountsHeight}
-                    rowHeight={ACCOUNT_GRID_ROW_HEIGHT}
-                    headerRowHeight={ACCOUNT_GRID_HEADER_HEIGHT}
-                    noRowsFallback={
-                      <div className="data-grid__empty text-secondary text-center">
-                        Brak zarchiwizowanych kont w wynikach filtrowania.
-                      </div>
-                    }
-                  />
-                </div>
-              )}
+            <section className="accounts-group" aria-label={labels.archived}>
+              <button type="button" className="text-button" onClick={() => setShowClosedAccounts((prev) => !prev)}>
+                {showClosedAccounts ? labels.hideArchived : labels.showArchived(closedAccounts.length)}
+              </button>
+              {showClosedAccounts && renderTable(closedAccounts)}
             </section>
           )}
-        </div>
-      </div>
+        </>
+      )}
+
       {showNewAccountModal && (
         <NewAccountModal
           onClose={() => setShowNewAccountModal(false)}

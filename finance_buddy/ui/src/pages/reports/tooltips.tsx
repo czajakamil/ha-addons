@@ -5,8 +5,9 @@ import type { PieTooltipProps } from '@nivo/pie';
 import {
   moneyLabel,
   percentLabel,
-  NET_ASSETS_COLOR,
-  NET_DEBTS_COLOR,
+  netAssetsColor,
+  otherCategoryColor,
+  netDebtsColor,
   type BreakdownPieDatum,
   type NetWorthBarDatum,
   type TrendBarDatum,
@@ -38,7 +39,7 @@ export const SpendingTrendsTooltip = ({ data, legendLookup }: SpendingTrendsTool
       return {
         key,
         label: meta?.label ?? key,
-        color: meta?.color ?? '#64748b',
+        color: meta?.color ?? otherCategoryColor(),
         value
       };
     })
@@ -79,11 +80,11 @@ export const NetWorthTooltip = ({ data }: BarTooltipProps<NetWorthBarDatum>) => 
       <ul className="report-tooltip__list">
         <li className="report-tooltip__row report-tooltip__row--between">
           <span>Aktywa</span>
-          <strong style={{ color: NET_ASSETS_COLOR }}>{moneyLabel(assets)}</strong>
+          <strong style={{ color: netAssetsColor() }}>{moneyLabel(assets)}</strong>
         </li>
         <li className="report-tooltip__row report-tooltip__row--between">
           <span>Zobowiązania</span>
-          <strong style={{ color: NET_DEBTS_COLOR }}>{moneyLabel(debts)}</strong>
+          <strong style={{ color: netDebtsColor() }}>{moneyLabel(debts)}</strong>
         </li>
         <li className="report-tooltip__row report-tooltip__row--between">
           <span>Netto</span>

@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { ResponsiveBar, type BarCustomLayerProps } from '@nivo/bar';
 import {
-  NET_ASSETS_COLOR,
-  NET_DEBTS_COLOR,
+  netAssetsColor,
+  netDebtsColor,
   moneyLabel,
   type NetWorthBarDatum
 } from '../model';
@@ -21,7 +21,7 @@ const NetWorthTab = ({ controller }: NetWorthTabProps) => {
   const netWorthMonths = netWorth?.months ?? [];
 
   const netWorthColors = useCallback(
-    (bar: { id: string | number }) => (String(bar.id) === 'assets' ? NET_ASSETS_COLOR : NET_DEBTS_COLOR),
+    (bar: { id: string | number }) => (String(bar.id) === 'assets' ? netAssetsColor() : netDebtsColor()),
     []
   );
   const netWorthChart = useMemo(() => {
@@ -157,11 +157,11 @@ const NetWorthTab = ({ controller }: NetWorthTabProps) => {
           </div>
           <div className="spending-trends-legend" aria-label="Legenda net worth">
             <span className="spending-trends-legend__item">
-              <span className="spending-trends-legend__dot" style={{ backgroundColor: NET_ASSETS_COLOR }} aria-hidden />
+              <span className="spending-trends-legend__dot" style={{ backgroundColor: netAssetsColor() }} aria-hidden />
               <span className="spending-trends-legend__label">Aktywa</span>
             </span>
             <span className="spending-trends-legend__item">
-              <span className="spending-trends-legend__dot" style={{ backgroundColor: NET_DEBTS_COLOR }} aria-hidden />
+              <span className="spending-trends-legend__dot" style={{ backgroundColor: netDebtsColor() }} aria-hidden />
               <span className="spending-trends-legend__label">Zobowiązania</span>
             </span>
             <span className="spending-trends-legend__item">
