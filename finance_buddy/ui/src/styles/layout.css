@@ -1,0 +1,656 @@
+/* ==========================================================================
+   4. LAYOUT: APP, SHELL, SIDEBAR, MAIN
+   ========================================================================== */
+
+@layer components {
+  .app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app__workspace-toolbar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-block-end: var(--space-2);
+  }
+
+  @media (min-width: 1024px) {
+    .app__workspace-toolbar {
+      display: none;
+    }
+  }
+
+  .workspace__menu {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: var(--pill);
+    padding: calc(var(--space-2) - 0.35rem) var(--space-3);
+    background: var(--primary);
+    color: var(--on-brand);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition:
+      transform var(--dur-fast) var(--ease),
+      filter var(--dur-fast) var(--ease);
+  }
+
+  .workspace__menu:hover,
+  .workspace__menu:focus-visible {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+  }
+
+  .workspace__menu-icon {
+    color: currentColor;
+  }
+
+  .workspace__menu-label {
+    letter-spacing: 0.01em;
+  }
+
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.35rem, 0.9vw, 0.75rem);
+    line-height: 0;
+  }
+
+  .brand__mark {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--r-sm);
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-weight: 800;
+    font-size: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .brand__mark svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .brand__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease),
+      width var(--dur) var(--ease);
+  }
+
+  .brand__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .brand__badge {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.6rem;
+    border-radius: var(--pill);
+  }
+
+  .brand__eyebrow {
+    font-size: 0.6rem;
+    margin: 0;
+    color: var(--muted-inverse);
+  }
+
+  .app__shell {
+    display: flex;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    gap: var(--space-4);
+    min-height: 100vh;
+    flex-direction: column;
+    transition: padding var(--dur) var(--ease);
+  }
+
+  @media (min-width: 1024px) {
+    .app__shell.is-desktop {
+      padding-block-start: 0;
+      padding-block-end: 0;
+      padding-inline-start: var(--sidebar-expanded-width);
+      gap: var(--space-3);
+    }
+
+    .app__shell.is-desktop.is-sidebar-collapsed {
+      padding-inline-start: var(--sidebar-collapsed-width);
+    }
+  }
+
+  .app__workspace {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    gap: var(--space-3);
+  }
+
+  .app__sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.65);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur) var(--ease);
+    z-index: var(--z-overlay);
+    display: none;
+  }
+
+  .app__sidebar-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .app__sidebar {
+    width: var(--sidebar-expanded-width);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: var(--space-3);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    transition:
+      transform var(--dur) var(--ease),
+      opacity var(--dur-fast) var(--ease),
+      width var(--dur) var(--ease),
+      padding var(--dur) var(--ease),
+      margin var(--dur) var(--ease);
+    overflow-y: auto;
+    z-index: var(--z-sidebar);
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .app__sidebar {
+      position: fixed;
+      inset-block: 0;
+      inset-inline-start: 0;
+      border-radius: 0;
+      border-block: 0;
+      border-inline-start: 0;
+      height: 100vh;
+      max-height: none;
+      padding: var(--space-3);
+    }
+
+    .app__sidebar.is-collapsed {
+      width: var(--sidebar-collapsed-width);
+      padding: var(--space-3) calc(var(--space-2) + 0.3rem);
+    }
+
+    .app__sidebar.is-collapsed .sidebar__label {
+      opacity: 0;
+      transform: translateX(-6px);
+      margin: 0;
+      height: 0;
+      pointer-events: none;
+    }
+
+    .app__sidebar.is-collapsed .brand__copy {
+      width: 0;
+      opacity: 0;
+      transform: translateX(-8px);
+      pointer-events: none;
+    }
+
+    .app__sidebar.is-collapsed .sidebar__collapse {
+      justify-content: center;
+      gap: 0;
+      padding-inline: calc(var(--space-2) + 0.2rem);
+    }
+
+    .app__sidebar.is-collapsed .sidebar__panel,
+    .app__sidebar.is-collapsed .sidebar__logout {
+      justify-content: center;
+      gap: 0;
+      padding-inline: calc(var(--space-2) + 0.2rem);
+    }
+
+    .app__sidebar.is-collapsed .sidebar__collapse-label {
+      width: 0;
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+
+    .app__sidebar.is-collapsed .sidebar__link {
+      justify-content: center;
+      gap: 0;
+      padding-inline: calc(var(--space-2) + 0.2rem);
+    }
+
+    .app__sidebar.is-collapsed .sidebar__icon {
+      margin: 0;
+    }
+
+    .app__sidebar.is-collapsed .sidebar__text {
+      width: 0;
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .app__sidebar-backdrop {
+      display: block;
+    }
+
+    .app__sidebar {
+      position: fixed;
+      inset-inline-start: var(--shell-padding);
+      inset-inline-end: auto;
+      inset-block-start: var(--shell-padding);
+      inset-block-end: var(--shell-padding);
+      width: min(320px, calc(100% - (var(--shell-padding) * 2)));
+      background: var(--surface);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg);
+      transform: translateX(calc(-100% - 1.5rem));
+      opacity: 0;
+      pointer-events: none;
+      margin: 0;
+      border-width: 1px;
+      z-index: var(--z-sidebar);
+    }
+
+    .app__sidebar.is-open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar__collapse {
+      display: none;
+    }
+  }
+
+  .sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+
+  .sidebar__label {
+    font-size: 0.7rem;
+    color: var(--muted-inverse);
+    margin-block-end: var(--space-1);
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease);
+  }
+
+  .sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space-1) / 2);
+    flex: 1;
+  }
+
+  .sidebar__link {
+    padding: calc(var(--space-1) + 0.05rem) var(--space-2);
+    border-radius: var(--r);
+    text-decoration: none;
+    color: var(--muted);
+    font-weight: 600;
+    transition:
+      background var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .sidebar__text {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease),
+      width var(--dur) var(--ease);
+  }
+
+  .sidebar__link:hover {
+    background: var(--surface-muted);
+    color: var(--text);
+  }
+
+  .sidebar__link.is-active {
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+
+  .sidebar__icon {
+    color: currentColor;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .sidebar__footer {
+    margin-top: auto;
+    padding-top: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space-1) / 2);
+  }
+
+  .sidebar__user {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space-1) / 2);
+    margin-bottom: calc(var(--space-1) / 2);
+  }
+
+  .sidebar__user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar__user-name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+
+  .sidebar__user-sub {
+    font-size: 0.72rem;
+    color: var(--muted-inverse);
+  }
+
+  .sidebar__logout {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    border-radius: var(--r);
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: calc(var(--space-1) + 0.05rem) var(--space-2);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background var(--dur) var(--ease),
+      color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease);
+  }
+
+  .sidebar__panel {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    border-radius: var(--r);
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: calc(var(--space-1) + 0.05rem) var(--space-2);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background var(--dur) var(--ease),
+      color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease);
+  }
+
+  .sidebar__panel:hover {
+    background: var(--primary-soft);
+    border-color: transparent;
+    color: var(--primary);
+  }
+
+  .sidebar__logout:hover {
+    background: var(--danger-bg);
+    border-color: transparent;
+    color: var(--danger);
+  }
+
+  .sidebar__panel-label {
+    white-space: nowrap;
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease),
+      width var(--dur) var(--ease);
+  }
+
+  .sidebar__logout-label {
+    white-space: nowrap;
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease),
+      width var(--dur) var(--ease);
+  }
+
+  .sidebar__collapse {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    border-radius: var(--r);
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: calc(var(--space-1) + 0.05rem) var(--space-2);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background var(--dur) var(--ease),
+      color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease);
+  }
+
+  .sidebar__collapse:hover:not(:disabled) {
+    background: var(--surface-muted);
+    border-color: transparent;
+    color: var(--text);
+  }
+
+  /* Theme toggle (light/dark) — shares the footer button styling */
+  .sidebar__theme {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    border-radius: var(--r);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: calc(var(--space-1) + 0.05rem) var(--space-2);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+
+  .sidebar__theme:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+
+  .sidebar__theme-label {
+    white-space: nowrap;
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease),
+      width var(--dur) var(--ease);
+  }
+
+  .app__sidebar.is-collapsed .sidebar__theme {
+    justify-content: center;
+    gap: 0;
+    padding-inline: calc(var(--space-2) + 0.2rem);
+  }
+
+  .app__sidebar.is-collapsed .sidebar__theme-label {
+    width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  .sidebar__panel.is-focusable:focus-visible,
+  .sidebar__logout.is-focusable:focus-visible,
+  .sidebar__theme.is-focusable:focus-visible,
+  .sidebar__collapse.is-focusable:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 var(--ring) var(--focus);
+  }
+
+  .sidebar__collapse:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .sidebar__collapse-label {
+    white-space: nowrap;
+    transition:
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease),
+      width var(--dur) var(--ease);
+  }
+
+  .app__sidebar.is-collapsed .sidebar__user-info {
+    display: none;
+  }
+
+  .app__sidebar.is-collapsed .sidebar__panel-label {
+    opacity: 0;
+    width: 0;
+    transform: translateX(-6px);
+  }
+
+  .app__sidebar.is-collapsed .sidebar__logout-label {
+    opacity: 0;
+    width: 0;
+    transform: translateX(-6px);
+  }
+
+  .app__main {
+    flex: 1;
+    min-width: 0;
+    background: var(--panel);
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--dur) var(--ease);
+  }
+
+  /* Klasa dokładana w TS przy scrollu */
+  .app__main--scrolled {
+    transform: translateY(-6px);
+  }
+
+  .app__content {
+    flex: 1;
+  }
+
+  .app__content .container-xl {
+    width: 100%;
+    max-width: none;
+    padding-inline: 0;
+    margin-inline: 0;
+  }
+
+  /* Kanoniczny kontener treści strony — JEDNO źródło prawdy dla szerokości
+     i poziomego paddingu wszystkich zakładek, żeby każda miała identyczny
+     odstęp od krawędzi sidebaru. Każda strona owija swoją treść w `.page-shell`. */
+  .page-shell {
+    /* Poziomy padding wystawiony jako zmienna, żeby pełnoszerokościowe belki
+       nagłówków mogły go wyzerować negatywnym marginesem (patrz
+       `.accounts-page__header`) niezależnie od breakpointu. */
+    --shell-pad-inline: var(--space-3);
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: var(--shell-pad-inline);
+    padding-block-start: var(--space-3);
+  }
+
+  @media (max-width: 820px) {
+    .page-shell {
+      --shell-pad-inline: var(--space-2);
+    }
+  }
+
+  .page-body {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+  }
+
+  .page-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .page-pretitle {
+    padding-top: var(--space-2);
+  }
+
+  .page-header {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+}
+
+/* ==========================================================================
+   TABLER OVERRIDES — UNLAYERED ON PURPOSE
+   --------------------------------------------------------------------------
+   Moved here from ui/src/App.css. Kept UNLAYERED because Tabler is imported
+   unlayered (main.tsx); a layered rule would lose to Tabler's button styles
+   regardless of specificity. The `button.sidebar__*` selector beats Tabler's
+   .btn border-radius so the sidebar controls keep the Envelope radius.
+   ========================================================================== */
+
+button.sidebar__panel,
+button.sidebar__logout,
+button.sidebar__collapse,
+button.sidebar__theme {
+  border-radius: var(--r);
+}
+
+/* Zeruje górny margines pierwszego elementu treści strony, żeby JEDYNYM
+   źródłem górnego odstępu był `padding-block-start` na `.page-shell`.
+   UNLAYERED, bo bije nieopakowany `.page-body { margin-top }` Tablera
+   (24px), który inaczej dawałby Budżetowi/Panelowi inny odstęp niż reszcie. */
+.page-shell > :first-child {
+  margin-top: 0;
+}
+
+/* Wyjątek: pełnoszerokościowa belka nagłówka ma sięgać samej góry, więc
+   musi wysunąć się ponad `padding-block-start` page-shella. UNLAYERED, by
+   pobić powyższy `.page-shell > :first-child { margin-top: 0 }`. */
+.page-shell > .accounts-page__header:first-child {
+  margin-top: calc(-1 * var(--space-3));
+}

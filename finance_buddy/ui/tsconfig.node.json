@@ -1,0 +1,22 @@
+{
+  // Projekt pomocniczy dla configów Vite'a (nie dla src/).
+  //
+  // "noEmit" jest tu konieczne: bez niego `tsc` wypluwa obok vite.config.ts
+  // skompilowane vite.config.js + .d.ts, a Vite czyta vite.config.js PRZED .ts
+  // (DEFAULT_CONFIG_FILES) — czyli od tego momentu ładuje nieaktualny artefakt
+  // i zmiany w .ts przestają cokolwiek robić. Raz już tak wpadło do repo.
+  //
+  // Dlatego NIE jest to projekt "composite" i NIE ma go w "references"
+  // tsconfig.json: cel referencji musi emitować (TS6310), a emit jest tu
+  // dokładnie tym, czego nie chcemy.
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}

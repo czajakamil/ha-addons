@@ -1,0 +1,153 @@
+/* Kolejka „do otagowania" (pages/tagging/UntaggedQueuePage.tsx).
+ *
+ * Karta bieżącej transakcji jest celowo duża i spokojna: jedna decyzja naraz,
+ * czytana z odległości klawiatury. Lista pod nią to tylko kontekst.
+ */
+
+.untagged-queue__current .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.untagged-queue__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.untagged-queue__headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.untagged-queue__payee {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.untagged-queue__payee strong {
+  font-size: var(--fs-xl);
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.untagged-queue__amount {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.untagged-queue__amount.is-income {
+  color: var(--success);
+}
+
+.untagged-queue__tag-row {
+  display: grid;
+  grid-template-columns: auto minmax(14rem, 26rem) 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.untagged-queue__label {
+  font-weight: 600;
+}
+
+.untagged-queue__suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .untagged-queue__tag-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.untagged-queue__actions,
+.untagged-queue__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.untagged-queue__confirm {
+  justify-content: space-between;
+}
+
+.untagged-queue__kbd {
+  margin-inline-start: 0.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid currentColor;
+  border-radius: var(--r-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  opacity: 0.7;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.untagged-queue__help .untagged-queue__kbd {
+  margin-inline: 0.1rem;
+}
+
+.untagged-queue__help,
+.untagged-queue__notice {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.untagged-queue__empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+}
+
+.untagged-queue__list tbody tr {
+  cursor: pointer;
+}
+
+.untagged-queue__list tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+.untagged-queue__list tbody tr.is-current {
+  background: var(--primary-soft);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.untagged-queue__list tbody tr.is-skipped {
+  opacity: 0.55;
+}
+
+/* Licznik przy linku w pasku bocznym. */
+.sidebar__badge {
+  margin-inline-start: auto;
+  min-width: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: var(--pill);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.app__sidebar.is-collapsed .sidebar__badge {
+  display: none;
+}

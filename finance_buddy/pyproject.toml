@@ -1,0 +1,176 @@
+[project]
+name = "finance-buddy"
+version = "0.1.0"
+description = "Domowy menedżer finansów: FastAPI + React, z importem paragonów przez OCR."
+# Dolna granica zgodna z `target-version` ruffa i obrazem `python:3.12-slim`.
+# Górna NIE jest ostrożnościowa: `rapidfuzz` i `onnxruntime` nie mają jeszcze kół
+# dla 3.14, a budowanie ich ze źródeł potrafi się wywalić. To ta sama wiedza,
+# która wcześniej siedziała w pętli zgadującej interpreter w build_desktop.sh.
+requires-python = ">=3.12,<3.14"
+
+# Wyłącznie zależności BEZPOŚREDNIE — te, które kod naprawdę importuje albo
+# których wymaga w runtime. Wersje przechodnie (onnxruntime, opencv,
+# cryptography, protobuf...) pilnuje `uv.lock`, nie ten plik.
+#
+# Piny są DOKŁADNE, nie widełkowe, i to celowo: przy `>=` samo `uv lock`
+# podbiło ynaba z 1.9 na 4.4. Aktualizacja ma być świadomą zmianą w tym
+# pliku, a nie skutkiem ubocznym przeliczenia locka.
+dependencies = [
+    "alembic==1.18.4",
+    "fastapi==0.121.2",
+    "fido2==1.1.1",                   # passkeys
+    "keyring==25.2.1",
+    "keyrings-alt==5.0.2",            # backend plikowy dla Dockera/HA (bez pęku kluczy)
+    "numpy==2.5.1",                   # importowany wprost w receipt_extraction/rapidocr.py
+    "pillow==10.4.0",
+    "pydantic==2.12.4",
+    "pydantic-settings==2.12.0",
+    "pypdfium2==5.13.0",              # render PDF bez systemowego popplera
+    "pytesseract==0.3.13",
+    "python-dateutil==2.9.0.post0",
+    "python-multipart==0.0.20",       # bez importu, ale wymagany przez UploadFile
+    "rapidfuzz==3.10.1",
+    "rapidocr-onnxruntime==1.2.3",
+    "sqlalchemy==2.0.44",
+    "uvicorn==0.38.0",
+    # 4.x, nie 1.x: YNAB przemianował w API „budget" na „plan", przez co
+    # BudgetsApi zniknęło. Numer paczki jest oderwany od API (2.0 -> 4.0 w
+    # sześć dni), spec serwera przeszedł w tym czasie 1.76 -> 1.86.
+    "ynab==4.4.0",
+]
+
+[dependency-groups]
+# Kontrola jakości i testy. NIE trafiają do obrazu produkcyjnego —
+# Dockerfile instaluje z `--no-dev`.
+dev = [
+    # ty jest przed 1.0: inferencja zmienia się między wydaniami i podbicie
+    # potrafi zapalić błędy w nietkniętym kodzie.
+    "ty==0.0.74",
+    "pytest==8.4.2",
+    "ruff==0.16.3",
+]
+# Narzędzia z `tools/` — etykieciarka i pomiar jakości ekstrakcji.
+# `pdf2image` siedzi TYLKO tutaj: backend renderuje PDF-y przez pypdfium2,
+# a pdf2image wymaga systemowego popplera.
+tools = [
+    "pdf2image==1.17.0",
+    "rapidocr==3.9.2",                # RapidOCR 2.x/3.x, porównawczo w receipt_eval
+]
+# Zależności builda desktopowego (PyInstaller). Wcześniej doinstalowywane
+# doraźnie w scripts/build_desktop.sh, przez co ich wersje nigdzie nie były
+# zapisane — te pochodzą z działającego .venv-desktop-build.
+desktop = [
+    "pyinstaller==6.22.2",
+    "pywebview==6.2.1",
+    "pyobjc-framework-Cocoa==12.2.2; sys_platform == 'darwin'",
+    "pyobjc-framework-WebKit==12.2.2; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz==12.2.2; sys_platform == 'darwin'",
+]
+
+[tool.uv]
+# Piny na zależności PRZECHODNIE, których nie chcemy podbijać mimochodem.
+# onnxruntime to silnik OCR: zmierzony baseline ekstrakcji (77,6%) i obejście
+# segfaulta w cv2 na ARM powstały na 1.28.0. Podbicie ma być osobną zmianą,
+# po której przelicza się jakość przez tools/receipt_eval — a nie skutkiem
+# ubocznym `uv lock`. protobuf jest przypięty, bo ciągnie go onnxruntime.
+constraint-dependencies = [
+    "onnxruntime==1.28.0",
+    "protobuf==7.35.1",
+]
+# Projekt jest aplikacją, nie biblioteką: `backend` importuje się ścieżkowo
+# (`from backend.finance_app import ...`), nie ma instalowalnego pakietu.
+# Bez tego uv próbowałoby zbudować i zainstalować sam projekt.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# "*.md" — ruff formatuje też bloki ```python w dokumentacji, a tam snippety są
+# ilustracyjne i skrócone; nie chcemy ich przepisywać.
+extend-exclude = ["env", "ui", "szablon", "data", "backend/alembic/versions", "*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "UP", "B", "SIM", "C4", "RUF", "DTZ", "PT", "N", "ARG",
+    "ASYNC",  # blokujące wywołania w async def — istotne, bo OCR/PDF liczy się długo
+    "S",      # bandit: podpowiedzi bezpieczeństwa
+    "A",      # przesłanianie builtinów
+    "ISC",    # niejawna konkatenacja — łapie zgubiony przecinek w liście stringów
+    "LOG",    # poprawność logowania
+    "G",      # logowanie przez %s zamiast f-stringów
+    "PIE",    # drobne martwe konstrukcje
+    "T20",    # print poza narzędziami CLI
+    "RET",    # zbędne przypisania i return None przed końcem funkcji
+    "SLF",    # sięganie po prywatne składowe cudzych obiektów
+    "PTH",    # pathlib zamiast os.path
+    "ERA",    # zakomentowany kod
+    "PERF",   # antywzorce wydajnościowe w pętlach
+    "FURB",   # modernizacja składni
+    "PLE",    # pylint: realne błędy
+    "PLW",    # pylint: ostrzeżenia
+    "EXE", "YTT", "SLOT", "INT", "FLY", "RSE",
+    "ANN",    # tylko services/ — patrz per-file-ignores
+    "D",      # tylko format istniejących docstringów — D1xx niżej w ignore
+]
+ignore = [
+    "A003",     # modele SQLAlchemy zawsze mają kolumnę `id`; to nie przesłania builtinu
+    "PLW0603",  # `global` dla flag typu "skonfigurowano logi" jest tu świadome
+    # Nie wymuszamy istnienia docstringów — modele SQLAlchemy i schematy Pydantic
+    # nie zyskują na `"""Sklep."""`. Pilnujemy tylko formatu tych, które ktoś napisał.
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    # D401 wymaga trybu rozkazującego w pierwszej linii — to konwencja
+    # angielska, a docstringi są tu po polsku i opisowe ("Data skanu z...").
+    "D401",
+]
+# Znaki, które w tym projekcie są celowe, nie literówką: × bywa w treści paragonu
+# (regexy pozycji), NBSP przychodzi z OCR i jest usuwany jawnie, a en dash to
+# poprawna polska interpunkcja w komunikatach i komentarzach.
+allowed-confusables = ["\u00d7", "\u2013", "\u00a0"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Security",
+    "fastapi.File",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Testy: assert to ich sens istnienia, a zaglądanie do prywatnych funkcji
+# jest w nich celowe.
+"backend/tests/**" = ["S101", "SLF001"]
+"tests/**" = ["S101"]
+# Narzędzia deweloperskie i skrypty importu: print jest ich interfejsem,
+# a subprocess wołają na stałych, własnych komendach.
+"tools/**" = ["T201", "S603", "S607"]
+"backend/scripts/**" = ["T201", "S603", "S607"]
+# ANN jest zapadką TYLKO dla warstwy serwisów — wzorzec jest zanegowany, więc
+# reguła wyłącza się wszędzie poza `services/`. Tam adnotacje niosą treść;
+# w routerach typ zwracany dubluje `response_model=` z dekoratora.
+"!backend/finance_app/services/**.py" = ["ANN"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+# ============================ ty (type checker) ============================
+# `ty` uzupełnia ruffa o warstwę, której lint nie widzi: zgodność typów.
+# Wersja jest zapięta w requirements.txt, bo ty jest przed 1.0 i inferencja
+# potrafi się zmienić między wydaniami — bez pina aktualizacja pakietu
+# wygenerowałaby błędy w kodzie, którego nikt nie tknął.
+[tool.ty.environment]
+# Bez `python = ...`: uv tworzy `.venv` w korzeniu, a ty znajduje je samo.
+# Wcześniej wskazywaliśmy tu na `env/`, co przy okazji wypisywało ostrzeżenie
+# o nieaktualnym `home` w jego pyvenv.cfg.
+# Ta sama wersja co `target-version` ruffa, a nie ta z `env/` (dziś 3.13):
+# inaczej ty przepuściłoby API dostępne dopiero od nowszego Pythona.
+python-version = "3.12"
+
+[tool.ty.src]
+# Na razie tylko kod aplikacji. `tools/` i `backend/scripts/` zostają poza
+# zakresem: błędy są tam prawie wyłącznie brakami w stubach cudzych paczek
+# (pdf2image, rapidocr), więc pilnowanie ich kosztuje uwagę i nic nie wnosi.
+include = ["backend/finance_app"]

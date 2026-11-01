@@ -1,0 +1,381 @@
+/* Skrzynka paragonów i pełnoekranowy edytor jednego paragonu.
+ *
+ * Edytor świadomie wychodzi poza `.page-shell`: przepisywanie z obrazu potrzebuje
+ * całej szerokości okna, a nie kolumny tekstowej. Stąd własny grid z obrazem po
+ * lewej i etykietą po prawej oraz przyklejony pasek akcji na dole.
+ */
+
+/* --- Skrzynka ----------------------------------------------------------- */
+
+.receipt-inbox__file {
+  max-width: 26rem;
+}
+
+.receipt-inbox__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.receipt-inbox__row {
+  cursor: pointer;
+}
+
+.receipt-inbox__row:hover {
+  background: var(--surface-muted);
+}
+
+/* --- Odznaki werdyktów --------------------------------------------------- */
+
+.receipt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.receipt-badge--ok {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: transparent;
+}
+
+.receipt-badge--warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-color: transparent;
+}
+
+.receipt-badge--bad {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: transparent;
+}
+
+/* --- Edytor -------------------------------------------------------------- */
+
+/* Edytor jest jedynym ekranem, który chce dokładnie wysokości okna: obraz i
+   formularz przewijają się osobno, a pasek akcji stoi na dole. Kontener treści
+   dostaje sufit punktowo — `min-height` na `.app` daje podłogę, nie sufit, więc
+   bez tego edytor rósłby razem z listą pozycji i wypychał wszystko poza ekran.
+   Tylko na desktopie: na wąskim ekranie nad treścią stoi jeszcze pasek „Menu",
+   a układ i tak przechodzi na obraz nad formularzem (patrz koniec pliku). */
+@media (min-width: 993px) {
+  .app__content:has(> .receipt-editor) {
+    display: flex;
+    flex-direction: column;
+    /* `flex: 1` z layoutu aplikacji rozstrzyga wysokość przed `height`, więc
+       samo `height` by tu nie zadziałało — trzeba wyjąć element ze wzrostu. */
+    flex: 0 0 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+}
+
+.receipt-editor {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.receipt-editor__header,
+.receipt-editor__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  padding: var(--space-1) var(--space-2);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.receipt-editor__actions {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+/* `flex-direction: row` jawnie — globalny styl etykiet układa je w kolumnę
+   (etykieta nad polem), a tu podpis ma stać obok selecta w pasku kolejki. */
+.receipt-editor__filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.receipt-editor__filter .form-select {
+  width: auto;
+}
+
+.receipt-editor__jump {
+  max-width: 22rem;
+}
+
+.receipt-editor__body {
+  display: grid;
+  grid-template-columns: minmax(280px, 38%) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.receipt-editor__form {
+  overflow: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* --- Panel z obrazem ----------------------------------------------------- */
+
+.receipt-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-right: 1px solid var(--border);
+  min-height: 0;
+  background: var(--surface-subtle);
+}
+
+.receipt-pane__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: var(--space-0) var(--space-1);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+/* Nazwa pliku ustępuje przyciskom zoomu — bez tego przy wąskim panelu
+   „Dopasuj" ucina się w połowie. */
+.receipt-pane__toolbar > :first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.receipt-pane__toolbar .btn {
+  flex: 0 0 auto;
+}
+
+.receipt-pane__zoom {
+  min-width: 4.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.receipt-pane__viewport {
+  overflow: auto;
+  padding: var(--space-1);
+}
+
+.receipt-pane__viewport img {
+  display: block;
+  margin: 0 auto;
+  max-width: none;
+}
+
+/* Tryb „dopasuj": obraz mieści się w panelu bez przewijania. */
+.receipt-pane__viewport--fit img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.receipt-pane__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+/* --- Pola etykiety ------------------------------------------------------- */
+
+.receipt-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-1) var(--space-2);
+}
+
+.receipt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.receipt-field--split {
+  display: grid;
+  grid-template-columns: 1fr 6rem;
+  gap: var(--space-1);
+  align-items: start;
+}
+
+.receipt-field__currency {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.receipt-field__remember {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-top: var(--space-1);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.receipt-field__note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: var(--fs-xs);
+  min-height: 1.4rem;
+}
+
+/* --- Tabela pozycji ------------------------------------------------------ */
+
+/* Wolimy poziomy pasek przewijania niż pola tak wąskie, że nie widać w nich
+   nazwy pozycji — przepisywanie polega na porównywaniu z obrazem obok. */
+.receipt-items__table {
+  min-width: 54rem;
+}
+
+.receipt-items__table th {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.receipt-items__table td {
+  vertical-align: top;
+}
+
+.receipt-items__col-drag {
+  width: 2rem;
+}
+
+.receipt-items__col-code {
+  width: 6rem;
+}
+
+.receipt-items__col-num {
+  width: 6rem;
+}
+
+.receipt-items__col-unit {
+  width: 4rem;
+}
+
+.receipt-items__col-product {
+  width: 14rem;
+}
+
+.receipt-items__drag {
+  cursor: grab;
+  color: var(--muted);
+  user-select: none;
+  padding-top: 0.6rem;
+}
+
+.receipt-items__new-product {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.receipt-items__new-product-hint {
+  color: var(--success);
+  font-size: var(--fs-xs);
+}
+
+.receipt-items__row--skipped {
+  opacity: 0.55;
+}
+
+.receipt-items__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  padding-top: var(--space-1);
+  font-size: var(--fs-sm);
+}
+
+.receipt-advanced summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+
+.receipt-raw-text {
+  background: var(--surface-muted);
+  border-radius: var(--r-sm);
+  padding: var(--space-1);
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: var(--fs-xs);
+  margin-bottom: 0;
+}
+
+/* --- Blokady zapisu ------------------------------------------------------ */
+
+.receipt-blockers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  padding: var(--space-1);
+  border-radius: var(--r-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+
+.receipt-blockers ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+/* Wąski ekran: obraz nad formularzem, żeby jedno i drugie miało pełną szerokość. */
+@media (max-width: 992px) {
+  .receipt-editor__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 40vh) minmax(0, 1fr);
+  }
+
+  .receipt-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Paragon do podpięcia pod transakcję z wyciągu (docs/design/import-csv.md §5.5). */
+.receipt-bank-match {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex-basis: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--r-xs);
+  background: var(--warning-bg);
+  font-size: var(--fs-sm);
+}

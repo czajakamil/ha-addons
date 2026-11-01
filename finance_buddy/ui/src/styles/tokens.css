@@ -1,0 +1,198 @@
+@layer reset, base, components, utilities;
+
+/* ==========================================================================
+   1. DESIGN TOKENS / THEME  —  "Envelope" design language
+   --------------------------------------------------------------------------
+   Light is the default. Dark is opt-in via [data-theme="dark"] on <html>
+   (set from localStorage by the theme toggle in the sidebar footer).
+   The Envelope palette is mapped onto the existing variable names so every
+   component that already reads these tokens picks up the new look for free.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --font-sans: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+    --font-display: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+    --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+
+    --fs-xs: 0.75rem;
+    --fs-sm: 0.875rem;
+    --fs-md: 1rem;
+    --fs-lg: 1.125rem;
+    --fs-xl: 1.375rem;
+    --fs-2xl: 1.875rem;
+
+    /* surfaces */
+    --surface: #ffffff;
+    --surface-subtle: #f6f7fc;
+    --surface-muted: #eef0f8;
+    --panel: #f6f7fc;
+    --panel-border: #e4e7f1;
+    --border: #e4e7f1;
+    --border-hover: #d4d8e8;
+    --border-soft: #eef0f8;
+    --border-strong: #e7eaf5;
+    --border-muted: #d4d8e8;
+
+    /* text */
+    --text: #15172a;
+    --text-strong: #0d0e1f;
+    --text-soft: #2a2c44;
+    --text-inverse: #ffffff;
+    --muted: #6a7090;
+    --muted-strong: #565b78;
+    --muted-inverse: #9aa0bd;
+
+    /* brand (indigo / violet) */
+    --primary: #5a51e0;
+    --primary-strong: #4c43d4;
+    --primary-soft: #ebe9fc;
+    --primary-gradient: linear-gradient(120deg, #6b5be6, #5a51e0);
+    --brand: linear-gradient(135deg, #6b5be6, #5a51e0);
+    --brand-ink: #ffffff;
+    --brand-accent: #5a51e0;
+    --on-brand: #ffffff;
+
+    /* semantic */
+    --danger: #e2553f;
+    --danger-bg: #fbe8e3;
+    --warning: #d98a1f;
+    --warning-bg: #f8eed8;
+    --success: #1f9e63;
+    --success-bright: #1f9e63;
+    --success-bg: #e2f3ea;
+    --link: #5a51e0;
+    --focus: rgba(90, 81, 224, 0.24);
+
+    /* menus / popovers */
+    --menu-bg: #ffffff;
+    --menu-text: #15172a;
+    --menu-muted: #6a7090;
+    --menu-border: #e4e7f1;
+
+    /* category palette (Envelope) */
+    --cat-indigo: #6b5be6;
+    --cat-teal: #2f9bb5;
+    --cat-green: #3f9e6a;
+    --cat-coral: #d96a4a;
+    --cat-amber: #d8a13a;
+    --cat-pink: #c057a0;
+    --cat-blue: #4f7fd6;
+    --cat-violet: #9067d6;
+
+    --dur-fast: 140ms;
+    --dur: 220ms;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --r-xs: 9px;
+    --r-sm: 10px;
+    --r: 12px;
+    --r-lg: 14px;
+    --r-xl: 18px;
+    --r-2xl: 20px;
+    --pill: 999px;
+
+    --space-0: 0.25rem;
+    --space-1: 0.5rem;
+    --space-2: 0.875rem;
+    --space-3: 1.125rem;
+    --space-4: 1.625rem;
+    --space-5: 2.25rem;
+    --space-6: 3.25rem;
+
+    --shadow-sm: 0 2px 4px rgba(40, 40, 90, 0.08);
+    --shadow-md: 0 14px 34px -16px rgba(60, 55, 140, 0.4);
+    --shadow-lg: 0 18px 44px -14px rgba(40, 40, 90, 0.3);
+
+    --sidebar-expanded-width: 232px;
+    --sidebar-collapsed-width: 80px;
+
+    --ring: 2px;
+    --focus-offset: 3px;
+    --tile: 56px;
+    --gap: 10px;
+    --col-140: 140px;
+    --col-160: 160px;
+    --col-220: 220px;
+    --shell-padding: clamp(1rem, 4vw, 2.5rem);
+    --page-gutter: calc(var(--space-4) + var(--space-3));
+    --app-bg:
+      radial-gradient(circle at 30% -10%, rgba(90, 81, 224, 0.07), transparent 55%),
+      var(--surface-subtle);
+    --z-sidebar: 30;
+    --z-overlay: 20;
+    --z-menu: 1100;
+  }
+}
+
+/* ==========================================================================
+   DARK THEME OVERRIDES (opt-in)
+   ========================================================================== */
+
+@layer base {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --surface: #191b27;
+    --surface-subtle: #0f1018;
+    --surface-muted: #222538;
+    --panel: #0f1018;
+    --panel-border: #2c2f44;
+    --border: #2c2f44;
+    --border-hover: #3a3e58;
+    --border-soft: #222538;
+    --border-strong: #2a2e44;
+    --border-muted: #3a3e58;
+
+    --text: #ecedf7;
+    --text-strong: #ffffff;
+    --text-soft: #d3d6ec;
+    --text-inverse: #0d0d18;
+    --muted: #9298bb;
+    --muted-strong: #aab0d0;
+    --muted-inverse: #666c8e;
+
+    --primary: #897fff;
+    --primary-strong: #988fff;
+    --primary-soft: #23233e;
+    --primary-gradient: linear-gradient(120deg, #897fff, #6f64ff);
+    --brand: linear-gradient(135deg, #897fff, #6f64ff);
+    --brand-ink: #0d0d18;
+    --brand-accent: #897fff;
+    --on-brand: #0d0d18;
+
+    --danger: #f4715a;
+    --danger-bg: #2c1c1a;
+    --warning: #e6a13f;
+    --warning-bg: #2a2212;
+    --success: #4fc187;
+    --success-bright: #4fc187;
+    --success-bg: #16261f;
+    --link: #897fff;
+    --focus: rgba(137, 127, 255, 0.34);
+
+    --menu-bg: #191b27;
+    --menu-text: #ecedf7;
+    --menu-muted: #9298bb;
+    --menu-border: #3a3e58;
+
+    --cat-indigo: #897fff;
+    --cat-teal: #43b6d4;
+    --cat-green: #56c48d;
+    --cat-coral: #f0866a;
+    --cat-amber: #e6b04f;
+    --cat-pink: #d977bd;
+    --cat-blue: #6f9bf0;
+    --cat-violet: #a988e6;
+
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.45);
+    --shadow-md: 0 16px 36px -16px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 20px 50px -14px rgba(0, 0, 0, 0.75);
+
+    --app-bg:
+      radial-gradient(circle at 30% -10%, rgba(137, 127, 255, 0.12), transparent 55%),
+      var(--surface-subtle);
+  }
+}

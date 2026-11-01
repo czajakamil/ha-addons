@@ -1,0 +1,20 @@
+/* ==========================================================================
+   VENDOR CSS — Tabler/Bootstrap wrapped in the lowest-priority cascade layer.
+
+   Tabler is imported here into @layer vendor, which is declared FIRST (lowest
+   priority) below. That means every rule we write — whether in @layer
+   components/base/etc. or unlayered — beats Tabler regardless of specificity.
+   This removes the need for the scattered "kept UNLAYERED because Tabler wins"
+   hacks: Tabler now quietly provides defaults instead of fighting our styles.
+
+   NOTE: the @layer order statement must come before the @import rules (only
+   @charset and bare @layer statements may precede @import).
+   ========================================================================== */
+@layer vendor, reset, base, components, utilities;
+
+@import '@tabler/core/dist/css/tabler.min.css' layer(vendor);
+@import '@tabler/core/dist/css/tabler-vendors.min.css' layer(vendor);
+/* react-data-grid ships unlayered CSS that defines its own --rdg-* palette on
+   .rdg; wrap it in @layer vendor so our @layer components overrides (which map
+   the grid to the app's theme tokens, incl. dark mode) always win. */
+@import 'react-data-grid/lib/styles.css' layer(vendor);

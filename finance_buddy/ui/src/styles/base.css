@@ -1,0 +1,54 @@
+/* ==========================================================================
+   2. RESET
+   ========================================================================== */
+
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+/* ==========================================================================
+   3. BASE STYLES
+   ========================================================================== */
+
+@layer base {
+  /* NOTE: <body> is defined UNLAYERED in ui/src/index.css so it wins over
+     Tabler's unlayered body rules. Do not re-add a layered body here. */
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  :where(button, [role="button"], a, input, select, textarea) {
+    color: inherit;
+    font: inherit;
+    transition: transform var(--dur) var(--ease);
+  }
+}
+
+/* ==========================================================================
+   11. ACCESSIBILITY / PREFERS-REDUCED-MOTION
+   ========================================================================== */
+
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

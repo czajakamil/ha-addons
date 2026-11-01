@@ -1,0 +1,113 @@
+@layer components {
+  .compact-page .container-xl {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .compact-page .page-header {
+    margin: 0;
+    min-height: 0;
+    padding-inline: 0;
+    padding-block: 0 0.55rem;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .compact-page .page-header .row {
+    --tblr-gutter-x: 0;
+    margin-inline: 0;
+    width: 100%;
+  }
+
+  .compact-page .page-header .row > [class*='col'] {
+    padding-inline: 0;
+  }
+
+  .compact-page .page-pretitle {
+    margin: 0;
+    padding-top: 0;
+    font-size: 0.66rem;
+    letter-spacing: 0.07em;
+  }
+
+  .compact-page .page-title {
+    margin: 0.2rem 0 0;
+    font-size: clamp(1.28rem, 1.45vw, 1.55rem);
+    line-height: 1.15;
+  }
+
+  .compact-page .page-header .text-secondary {
+    margin-top: 0.25rem;
+    font-size: 0.86rem;
+    line-height: 1.35;
+  }
+
+  .compact-page .btn-list {
+    gap: 0.4rem;
+  }
+
+  .compact-page .page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .compact-page .page-body > .card {
+    margin-block-start: 0;
+  }
+
+  .compact-page .page-body > .card + .card {
+    margin-block-start: 0.35rem;
+  }
+
+  .compact-page .card {
+    border-radius: var(--r);
+  }
+
+  .compact-page .card-body.border-bottom.u-pad-0 {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .compact-page .card-body.border-bottom.u-pad-0 .small.mt-3 {
+    margin-top: 0.45rem;
+  }
+
+  .compact-page .card-header {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .compact-page .form-label {
+    margin-bottom: 0.2rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted-strong);
+  }
+
+  .compact-page .form-control,
+  .compact-page .form-select {
+    min-height: 2rem;
+  }
+
+  .compact-page.budget-page .budget-metrics {
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .compact-page.budget-page .budget-metric {
+    padding: var(--space-3);
+  }
+
+  .compact-page.page-wrapper {
+    padding-inline: 0;
+  }
+
+  @media (max-width: 900px) {
+    .compact-page .page-header .col-auto {
+      margin-top: 0.5rem;
+    }
+  }
+}

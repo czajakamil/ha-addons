@@ -1,0 +1,9 @@
+{
+  // Build-only projekt: to samo co tsconfig.json, ale bez testów.
+  //
+  // Testy sięgają po fikstury z ../shared/, którego obraz Dockera nie kopiuje
+  // (kopiuje samo ui/). Bundlowi produkcyjnemu nie są one do niczego potrzebne,
+  // więc build ich nie sprawdza — od pełnego typechecku jest `npm run typecheck`.
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/setupTests.ts"]
+}

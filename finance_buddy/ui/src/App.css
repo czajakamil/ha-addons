@@ -1,0 +1,7 @@
+/* Entry point for the layered Envelope stylesheet system (tokens, base,
+   layout, components, pages — all inside @layer). Imported here because App is
+   the root component. Tabler-beating overrides that must stay UNLAYERED now
+   live alongside their components:
+   - sidebar button radius  -> styles/layout.css (Tabler overrides section)
+   - budget control buttons -> styles/pages/budget.css (Tabler overrides section) */
+@import './styles/index.css';

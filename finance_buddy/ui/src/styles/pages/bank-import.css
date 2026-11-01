@@ -1,0 +1,92 @@
+/* Import z banku (pages/bankImport). Odznaki stanów biorą `receipt-badge`. */
+
+.bank-import__file {
+  display: grid;
+  grid-template-columns: minmax(12rem, 20rem) minmax(12rem, 1fr);
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.bank-import__file .form-label {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .bank-import__file {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bank-import__settings summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.bank-import__settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.bank-import__settings-grid .form-label {
+  margin-bottom: 0;
+  font-size: var(--fs-sm);
+}
+
+.bank-import__columns tr.is-mapped td:first-child {
+  font-weight: 600;
+}
+
+.bank-import__samples {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-import__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.bank-import__chip-count {
+  opacity: 0.7;
+  margin-left: 0.25rem;
+}
+
+.bank-import__preview td {
+  vertical-align: top;
+}
+
+.bank-import__preview tr.is-muted td {
+  opacity: 0.55;
+}
+
+/* Opis dostaje miejsce przed akcją: w wąskim panelu tabela przewija się
+   w poziomie, zamiast łamać nazwę kontrahenta co trzy litery. */
+.bank-import__desc {
+  min-width: 14rem;
+  max-width: 32rem;
+  overflow-wrap: break-word;
+}
+
+.bank-import__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.bank-import__profile-name {
+  width: 12rem;
+}
+
+.bank-import__history > summary {
+  cursor: pointer;
+  list-style: none;
+}

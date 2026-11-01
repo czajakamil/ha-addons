@@ -1,0 +1,101 @@
+/* ==========================================================================
+   index.css — loaded LAST and UNLAYERED, so these rules win over Tabler's
+   own unlayered defaults. This is where we bridge Tabler/Bootstrap variables
+   to the Envelope design tokens (fonts, surfaces, colors) for both themes.
+   ========================================================================== */
+
+/* NOTE: box-sizing reset lives in styles/base.css (@layer reset); not duplicated here. */
+
+/* Tabler dodaje `:root { margin-left: calc(100vw - 100%) }` (>=lg), aby jego
+   wyśrodkowany layout `.page` nie skakał przy pojawieniu się scrollbara. My mamy
+   sidebar przyklejony do lewej, więc ten margines tworzy 15px przerwy po lewej na
+   stronach ze scrollbarem (Transakcje, Raporty). Zerujemy go — UNLAYERED, by
+   wygrać z nielayerowaną regułą Tablera. */
+:root {
+  margin-left: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+/* --- Bridge Tabler (Bootstrap 5.3) variables to Envelope tokens --- */
+:root {
+  --tblr-font-sans-serif: var(--font-sans);
+  --tblr-font-monospace: var(--font-mono);
+
+  --tblr-body-bg: var(--surface-subtle);
+  --tblr-body-bg-rgb: 246, 247, 252;
+  --tblr-body-color: var(--text);
+  --tblr-body-color-rgb: 21, 23, 42;
+  --tblr-emphasis-color: var(--text-strong);
+  --tblr-heading-color: var(--text);
+  --tblr-secondary-color: var(--muted);
+  --tblr-tertiary-color: var(--muted-strong);
+
+  --tblr-bg-surface: var(--surface);
+  --tblr-bg-surface-rgb: 255, 255, 255;
+  --tblr-bg-surface-secondary: var(--surface-subtle);
+  --tblr-bg-surface-tertiary: var(--surface-muted);
+  --tblr-bg-surface-dark: var(--surface-muted);
+
+  --tblr-secondary-bg: var(--surface-muted);
+  --tblr-tertiary-bg: var(--surface-subtle);
+
+  --tblr-card-bg: var(--surface);
+  --tblr-card-color: var(--text);
+  --tblr-card-border-color: var(--border);
+  --tblr-card-cap-bg: var(--surface);
+
+  --tblr-border-color: var(--border);
+  --tblr-border-color-translucent: var(--border);
+
+  --tblr-primary: var(--primary);
+  --tblr-primary-rgb: 90, 81, 224;
+  --tblr-primary-fg: var(--on-brand);
+  --tblr-link-color: var(--link);
+  --tblr-link-color-rgb: 90, 81, 224;
+  --tblr-link-hover-color: var(--primary-strong);
+
+  --tblr-secondary: var(--muted);
+  --tblr-muted: var(--muted);
+
+  --tblr-success: var(--success);
+  --tblr-danger: var(--danger);
+  --tblr-warning: var(--warning);
+
+  --tblr-border-radius: var(--r);
+  --tblr-border-radius-sm: var(--r-sm);
+  --tblr-border-radius-lg: var(--r-lg);
+
+  /* form controls */
+  --tblr-form-control-bg: var(--panel);
+}
+
+:root[data-theme="dark"] {
+  --tblr-body-bg-rgb: 15, 16, 24;
+  --tblr-body-color-rgb: 236, 237, 247;
+  --tblr-bg-surface-rgb: 25, 27, 39;
+  --tblr-primary-rgb: 137, 127, 255;
+  --tblr-link-color-rgb: 137, 127, 255;
+}
+
+/* --- Force the global page chrome to follow Envelope tokens ---
+   This is the single source of truth for <body>. Tabler lives in @layer vendor
+   (see styles/vendor.css), so any rule of ours beats it; this block stays
+   unlayered only for historical reasons. Properties previously split into
+   styles/base.css (@layer base) are consolidated here. */
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

@@ -1,0 +1,339 @@
+/* Ekran startowy (pages/home/HomePage.tsx).
+ *
+ * Jedna kolumna o ograniczonej szerokości: to lista spraw do załatwienia,
+ * czytana z góry na dół — tak samo na telefonie jak na monitorze.
+ */
+
+.home-page {
+  max-width: 760px;
+}
+
+.home-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.home-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.home-page__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+.home-page__section-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.home-page__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.home-page__more {
+  font-size: var(--fs-sm);
+}
+
+.home-page__done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  color: var(--success);
+  font-weight: 500;
+}
+
+/* --- Listy (do zrobienia, koperty, ostatnie) ----------------------------- */
+
+.home-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-list__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding-block: var(--space-1);
+  border-top: 1px solid var(--border-soft);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.home-list li:first-child > .home-list__row,
+.home-list > .home-list__row:first-child {
+  border-top: 0;
+}
+
+a.home-list__row:hover {
+  color: var(--text-strong);
+  background: var(--surface-subtle);
+}
+
+.home-list__icon {
+  flex-shrink: 0;
+}
+
+.home-list__icon.is-danger {
+  color: var(--danger);
+}
+
+.home-list__icon.is-warning {
+  color: var(--warning);
+}
+
+.home-list__icon.is-info {
+  color: var(--primary);
+}
+
+.home-list__label {
+  /* Bez min-width: 0 — etykieta ma się zawijać między słowami, a nie łamać
+   * słowa, gdy obok stoi długa kwota. */
+  flex: 1;
+}
+
+.home-list__value {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-list__chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+/* --- Liczby miesiąca ---------------------------------------------------- */
+
+.home-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3);
+}
+
+.home-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--r);
+  background: var(--surface-muted);
+}
+
+.home-metric__label {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.home-metric__value {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-metric__note {
+  font-size: var(--fs-xs);
+}
+
+.home-metric__note.is-danger,
+.home-envelope__note.is-danger {
+  color: var(--danger);
+}
+
+.home-metric__note.is-success {
+  color: var(--success);
+}
+
+/* --- Koperty ------------------------------------------------------------ */
+
+.home-envelope__name {
+  flex: 0 0 34%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-envelope__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background:
+    linear-gradient(var(--bar-color), var(--bar-color)) no-repeat left / var(--fill) 100%,
+    var(--surface-muted);
+}
+
+.home-envelope__bar.is-danger {
+  --bar-color: var(--danger);
+}
+
+.home-envelope__bar.is-warning {
+  --bar-color: var(--warning);
+}
+
+.home-envelope__note {
+  flex: 0 0 auto;
+  min-width: 120px;
+  text-align: right;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Ostatnie transakcje ------------------------------------------------ */
+
+.home-recent__date {
+  flex: 0 0 3rem;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-recent__payee {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.home-recent__payee > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-recent__payee:hover {
+  color: var(--text-strong);
+}
+
+.home-recent__account {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.home-recent__tag {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+}
+
+.home-recent__tag .tag-chip {
+  max-width: 100%;
+}
+
+.home-recent__tag .tag-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-recent__add-tag {
+  padding: 1px 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.home-recent__add-tag:hover {
+  color: var(--text-strong);
+  border-color: var(--text-soft);
+}
+
+.home-recent__amount {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-recent__amount.is-income {
+  color: var(--success);
+}
+
+@media (max-width: 575px) {
+  .home-page__actions {
+    width: 100%;
+  }
+
+  .home-page__actions > * {
+    flex: 1;
+  }
+
+  .home-envelope {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .home-envelope__name {
+    flex: 1 1 auto;
+  }
+
+  .home-envelope__bar {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  /* Kafelki jako zwarte wiersze: etykieta po lewej, kwota po prawej. */
+  .home-metrics {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .home-metric {
+    flex-flow: row wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .home-metric__label {
+    flex: 1 1 0;
+  }
+
+  .home-metric__value {
+    font-size: var(--fs-lg);
+  }
+
+  .home-metric__note {
+    flex-basis: 100%;
+    text-align: right;
+  }
+
+  /* Data, opis i kwota w pierwszej linii, tag pod opisem. */
+  .home-recent {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .home-recent__tag {
+    order: 4;
+    flex-basis: 100%;
+    max-width: 100%;
+    padding-left: calc(3rem + var(--space-2));
+  }
+
+  .home-recent__amount {
+    min-width: 0;
+  }
+}

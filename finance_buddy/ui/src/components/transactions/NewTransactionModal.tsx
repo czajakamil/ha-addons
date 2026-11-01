@@ -1,0 +1,417 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import type { Account, Store, Category, TransactionCreate } from '../../api';
+import { createTransaction, ensureCategoryPath } from '../../api';
+import TagPathInput from '../tags/TagPathInput';
+import { parseAmountToCents } from '../../utils/format';
+
+type NewTransactionFormState = {
+  date: string;
+  accountId: string;
+  storeId: string;
+  categoryPath: string;
+  transferAccountId: string;
+  comment: string;
+  cleared: boolean;
+  reconciled: boolean;
+  outflow: string;
+  inflow: string;
+};
+
+type NewTransactionModalProps = {
+  open: boolean;
+  accounts: Account[];
+  stores: Store[];
+  categories: Category[];
+  onClose: () => void;
+  onCreated: () => Promise<void>;
+};
+
+const formatStoreLabel = (store: Store) => {
+  const groupName = (store.group_name ?? '').trim();
+  const storeName = (store.name ?? '').trim();
+  if (groupName && groupName !== storeName) {
+    return `${groupName} – ${storeName}`;
+  }
+  return storeName || '—';
+};
+
+const getInitialTransactionFormState = (defaultAccountId: string | undefined): NewTransactionFormState => ({
+  date: new Date().toISOString().slice(0, 10),
+  accountId: defaultAccountId ?? '',
+  storeId: '',
+  categoryPath: '',
+  transferAccountId: '',
+  comment: '',
+  cleared: false,
+  reconciled: false,
+  outflow: '',
+  inflow: ''
+});
+
+const NewTransactionModal = ({
+  open,
+  accounts,
+  stores,
+  categories,
+  onClose,
+  onCreated
+}: NewTransactionModalProps) => {
+  const defaultAccountId = accounts[0]?.id;
+  const [formState, setFormState] = useState<NewTransactionFormState>(() =>
+    getInitialTransactionFormState(defaultAccountId)
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const modalTitleId = 'new-transaction-modal-title';
+
+  useEffect(() => {
+    if (open) {
+      setFormState(getInitialTransactionFormState(defaultAccountId));
+      setError(null);
+    }
+  }, [open, defaultAccountId]);
+
+  const handleInputChange = <T extends keyof NewTransactionFormState>(field: T, value: NewTransactionFormState[T]) => {
+    setFormState((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const selectedAccount =
+    accounts.find((account) => account.id === (formState.accountId || defaultAccountId)) ?? accounts[0];
+  const selectedCurrency = selectedAccount?.currency ?? 'PLN';
+  const selectedAccountId = formState.accountId || defaultAccountId || '';
+
+  if (!open) {
+    return null;
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const accountId = formState.accountId || defaultAccountId;
+    if (!accountId) {
+      setError('Wybierz konto, aby utworzyć transakcję.');
+      return;
+    }
+
+    const accountCurrency = accounts.find((acc) => acc.id === accountId)?.currency ?? 'PLN';
+    const transferAccountId = formState.transferAccountId || '';
+    if (transferAccountId && transferAccountId === accountId) {
+      setError('Transfer wymaga innego konta docelowego.');
+      return;
+    }
+
+    const parseMoneyInput = (rawValue: string, label: string) => {
+      if (!rawValue.trim()) {
+        return 0;
+      }
+      const cents = parseAmountToCents(rawValue);
+      if (cents === null || cents < 0) {
+        throw new Error(`${label} musi być dodatnią liczbą.`);
+      }
+      return cents;
+    };
+
+    let outflowCents: number;
+    let inflowCents: number;
+    try {
+      outflowCents = parseMoneyInput(formState.outflow, 'Outflow');
+      inflowCents = parseMoneyInput(formState.inflow, 'Inflow');
+    } catch (parseError) {
+      const message = parseError instanceof Error ? parseError.message : 'Podaj prawidłowe kwoty.';
+      setError(message);
+      return;
+    }
+
+    if (outflowCents === 0 && inflowCents === 0) {
+      setError('Wpisz kwotę w polu Outflow lub Inflow.');
+      return;
+    }
+
+    let categoryId: string | undefined;
+    if (!transferAccountId && formState.categoryPath.trim()) {
+      try {
+        categoryId = await ensureCategoryPath(formState.categoryPath, categories, false);
+      } catch (err) {
+        console.error(err);
+        setError('Nie udało się zapisać tagu.');
+        return;
+      }
+    }
+
+    const totalCents = inflowCents - outflowCents;
+
+    const payload: TransactionCreate = {
+      account_id: accountId,
+      store_id: transferAccountId ? undefined : formState.storeId || undefined,
+      category_id: categoryId,
+      transfer_account_id: transferAccountId || undefined,
+      date: formState.date || undefined,
+      currency: accountCurrency,
+      comment: formState.comment.trim() || undefined,
+      cleared: formState.cleared,
+      reconciled: formState.reconciled,
+      items: [],
+      total_cents: totalCents
+    };
+
+    try {
+      setSubmitting(true);
+      await createTransaction(payload);
+      await onCreated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setError('Nie udało się zapisać transakcji. Spróbuj ponownie.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div
+        className="modal modal-blur fade show d-block"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalTitleId}
+        style={{ display: 'block' }}
+      >
+        <div className="modal-dialog modal-dialog-centered" role="document">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 className="modal-title" id={modalTitleId}>
+                Nowa transakcja
+              </h3>
+              <button
+                type="button"
+                className="btn-close is-focusable"
+                aria-label="Zamknij"
+                onClick={onClose}
+                disabled={submitting}
+              />
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                {error && (
+                  <div className="alert alert-danger" role="alert">
+                    {error}
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-date">
+                    Data
+                  </label>
+                  <input
+                    id="transaction-date"
+                    type="date"
+                    className="form-control"
+                    value={formState.date}
+                    onChange={(event) => handleInputChange('date', event.target.value)}
+                    disabled={submitting}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-account">
+                    Konto
+                  </label>
+                  <select
+                    id="transaction-account"
+                    className="form-select"
+                    value={formState.accountId}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      handleInputChange('accountId', value);
+                      if (formState.transferAccountId && formState.transferAccountId === value) {
+                        handleInputChange('transferAccountId', '');
+                      }
+                    }}
+                    disabled={submitting}
+                    required
+                  >
+                    <option value="" disabled>
+                      Wybierz konto
+                    </option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} ({account.currency})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-transfer">
+                    Przelew między kontami (opcjonalnie)
+                  </label>
+                  <select
+                    id="transaction-transfer"
+                    className="form-select"
+                    value={formState.transferAccountId}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      handleInputChange('transferAccountId', value);
+                      if (value) {
+                        handleInputChange('storeId', '');
+                        handleInputChange('categoryPath', '');
+                      }
+                    }}
+                    disabled={submitting}
+                  >
+                    <option value="">Brak</option>
+                    {accounts
+                      .filter((account) => account.id !== selectedAccountId)
+                      .map((account) => (
+                        <option key={account.id} value={account.id}>
+                          Transfer → {account.name} ({account.currency})
+                        </option>
+                      ))}
+                  </select>
+                  <div className="form-hint">
+                    Jeśli wybierzesz konto docelowe, sklep i tag zostaną pominięte.
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-store">
+                    Sklep (opcjonalnie)
+                  </label>
+                  <select
+                    id="transaction-store"
+                    className="form-select"
+                    value={formState.storeId}
+                    onChange={(event) => handleInputChange('storeId', event.target.value)}
+                    disabled={submitting || !!formState.transferAccountId}
+                  >
+                    <option value="">Brak</option>
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {formatStoreLabel(store)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-category">
+                    Tag (opcjonalnie)
+                  </label>
+                  <TagPathInput
+                    inputId="transaction-category"
+                    value={formState.categoryPath}
+                    categories={categories}
+                    forAccounts={false}
+                    placeholder="np. dom/remont"
+                    disabled={submitting || !!formState.transferAccountId}
+                    onChange={(value) => handleInputChange('categoryPath', value)}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-status">
+                    Status rozliczenia
+                  </label>
+                  <div className="d-flex gap-3" id="transaction-status">
+                    <label className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={formState.cleared}
+                        onChange={(event) => handleInputChange('cleared', event.target.checked)}
+                        disabled={submitting}
+                      />
+                      <span className="form-check-label">Cleared</span>
+                    </label>
+                    <label className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={formState.reconciled}
+                        onChange={(event) => handleInputChange('reconciled', event.target.checked)}
+                        disabled={submitting}
+                      />
+                      <span className="form-check-label">Reconciled</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-comment">
+                    Komentarz (opcjonalnie)
+                  </label>
+                  <textarea
+                    id="transaction-comment"
+                    className="form-control"
+                    rows={3}
+                    value={formState.comment}
+                    onChange={(event) => handleInputChange('comment', event.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="mb-0">
+                  <label className="form-label mb-2">Kwota</label>
+                  <div className="row g-3 align-items-end">
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="transaction-outflow">
+                        Outflow
+                      </label>
+                      <div className="input-group">
+                        <span className="input-group-text">{selectedCurrency}</span>
+                        <input
+                          id="transaction-outflow"
+                          type="number"
+                          className="form-control"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formState.outflow}
+                          onChange={(event) => handleInputChange('outflow', event.target.value)}
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="transaction-inflow">
+                        Inflow
+                      </label>
+                      <div className="input-group">
+                        <span className="input-group-text">{selectedCurrency}</span>
+                        <input
+                          id="transaction-inflow"
+                          type="number"
+                          className="form-control"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formState.inflow}
+                          onChange={(event) => handleInputChange('inflow', event.target.value)}
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="form-hint mt-1">
+                    Wpisuj wartości dodatnie: Outflow zapisujemy w bazie jako kwotę ujemną, Inflow jako dodatnią.
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-link link-secondary is-focusable"
+                  onClick={onClose}
+                  disabled={submitting}
+                >
+                  Anuluj
+                </button>
+                <button type="submit" className="btn btn-primary is-focusable" disabled={submitting}>
+                  {submitting ? 'Zapisywanie…' : 'Dodaj transakcję'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div className="modal-backdrop fade show" />
+    </>
+  );
+};
+
+export default NewTransactionModal;

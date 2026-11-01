@@ -30,6 +30,18 @@ FastAPI backend + React/TypeScript frontend, served via HA Ingress. Features a w
 
 ---
 
+### [Finance Buddy](./finance_buddy)
+
+**Household budgeting, receipt OCR and bank imports.**
+
+FastAPI backend + React frontend, served only via HA Ingress. Accounts, tag-based envelopes, receipts read with local OCR, YNAB and bank CSV imports, automatic backups.
+
+`Python 3.12` `FastAPI` `React` `SQLite` `RapidOCR`
+
+→ [Documentation](./finance_buddy/DOCS.md)
+
+---
+
 ### [CatPrint](./catprint)
 
 **REST print server for the GOTOOGO C15 / MXW01 BLE thermal printer.**
