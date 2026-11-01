@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.4
+
+- Nowa sekcja Sklepy: lista grupowana, strona sklepu i statystyki liczone z bazy.
+- Aliasy nazw z banku: importer dopasowuje sklep po aliasie dokładnym albo prefiksie z gwiazdką,
+  a niejednoznaczne pomija.
+- Scalanie sklepów z podglądem skutków i cofaniem przez 30 dni.
+- Przelewy własne zapisane jako sklep można zamienić na przelewy między kontami, z podglądem
+  i cofaniem przez 30 dni.
+- Raporty: neutralne słupki w Trendach, linia z obszarem w Majątku netto, lista z paskami
+  zamiast donuta w Tagach kont. Przychody i wydatki mają parę słupków z bilansem.
+- Raporty na telefonie: zakładki w jednym rzędzie, filtry w oknie od dołu, a Przepływy jako lista grup.
+- Przed każdą migracją aplikacja robi kopię bazy. Ta wersja dodaje migracje dla aliasów,
+  scaleń i zamian przelewów.
+
 ## 0.1.3
 
 - Konto edytuje się na jego stronie: zakładki Transakcje i Ustawienia, zmiana nazwy w miejscu, „Uzgodnij saldo”,
