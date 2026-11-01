@@ -10,6 +10,7 @@ import {
   IconSparkles,
 } from '@tabler/icons-react';
 import {
+  getYnabSettings,
   importYnabBudget,
   listYnabBudgets,
   type YnabBudgetSummary,
@@ -66,6 +67,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyInvalid, setApiKeyInvalid] = useState(false);
+  const [hasConfiguredKey, setHasConfiguredKey] = useState(false);
 
   const [budgets, setBudgets] = useState<YnabBudgetSummary[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState('');
@@ -83,6 +85,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
   const hasDemo = typeof onLoadDemo === 'function';
 
   const trimmedKey = apiKey.trim();
+  const canUseKey = Boolean(trimmedKey) || hasConfiguredKey;
   const busy = loadingBudgets || importing;
 
   const handleLoadDemo = async () => {
@@ -118,9 +121,21 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
     setApiKeyInvalid(false);
   }, [trimmedKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    getYnabSettings()
+      .then((settings) => {
+        if (!cancelled) setHasConfiguredKey(settings.api_key_set);
+      })
+      .catch(() => {
+        // Bez ustawień zostaje ręczne wklejenie klucza.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const fetchBudgets = async (key: string) => {
-    const result = await listYnabBudgets(key);
+  const applyBudgets = (result: YnabBudgetSummary[]) => {
     setBudgets(result);
 
     if (result.length > 0) {
@@ -133,12 +148,51 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
       setBudgetStatus(null);
       setError('Nie znaleziono żadnych budżetów w YNAB.');
     }
+  };
 
+  const fetchBudgets = async (key?: string) => {
+    const result = await listYnabBudgets(key);
+    applyBudgets(result);
     return result;
   };
 
+  const showBudgetsError = (err: unknown) => {
+    const { isInvalidKey, message } = resolveYnabError(err);
+    setStatus(null);
+    setError(message);
+    setBudgets([]);
+    setSelectedBudgetId('');
+    setBudgetStatus(null);
+    setApiKeyInvalid(isInvalidKey);
+  };
+
+  useEffect(() => {
+    // Klucz z konfiguracji: budżety ładują się same, chyba że użytkownik wkleja inny klucz.
+    if (!hasConfiguredKey || trimmedKey) return;
+
+    let cancelled = false;
+    setLoadingBudgets(true);
+    setStatus('Ładuję budżety z YNAB…');
+
+    listYnabBudgets()
+      .then((result) => {
+        if (!cancelled) applyBudgets(result);
+      })
+      .catch((err) => {
+        if (!cancelled) showBudgetsError(err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingBudgets(false);
+      });
+
+    return () => {
+      cancelled = true;
+      setLoadingBudgets(false);
+    };
+  }, [hasConfiguredKey, trimmedKey]);
+
   const handleFetchBudgets = async () => {
-    if (!trimmedKey) {
+    if (!canUseKey) {
       setError('Wklej klucz API YNAB, aby pobrać listę budżetów.');
       return;
     }
@@ -149,23 +203,17 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
     setStatus('Ładuję budżety z YNAB…');
 
     try {
-      await fetchBudgets(trimmedKey);
+      await fetchBudgets(trimmedKey || undefined);
       setApiKeyInvalid(false);
     } catch (err) {
-      const { isInvalidKey, message } = resolveYnabError(err);
-      setStatus(null);
-      setError(message);
-      setBudgets([]);
-      setSelectedBudgetId('');
-      setBudgetStatus(null);
-      setApiKeyInvalid(isInvalidKey);
+      showBudgetsError(err);
     } finally {
       setLoadingBudgets(false);
     }
   };
 
   const handleImport = async () => {
-    if (!trimmedKey) {
+    if (!canUseKey) {
       setError('Dodaj klucz API YNAB, aby rozpocząć import.');
       return;
     }
@@ -179,7 +227,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
       let list = budgets;
       if (!list.length) {
         setLoadingBudgets(true);
-        list = await fetchBudgets(trimmedKey);
+        list = await fetchBudgets(trimmedKey || undefined);
       }
 
       const chosen = list.some((b) => b.id === selectedBudgetId) ? selectedBudgetId : '';
@@ -188,7 +236,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
 
       setSelectedBudgetId(chosen);
 
-      const result = await importYnabBudget(chosen, trimmedKey);
+      const result = await importYnabBudget(chosen, trimmedKey || undefined);
       setSummary(result);
       setStatus('Import zakończony. Wszystkie dane są gotowe.');
     } catch (err) {
@@ -296,7 +344,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 autoComplete="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                placeholder="ynab-api-key-..."
+                placeholder={hasConfiguredKey ? 'Klucz z konfiguracji' : 'ynab-api-key-...'}
                 value={apiKey}
                 aria-invalid={apiKeyInvalid || undefined}
                 onChange={(event) => setApiKey(event.target.value)}
@@ -323,11 +371,17 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 className="btn btn-outline-secondary btn-sm ms-2"
                 type="button"
                 onClick={handleFetchBudgets}
-                disabled={busy || !trimmedKey}
+                disabled={busy || !canUseKey}
               >
                 {loadingBudgets ? 'Ładowanie…' : 'Pobierz budżety'}
               </button>
             </div>
+
+            {hasConfiguredKey && (
+              <p className="welcome__text">
+                Używam klucza z konfiguracji. Wklej inny tylko wtedy, gdy chcesz go zastąpić.
+              </p>
+            )}
 
             {budgets.length > 0 && (
               <>
@@ -368,7 +422,7 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                 type="button"
                 className="btn btn-primary d-inline-flex align-items-center gap-2"
                 onClick={handleImport}
-                disabled={busy || !trimmedKey || !selectedBudgetId}
+                disabled={busy || !canUseKey || !selectedBudgetId}
               >
                 {importing ? 'Importuję…' : importButtonLabel}
                 <IconArrowRight size={18} aria-hidden="true" />

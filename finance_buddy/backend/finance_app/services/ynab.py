@@ -135,7 +135,8 @@ def _serialize_ynab_settings(
     settings: YnabSettings | None,
     user_id: str,
 ) -> YnabSettingsRead:
-    api_key = _get_keychain_api_key(user_id)
+    # Ta sama kolejność co w _resolve_ynab_api_key: klucz z env też się liczy.
+    api_key = _get_keychain_api_key(user_id) or os.getenv("YNAB_API_KEY", "").strip()
     if not settings:
         return YnabSettingsRead(api_key_set=bool(api_key))
     return YnabSettingsRead(
