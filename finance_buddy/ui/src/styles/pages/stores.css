@@ -625,51 +625,6 @@
     font-size: var(--text-12);
   }
 
-  .stores-chart {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: var(--s-8);
-    height: 220px;
-    margin-block-start: var(--s-12);
-  }
-
-  .stores-chart__column {
-    min-width: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--s-4);
-  }
-
-  .stores-chart__value {
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 14px;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stores-chart__bar {
-    flex: 0 1 auto;
-    width: 100%;
-    max-width: 44px;
-    border-radius: var(--s-4) var(--s-4) 0 0;
-    background: var(--border);
-  }
-
-  .stores-chart__bar.is-current {
-    background: var(--text);
-  }
-
-  .stores-chart__month {
-    color: var(--text-muted);
-    font-size: var(--text-12);
-    line-height: var(--leading-12);
-  }
-
   .stores-zone {
     border: 1px solid var(--border);
     border-radius: var(--radius-card);
@@ -717,10 +672,6 @@
       display: block;
       width: fit-content;
       margin-block-start: 2px;
-    }
-
-    .stores-chart__value {
-      font-size: 10px;
     }
 
     .stores-details__spent {

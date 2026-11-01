@@ -116,6 +116,10 @@ export const buildFlows = ({
 
   return {
     data: { nodes: Array.from(nodes.values()), links: Array.from(links.values()) } as SnakeyData,
+    groups: Array.from(links.values())
+      .filter((link) => link.source === groupSource && link.target.startsWith('group:'))
+      .sort((a, b) => b.value - a.value)
+      .map((link) => ({ id: link.target, name: nodes.get(link.target)?.name ?? link.target, value: link.value })),
     income,
     spending,
     fromSavings,

@@ -17,6 +17,13 @@ const linkValue = (flows: ReturnType<typeof build>, source: string, target: stri
   flows.data.links.find((link) => link.source === source && link.target === target)?.value;
 
 describe('buildFlows', () => {
+  it('zwraca grupy wydatków malejąco i bez „Nadwyżki”', () => {
+    const flows = build(tx(500_00, null), tx(-150_00), tx(-50_00, null));
+
+    expect(flows.groups.map((group) => group.value)).toEqual([150_00, 50_00]);
+    expect(flows.groups.every((group) => group.id.startsWith('group:'))).toBe(true);
+  });
+
   it('przy deficycie dodaje „Z oszczędności” i nie skaluje przychodów', () => {
     const flows = build(tx(100_00, null), tx(-150_00));
 

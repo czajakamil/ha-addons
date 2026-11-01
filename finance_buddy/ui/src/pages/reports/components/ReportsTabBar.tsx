@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { REPORT_TABS, type ReportTabId } from '../model';
 
 type ReportsTabBarProps = {
@@ -5,8 +6,19 @@ type ReportsTabBarProps = {
   onSelect: (tab: ReportTabId) => void;
 };
 
-const ReportsTabBar = ({ activeTab, onSelect }: ReportsTabBarProps) => (
-  <nav className="reports-tabs reports-tabs--top" role="tablist" aria-label="Raporty finansowe">
+const ReportsTabBar = ({ activeTab, onSelect }: ReportsTabBarProps) => {
+  const navRef = useRef<HTMLElement>(null);
+
+  // Na telefonie rząd przewija się w bok, więc aktywna zakładka musi sama wjechać do widoku
+  useEffect(() => {
+    const nav = navRef.current;
+    const tab = nav?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!nav || !tab) return;
+    nav.scrollTo({ left: tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2 });
+  }, [activeTab]);
+
+  return (
+  <nav ref={navRef} className="reports-tabs reports-tabs--top" role="tablist" aria-label="Raporty finansowe">
     {REPORT_TABS.map((tab) => {
       const TabIcon = tab.icon;
       return (
@@ -24,6 +36,7 @@ const ReportsTabBar = ({ activeTab, onSelect }: ReportsTabBarProps) => (
       );
     })}
   </nav>
-);
+  );
+};
 
 export default ReportsTabBar;

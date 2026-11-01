@@ -14,6 +14,7 @@
     --surface: #ffffff;
     --surface-2: #f4f4f3;
     --border: #e7e7e4;
+    --border-strong: #d4d4d0;
     --text: #18181b;
     --text-muted: #6b6b73;
     --text-faint: #a1a1a8;
@@ -100,6 +101,7 @@
     --surface: #141416;
     --surface-2: #1c1c1f;
     --border: #26262a;
+    --border-strong: #3a3a40;
     --text: #ededef;
     --text-muted: #8b8b93;
     --text-faint: #55555c;

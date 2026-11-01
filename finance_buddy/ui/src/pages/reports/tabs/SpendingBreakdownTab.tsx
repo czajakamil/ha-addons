@@ -272,6 +272,18 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
     ) : (
       <div className="breakdown-columns">
         <section className="card report-card breakdown-categories-card">
+          <div className="report-card__header">
+            <div>
+              <h3>Struktura wydatków</h3>
+              <p className="report-card__subtitle">Największe pozycje w wybranym okresie.</p>
+            </div>
+            <div className="report-summary-grid">
+              <div>
+                <p>Łączne wydatki</p>
+                <strong>{moneyLabel(breakdownPieTotal)}</strong>
+              </div>
+            </div>
+          </div>
           <aside
             className="breakdown-layout__categories breakdown-layout__categories--spending"
             aria-label={
@@ -281,9 +293,6 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
             }
           >
             <div className="breakdown-layout__header breakdown-layout__header--stacked">
-              <h4 className="breakdown-layout__title">
-                {effectiveBreakdownView === 'groups' ? 'Grupy' : 'Kategorie'}
-              </h4>
               <div
                 className="breakdown-toggle"
                 role="group"
@@ -331,7 +340,7 @@ const SpendingBreakdownTab = ({ controller }: SpendingBreakdownTabProps) => {
             <div className="breakdown-list">
               <div className="breakdown-list__header">
                 <span>{effectiveBreakdownView === 'groups' ? 'Grupy' : 'Kategorie'}</span>
-                <span>Łączne wydatki</span>
+                <span>Kwota</span>
               </div>
               <ul className="breakdown-list__items">
                 {topBreakdownEntries.map((entry) => {

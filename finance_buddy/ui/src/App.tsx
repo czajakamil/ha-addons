@@ -1,6 +1,6 @@
 // src/App.tsx
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import { Route, Routes, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Menu, X } from 'lucide-react';
 import { Toaster } from 'sonner';
@@ -44,6 +44,7 @@ const UntaggedQueuePage = lazy(() => import('./pages/tagging/UntaggedQueuePage')
 
 const App = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { theme, toggleTheme } = useTheme();
   const {
     isDesktop,
@@ -323,7 +324,7 @@ const App = () => {
               >
                 <MobileMenuIcon size={20} aria-hidden="true" />
               </button>
-              <span className="sidebar__brand">Budget Buddy</span>
+              <span className="sidebar__brand">{pathname === '/reports' ? 'Raporty' : 'Budget Buddy'}</span>
             </div>
           )}
 

@@ -1,10 +1,20 @@
 import { useMemo } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
-import { SNAKEY_MAX_TRANSACTIONS, SNAKEY_OTHER_CATEGORY_LABEL, moneyLabel, type SnakeyNode } from '../model';
+import {
+  SNAKEY_MAX_TRANSACTIONS,
+  SNAKEY_OTHER_CATEGORY_LABEL,
+  moneyLabel,
+  type SnakeyNode
+} from '../model';
+import ReportBarList from '../components/ReportBarList';
 import { buildFlows } from '../flows';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { chartColor } from '../../../utils/tokens';
 import { useChartTheme } from '../useChartTheme';
 import type { ReportsController } from '../useReports';
+
+// Ostatni kolor palety (--chart-8) jest zarezerwowany dla „Pozostałych”
+const CHART_OTHER_SLOT = 7;
 
 type FlowsTabProps = {
   controller: ReportsController;
@@ -12,6 +22,7 @@ type FlowsTabProps = {
 
 const FlowsTab = ({ controller }: FlowsTabProps) => {
   const chartTheme = useChartTheme();
+  const isCompact = useMediaQuery('(max-width: 699px)');
   const {
     snakeyTransactions,
     snakeyLoading,
@@ -51,6 +62,21 @@ const FlowsTab = ({ controller }: FlowsTabProps) => {
     ]
   );
 
+  // Kategoria dziedziczy kolor grupy, a źródła i węzły techniczne zostają neutralne
+  const nodeColors = useMemo(() => {
+    const colors = new Map(
+      flows.groups.map((group, index) => [
+        group.id,
+        group.name === SNAKEY_OTHER_CATEGORY_LABEL ? chartColor(CHART_OTHER_SLOT) : chartColor(index % CHART_OTHER_SLOT)
+      ])
+    );
+    flows.data.links.forEach((link) => {
+      const groupColor = colors.get(link.source);
+      if (groupColor) colors.set(link.target, groupColor);
+    });
+    return colors;
+  }, [flows]);
+
   return (
     <section className="card report-card report-card--full">
       <div className="report-card__header">
@@ -83,34 +109,45 @@ const FlowsTab = ({ controller }: FlowsTabProps) => {
         <p className="report-empty">Brak przepływów w wybranym okresie.</p>
       ) : (
         <>
-          <div className="snakey-scroll">
-          <div
-            className="snakey-chart snakey-chart--full"
-            role="img"
-            aria-label={
-              flows.fromSavings > 0
-                ? 'Przychody i oszczędności rozdzielone na grupy kategorii i kategorie'
-                : 'Przychody rozdzielone na grupy kategorii i kategorie'
-            }
-          >
-            <ResponsiveSankey
-              data={flows.data}
-              margin={{ top: 16, right: 160, bottom: 16, left: 96 }}
-              align="justify"
-              sort="descending"
-              colors={[1, 2, 3, 4, 5, 6, 7, 8].map((slot) => chartColor(slot - 1))}
-              nodeOpacity={1}
-              nodeThickness={12}
-              nodeSpacing={16}
-              label={(node) => String((node as SnakeyNode).name ?? node.id)}
-              labelTextColor={chartTheme.text}
-              theme={chartTheme.nivoTheme}
-              valueFormat={(value) => moneyLabel(Number(value))}
-              linkOpacity={0.3}
-              linkHoverOthersOpacity={0.1}
+          {isCompact ? (
+            <ReportBarList
+              title="Grupy wydatków"
+              rows={flows.groups.map((group) => ({
+                key: group.id,
+                name: group.name,
+                total: group.value,
+                percentage: flows.spending > 0 ? group.value / flows.spending : 0
+              }))}
             />
-          </div>
-          </div>
+          ) : (
+            <div
+              className="snakey-chart snakey-chart--full"
+              role="img"
+              aria-label={
+                flows.fromSavings > 0
+                  ? 'Przychody i oszczędności rozdzielone na grupy kategorii i kategorie'
+                  : 'Przychody rozdzielone na grupy kategorii i kategorie'
+              }
+            >
+              <ResponsiveSankey
+                data={flows.data}
+                margin={{ top: 16, right: 160, bottom: 16, left: 96 }}
+                align="justify"
+                sort="descending"
+                colors={(node) => nodeColors.get(String(node.id)) ?? chartTheme.muted}
+                nodeOpacity={1}
+                nodeThickness={12}
+                nodeSpacing={16}
+                label={(node) => String((node as SnakeyNode).name ?? node.id)}
+                labelTextColor={chartTheme.text}
+                theme={chartTheme.nivoTheme}
+                valueFormat={(value) => moneyLabel(Number(value))}
+                linkOpacity={0.35}
+                linkHoverOthersOpacity={0.1}
+                linkBlendMode="normal"
+              />
+            </div>
+          )}
           {flows.hiddenCount > 0 && (
             <p className="snakey-note">
               Mniejsze kategorie ({flows.hiddenCount}) są połączone w „{SNAKEY_OTHER_CATEGORY_LABEL}”.

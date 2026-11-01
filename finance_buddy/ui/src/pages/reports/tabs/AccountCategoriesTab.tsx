@@ -1,5 +1,4 @@
 import { CSSProperties, useMemo, useState } from 'react';
-import { ResponsivePie } from '@nivo/pie';
 import type { Category } from '../../../api';
 import {
   ACCOUNT_UNCATEGORIZED_ID,
@@ -9,12 +8,9 @@ import {
   getAccountKindLabel,
   groupBreakdownEntries,
   moneyLabel,
-  percentLabel,
-  type BreakdownChartEntry,
-  type BreakdownPieDatum
+  type BreakdownChartEntry
 } from '../model';
-import { BreakdownPieTooltip } from '../tooltips';
-import { useChartTheme } from '../useChartTheme';
+import ReportBarList from '../components/ReportBarList';
 import { chartColor } from '../../../utils/tokens';
 import type { ReportsController } from '../useReports';
 
@@ -32,7 +28,6 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
     accountCategoryError,
     selectedAccountIds
   } = controller;
-  const chartTheme = useChartTheme();
   const [accountCategoryView, setAccountCategoryView] = useState<'types' | 'categories'>('types');
   const [activeAccountCategoryId, setActiveAccountCategoryId] = useState<string | null>(null);
 
@@ -283,55 +278,12 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
     [accountCategoryData, accountCategoryPercentBase, accountCategoryView]
   );
 
-  const accountCategoryPieData = useMemo<BreakdownPieDatum[]>(
-    () =>
-      groupedAccountCategoryData.map((entry) => ({
-        ...entry,
-        id: entry.key,
-        label: entry.name
-      })),
-    [groupedAccountCategoryData]
-  );
-  const accountCategoryPieTotal = useMemo(
-    () => accountCategoryPieData.reduce((sum, entry) => sum + entry.value, 0),
-    [accountCategoryPieData]
-  );
-  const accountBreakdownCenterLayer = useMemo(
-    () =>
-      ({ centerX, centerY }: { centerX: number; centerY: number }) => (
-        <>
-          <text
-            x={centerX}
-            y={centerY - 8}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill={chartTheme.text}
-            fontSize={20}
-            fontWeight={700}
-          >
-            {moneyLabel(accountCategoryPieTotal)}
-          </text>
-          <text
-            x={centerX}
-            y={centerY + 14}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill={chartTheme.muted}
-            fontSize={12}
-            fontWeight={600}
-          >
-            Łączna wartość kont
-          </text>
-        </>
-      ),
-    [accountCategoryPieTotal, chartTheme]
-  );
   const accountCategoryNetTotal = useMemo(
     () => groupedAccountCategoryData.reduce((sum, entry) => sum + entry.total, 0),
     [groupedAccountCategoryData]
   );
   const hasAccountCategoryData =
-    groupedAccountCategoryData.length > 0 && accountCategoryPieTotal > 0;
+    groupedAccountCategoryData.length > 0 && accountCategoryPercentBase > 0;
 
   const accountCategoryActiveLabel = useMemo(() => {
     if (!activeAccountCategoryId) return null;
@@ -381,132 +333,75 @@ const AccountCategoriesTab = ({ controller }: AccountCategoriesTabProps) => {
       ) : !hasAccountCategoryData ? (
         <p className="report-empty">Brak danych o saldach kont.</p>
       ) : (
-        <div className="breakdown-layout">
-          {accountCategoryPieData.length <= 5 && (
-          <div
-            className="breakdown-chart"
-            aria-label={`Udział ${accountCategoryView === 'types' ? 'typów' : 'kategorii'} kont według salda`}
-          >
-            <div className="breakdown-chart__pie">
-              <div className="report-chart-canvas">
-                <ResponsivePie
-                  data={accountCategoryPieData}
-                  margin={{ top: 16, right: 16, bottom: 16, left: 16 }}
-                  innerRadius={0.78}
-                  padAngle={0.7}
-                  cornerRadius={45}
-                  activeOuterRadiusOffset={8}
-                  colors={{ datum: 'data.color' }}
-                  enableArcLinkLabels={false}
-                  arcLabelsSkipAngle={16}
-                  arcLabel={(datum) => percentLabel(datum.data.percentage)}
-                  arcLabelsTextColor={chartTheme.surface}
-                  theme={chartTheme.nivoTheme}
-                  valueFormat={(value) => moneyLabel(Number(value))}
-                  tooltip={(props) => <BreakdownPieTooltip {...props} />}
-                  onClick={(datum) => handleAccountCategoryEntryClick(datum.data)}
-                  layers={['arcs', 'arcLabels', accountBreakdownCenterLayer]}
-                />
-              </div>
+        <div
+          className="account-categories"
+          aria-label={
+            accountCategoryView === 'types'
+              ? 'Typy kont w wybranym zestawieniu'
+              : 'Tagi kont w wybranym zestawieniu'
+          }
+        >
+          <div className="spending-trends-controls">
+            <h4 className="breakdown-layout__title">Salda netto z wybranych kont</h4>
+            <div
+              className="breakdown-toggle"
+              role="group"
+              aria-label="Wybierz widok kont"
+              style={{ ['--toggle-index' as const]: accountCategoryView === 'types' ? 0 : 1 } as CSSProperties}
+            >
+              <span className="breakdown-toggle__thumb" aria-hidden />
+              <button
+                type="button"
+                className={`breakdown-toggle__option${
+                  accountCategoryView === 'types' ? ' is-active' : ''
+                }`}
+                onClick={() => {
+                  setAccountCategoryView('types');
+                  setActiveAccountCategoryId(null);
+                }}
+              >
+                Typy
+              </button>
+              <button
+                type="button"
+                className={`breakdown-toggle__option${
+                  accountCategoryView === 'categories' ? ' is-active' : ''
+                }`}
+                onClick={() => setAccountCategoryView('categories')}
+              >
+                Tagi
+              </button>
             </div>
           </div>
-          )}
-          <aside
-            className="breakdown-layout__categories"
-            aria-label={
-              accountCategoryView === 'types'
-                ? 'Typy kont w wybranym zestawieniu'
-                : 'Tagi kont w wybranym zestawieniu'
-            }
-          >
-            <div className="breakdown-layout__header breakdown-layout__header--stacked">
-              <h4 className="breakdown-layout__title">
-                {accountCategoryView === 'types' ? 'Typy kont' : 'Tagi kont'}
-              </h4>
-              <p className="text-secondary small">Salda netto z wybranych kont</p>
-              <div
-                className="breakdown-toggle"
-                role="group"
-                aria-label="Wybierz widok kont"
-                style={{ ['--toggle-index' as const]: accountCategoryView === 'types' ? 0 : 1 } as CSSProperties}
+          {accountCategoryView === 'categories' && accountCategoryActiveLabel && (
+            <div className="breakdown-filter">
+              <span className="breakdown-filter__label">Ścieżka tagu:</span>
+              <span className="breakdown-filter__value">{accountCategoryActiveLabel}</span>
+              <button
+                type="button"
+                className="breakdown-filter__clear"
+                onClick={handleAccountCategoryBack}
               >
-                <span className="breakdown-toggle__thumb" aria-hidden />
-                <button
-                  type="button"
-                  className={`breakdown-toggle__option${
-                    accountCategoryView === 'types' ? ' is-active' : ''
-                  }`}
-                  onClick={() => {
-                    setAccountCategoryView('types');
-                    setActiveAccountCategoryId(null);
-                  }}
-                >
-                  Typy
-                </button>
-                <button
-                  type="button"
-                  className={`breakdown-toggle__option${
-                    accountCategoryView === 'categories' ? ' is-active' : ''
-                  }`}
-                  onClick={() => setAccountCategoryView('categories')}
-                >
-                  Tagi
-                </button>
-              </div>
+                Wróć
+              </button>
             </div>
-            {accountCategoryView === 'categories' && accountCategoryActiveLabel && (
-              <div className="breakdown-filter">
-                <span className="breakdown-filter__label">Ścieżka tagu:</span>
-                <span className="breakdown-filter__value">{accountCategoryActiveLabel}</span>
-                <button
-                  type="button"
-                  className="breakdown-filter__clear"
-                  onClick={handleAccountCategoryBack}
-                >
-                  Wróć
-                </button>
-              </div>
-            )}
-            <ul className="report-breakdown__list">
-              {groupedAccountCategoryData.map((entry) => {
-                const isDrillable =
-                  accountCategoryView === 'categories' &&
-                  !!entry.categoryId &&
-                  accountCategoryDrillableIds.has(entry.categoryId) &&
-                  !entry.isOther;
-                return (
-                  <li
-                    key={entry.key}
-                    className={`breakdown-card${isDrillable ? ' is-clickable' : ''}`}
-                    style={{ ['--category-color' as const]: entry.color } as CSSProperties}
-                    role={isDrillable ? 'button' : undefined}
-                    tabIndex={isDrillable ? 0 : undefined}
-                    onClick={() => {
-                      if (!isDrillable) return;
-                      handleAccountCategoryEntryClick(entry);
-                    }}
-                    onKeyDown={(event) => {
-                      if (!isDrillable) return;
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handleAccountCategoryEntryClick(entry);
-                      }
-                    }}
-                  >
-                    <div className="breakdown-card__pill">
-                      <span className="breakdown-card__dot" />
-                    </div>
-                    <div className="breakdown-card__content">
-                      <p className="breakdown-card__name">{entry.name}</p>
-                      <p className="breakdown-card__meta">
-                        {percentLabel(entry.percentage)} • {moneyLabel(entry.total)}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </aside>
+          )}
+          <ReportBarList
+            title={accountCategoryView === 'types' ? 'Typy kont' : 'Tagi kont'}
+            rows={groupedAccountCategoryData.map((entry) => ({
+              key: entry.key,
+              name: entry.name,
+              total: entry.total,
+              percentage: entry.percentage,
+              onSelect:
+                accountCategoryView === 'categories' &&
+                !!entry.categoryId &&
+                accountCategoryDrillableIds.has(entry.categoryId) &&
+                !entry.isOther
+                  ? () => handleAccountCategoryEntryClick(entry)
+                  : undefined
+            }))}
+          />
         </div>
       )}
     </section>

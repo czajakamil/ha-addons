@@ -156,6 +156,17 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Minimum to 48 px** w każdej tabeli (w Transakcjach było 10 px).
 - **Przeciąganie obsługuje tylko mysz,** jak w dotychczasowej siatce. Skrótu klawiaturowego nie ma.
 
+## Wykresy w Raportach
+
+- **Trendy to neutralne słupki sum,** zgodnie z zasadą „sumy za okres”. Skumulowane kolory i linia sumy znikają. Skład miesiąca pokazuje lista z paskami pod wykresem: dotknięcie słupka zawęża ją do tego miesiąca, co działa też bez hovera.
+- **Majątek netto to linia z obszarem,** bo to stan w czasie. Aktywa i zobowiązania są w podsumowaniu, tabeli i podpowiedzi.
+- **Słupki i linię współdzielą** `MonthBars` (też Sklepy) i `MonthLineChart` (też Konta), więc reguły 6 miesięcy poniżej 700 px i osi trzymamy w jednym miejscu.
+- **Przepływy poniżej 700 px to lista grup z paskami,** wyjątek od zasady „przepływy — Sankey”. Sankey wymaga 720 px na etykiety, a przewijanie w bok ukrywało jego całość.
+- **Tagi kont bez donuta.** Mieszał salda dodatnie z długami: środek pokazywał inną sumę niż „Łączne saldo”, a udział długu wyglądał jak część majątku. Lista z paskami zostawia kwotę ze znakiem, a pasek pokazuje wielkość. `@nivo/pie` wypada z zależności.
+- **Przychody i wydatki mają parę słupków z bilansem nad nią.** To wyjątek od neutralnych sum: przychód w `--positive`, wydatek neutralny, ujemny bilans w `--negative`.
+- **Nazwy miesięcy w Raportach liczy front z klucza `RRRR-MM`,** bo pole `label` z backendu jest angielskie, a korzysta z niego też budżet.
+- **Belka Raportów poniżej 700 px:** zakładki w jednym przewijanym rzędzie bez ikon, okres i przycisk „Filtry” z licznikiem w drugim. Przyklejone są tylko zakładki, żeby wykres miał ekran dla siebie. Konta i kategorie są w natywnym `<dialog>` od dołu; to wyjątek od zasady „modal tylko do tworzenia”, bo filtr nie jest edycją obiektu.
+
 ## Testy
 
 - **Pierwsze testy jednostkowe** (`bulkUpdate.test.ts`, `flows.test.ts`) obejmują logikę, której błąd zmieniałby dane lub liczby: podział wyników akcji zbiorczej i węzły Przepływów.

@@ -1,6 +1,7 @@
 // Pure model layer for ReportsPage: types, constants and side-effect-free
 // helpers. Extracted from ReportsPage.tsx to keep the page component focused on
 // state and rendering. Nothing here touches React state or the DOM.
+import { fullMonthName, monthDate } from '../../utils/months';
 import { ArrowLeftRightIcon, ChartAreaIcon, ChartLineIcon, ChartPieIcon, WorkflowIcon } from 'lucide-react';
 import type { Category, IncomeExpenseCategoryRow, IncomeExpenseMonthRow } from '../../api';
 import { DATA_TABLE_ROW_HEIGHT } from '../../components/DataTable';
@@ -84,7 +85,13 @@ export const monthEndDate = (month: string) => {
 // Raporty agregują kwoty z wielu kont; backend nie zwraca waluty, więc przyjmujemy PLN
 export const REPORT_CURRENCY = 'PLN';
 export const moneyLabel = (cents: number) => formatMoney(cents, REPORT_CURRENCY);
-export const percentLabel = (value: number) => `${(value * 100).toFixed(1)}%`;
+export const percentLabel = (value: number) => `${(value * 100).toFixed(1).replace('.', ',')}%`;
+// Backend podpisuje miesiące po angielsku, więc nazwę bierzemy z klucza „RRRR-MM”
+export const reportMonthLabel = (month: string) => fullMonthName.format(monthDate(month));
+export const reportMonthShort = (month: string) => {
+  const date = monthDate(month);
+  return `${date.toLocaleDateString('pl-PL', { month: 'short' })} ${String(date.getFullYear()).slice(2)}`;
+};
 export const formatDate = (isoDate: string) =>
   new Date(isoDate).toLocaleDateString('pl-PL', {
     year: 'numeric',
@@ -97,6 +104,14 @@ export const formatMonthLabel = (month: string) =>
     month: 'short'
   });
 
+// Rok podajemy raz, gdy oba końce zakresu leżą w tym samym
+export const formatMonthRangeShort = (start: string, end: string) => {
+  const endLabel = fullMonthName.format(monthDate(end));
+  if (start.slice(0, 4) !== end.slice(0, 4)) return `${fullMonthName.format(monthDate(start))} – ${endLabel}`;
+  if (start === end) return endLabel;
+  return `${monthDate(start).toLocaleDateString('pl-PL', { month: 'short' })} – ${endLabel}`;
+};
+
 export type CategoryAggregate = { id?: string | null; name: string; total: number };
 export type BreakdownChartEntry = {
   key: string;
@@ -108,25 +123,11 @@ export type BreakdownChartEntry = {
   color: string;
   isOther?: boolean;
 };
-export type BreakdownPieDatum = BreakdownChartEntry & { id: string; label: string };
 export type CategoryTreeNode = { parent: Category; children: Category[] };
 export type CategoryMenuEntry =
   | { type: 'uncategorized' }
   | { type: 'parent'; category: Category; hasChildren: boolean }
   | { type: 'child'; category: Category; parentId: string };
-export type TrendCategoryLegend = { key: string; label: string; color: string };
-export type TrendBarDatum = {
-  month: string;
-  label: string;
-  total: number;
-} & Record<string, number | string>;
-export type NetWorthBarDatum = {
-  month: string;
-  label: string;
-  assets: number;
-  debts: number;
-  net: number;
-};
 export type SnakeyNode = { id: string; name: string; type: 'account' | 'category' };
 export type SnakeyLink = { source: string; target: string; value: number };
 export type SnakeyData = { nodes: SnakeyNode[]; links: SnakeyLink[] };
@@ -194,10 +195,10 @@ export const aggregateCategories = (months: IncomeExpenseMonthRow[], type: 'inco
 };
 
 export const REPORT_TABS = [
-  { id: 'spending-breakdown', label: 'Struktura wydatków', icon: ChartPieIcon },
-  { id: 'account-categories', label: 'Tagi kont', icon: ChartPieIcon },
+  { id: 'spending-breakdown', label: 'Wydatki', icon: ChartPieIcon },
+  { id: 'account-categories', label: 'Tagi', icon: ChartPieIcon },
   { id: 'spending-trends', label: 'Trendy', icon: ChartLineIcon },
-  { id: 'net-worth', label: 'Majątek netto', icon: ChartAreaIcon },
+  { id: 'net-worth', label: 'Majątek', icon: ChartAreaIcon },
   { id: 'snakey', label: 'Przepływy', icon: WorkflowIcon },
   { id: 'income-expense', label: 'Przychody i wydatki', icon: ArrowLeftRightIcon }
 ] as const;
@@ -214,7 +215,6 @@ export const UNCATEGORIZED_CATEGORY_NAME = 'Bez tagu';
 export const ACCOUNT_UNCATEGORIZED_ID = '__account_uncategorized__';
 export const ACCOUNT_UNCATEGORIZED_NAME = 'Bez kategorii';
 export const SPENDING_TRENDS_CATEGORY_LIMIT = 6;
-export const SPENDING_TRENDS_OTHER_KEY = '__spending_other__';
 export const SPENDING_TRENDS_OTHER_LABEL = 'Pozostałe';
 export const SNAKEY_MAX_TRANSACTIONS = 2000;
 export const SNAKEY_PAGE_SIZE = 200;
@@ -225,8 +225,6 @@ export const SNAKEY_TRANSFER_DIRECTION = 'outflow-to-inflow' as SnakeyTransferDi
 export const SNAKEY_OTHER_CATEGORY_ID = '__snakey_other__';
 export const SNAKEY_OTHER_CATEGORY_LABEL = 'Pozostałe wydatki';
 export const SNAKEY_UNKNOWN_ACCOUNT_LABEL = 'Nieznane konto';
-export const netAssetsColor = () => readToken('--positive');
-export const netDebtsColor = () => readToken('--negative');
 export const INTERNAL_CATEGORY_NAME = 'internal master category';
 export const INFLOW_READY_TO_ASSIGN = 'inflow: ready to assign';
 export const BREAKDOWN_GRID_MIN_HEIGHT = 240;

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import { aggregateCategories, moneyLabel } from '../model';
+import { aggregateCategories, moneyLabel, reportMonthLabel } from '../model';
+import IncomeExpenseBars from '../components/IncomeExpenseBars';
+import ReportBarList from '../components/ReportBarList';
 import type { ReportsController } from '../useReports';
 import ResizableTable from '../../../components/ui/ResizableTable';
 
@@ -24,9 +26,9 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
     <section className="card report-card report-card--full">
       <div className="report-card__header">
         <div>
-          <h3>Przychody vs wydatki</h3>
+          <h3>Przychody i wydatki</h3>
           <p className="report-card__subtitle">
-            Kontroluj miesięczne przychody, wydatki oraz wynik netto.
+            Miesięczne przychody, wydatki i bilans.
           </p>
         </div>
         <div className="report-summary-grid">
@@ -42,7 +44,8 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
       </div>
       {incomeTotals?.months.length ? (
         <>
-          <div className="table-responsive">
+          <IncomeExpenseBars months={incomeTotals.months} />
+          <div className="table-responsive report-table-spaced">
             <ResizableTable tableId="report-income-expense" className="table report-table">
               <thead>
                 <tr>
@@ -55,10 +58,10 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
               <tbody>
                 {incomeTotals.months.map((month) => (
                   <tr key={month.month}>
-                    <td>{month.label}</td>
+                    <td>{reportMonthLabel(month.month)}</td>
                     <td>{moneyLabel(month.income_cents)}</td>
                     <td>{moneyLabel(month.expense_cents)}</td>
-                    <td className={month.net_cents >= 0 ? 'is-positive' : 'is-negative'}>
+                    <td className={month.net_cents > 0 ? 'is-positive' : month.net_cents < 0 ? 'is-negative' : undefined}>
                       {moneyLabel(month.net_cents)}
                     </td>
                   </tr>
@@ -67,30 +70,25 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
             </ResizableTable>
           </div>
           <div className="report-mini-grid">
-            <div>
-              <p className="report-mini-title">Top źródła przychodu</p>
-              <ul className="mini-list">
-                {topIncome.map((row) => (
-                  <li key={row.id ?? row.name}>
-                    <span>{row.name}</span>
-                    <strong>{moneyLabel(row.total)}</strong>
-                  </li>
-                ))}
-                {topIncome.length === 0 && <li>Brak danych.</li>}
-              </ul>
-            </div>
-            <div>
-              <p className="report-mini-title">Top kategorie wydatków</p>
-              <ul className="mini-list">
-                {topExpenses.map((row) => (
-                  <li key={row.id ?? row.name}>
-                    <span>{row.name}</span>
-                    <strong>{moneyLabel(row.total)}</strong>
-                  </li>
-                ))}
-                {topExpenses.length === 0 && <li>Brak danych.</li>}
-              </ul>
-            </div>
+            {[
+              { title: 'Top źródła przychodu', rows: topIncome, base: incomeTotals.total_income_cents },
+              { title: 'Top kategorie wydatków', rows: topExpenses, base: incomeTotals.total_expense_cents }
+            ].map(({ title, rows, base }) =>
+              rows.length ? (
+                <ReportBarList
+                  key={title}
+                  title={title}
+                  rows={rows.map((row) => ({
+                    key: row.id ?? row.name,
+                    name: row.name,
+                    total: Math.abs(row.total),
+                    percentage: base ? Math.abs(row.total / base) : 0
+                  }))}
+                />
+              ) : (
+                <p key={title} className="report-empty">{title}: brak danych.</p>
+              )
+            )}
           </div>
         </>
       ) : (

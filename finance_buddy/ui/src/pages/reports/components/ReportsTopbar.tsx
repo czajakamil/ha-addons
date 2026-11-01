@@ -1,17 +1,20 @@
-import { CSSProperties, useCallback, useMemo } from 'react';
-import { Calendar } from 'lucide-react';
+import { CSSProperties, useCallback, useMemo, useState } from 'react';
+import { Calendar, SlidersHorizontal } from 'lucide-react';
 import Button from '../../../components/Button';
 import PopoverFilter from '../../../components/PopoverFilter';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
   QUICK_RANGE_OPTIONS,
   UNCATEGORIZED_CATEGORY_ID,
   UNCATEGORIZED_CATEGORY_NAME,
   formatMonthLabel,
+  formatMonthRangeShort,
   stripParentPrefix,
   type CategoryMenuEntry,
   type CategoryTreeNode
 } from '../model';
 import type { ReportsController } from '../useReports';
+import ReportsFiltersSheet from './ReportsFiltersSheet';
 import ReportsTabBar from './ReportsTabBar';
 
 type ReportsTopbarProps = {
@@ -61,6 +64,18 @@ const ReportsTopbar = ({ controller }: ReportsTopbarProps) => {
     handleCategoryMenuCancel,
     handleCategoryMenuApply
   } = controller;
+
+  const isCompact = useMediaQuery('(max-width: 699px)');
+  const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
+  const hasAccountFilter = selectedAccountIds.length > 0 && selectedAccountIds.length !== accounts.length;
+  const hasCategoryFilter =
+    selectedCategoryIds.length > 0 && selectedCategoryIds.length !== allCategoryOptionIds.length;
+  const activeFilterCount = Number(hasAccountFilter) + Number(hasCategoryFilter);
+  const closeFiltersSheet = () => {
+    handleAccountsMenuOpenChange(false);
+    handleCategoriesMenuOpenChange(false);
+    setFiltersSheetOpen(false);
+  };
 
   const categoryTree = useMemo<CategoryTreeNode[]>(() => {
     if (!categories.length) {
@@ -179,103 +194,9 @@ const ReportsTopbar = ({ controller }: ReportsTopbarProps) => {
     [categories]
   );
 
-  return (
-    <header
-      ref={topbarRef}
-      style={
-        {
-          ['--reports-topbar-height' as const]: topbarHeight ? `${topbarHeight}px` : undefined
-        } as CSSProperties
-      }
-      className={`reports-topbar${topbarHidden ? ' is-hidden' : ''}`}
-    >
-      <div className="reports-topbar__inner">
-        <ReportsTabBar activeTab={activeTab} onSelect={setActiveTab} />
-
-        <div className="reports-topbar__filters">
-          <div className="reports-filter-row reports-filter-row--topbar">
-            <PopoverFilter
-              id="reports-date-filter"
-              label="Wybór zakresu dat raportów"
-              className="reports-date-control"
-              panelClassName="reports-date-menu"
-              isOpen={dateMenuOpen}
-              onOpenChange={handleDateMenuOpenChange}
-              trigger={({ ref, panelId, isOpen, onToggle }) => (
-                <button
-                  ref={ref}
-                  type="button"
-                  className="reports-date-trigger is-focusable"
-                  aria-haspopup="dialog"
-                  aria-expanded={isOpen}
-                  aria-controls={panelId}
-                  onClick={onToggle}
-                >
-                  <span className="reports-date-trigger__icon" aria-hidden="true">
-                    <Calendar size={16} />
-                  </span>
-                  <div className="reports-date-trigger__labels">
-                    <span className="reports-date-trigger__value">
-                      {startMonth && endMonth
-                        ? `${formatMonthLabel(startMonth)} – ${formatMonthLabel(endMonth)}`
-                        : 'Wybierz zakres'}
-                    </span>
-                  </div>
-                  <span className="reports-date-trigger__chevron" aria-hidden="true">
-                    ▾
-                  </span>
-                </button>
-              )}
-            >
-              <div className="reports-date-menu__options">
-                {QUICK_RANGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`reports-date-option${
-                      activeQuickRange === option.id ? ' is-active' : ''
-                    }`}
-                    onClick={() => handleQuickRangeSelect(option.id)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className={`reports-date-option reports-date-option--custom${
-                    customRangeMode ? ' is-active' : ''
-                  }`}
-                  onClick={() => {
-                    setActiveQuickRange(null);
-                    setCustomRangeMode(true);
-                  }}
-                >
-                  Zakres niestandardowy
-                </button>
-              </div>
-
-              {customRangeMode && (
-                <div className="reports-date-custom">
-                  <label className="reports-date-custom__label">
-                    Data początkowa
-                    <input
-                      type="month"
-                      value={startMonth}
-                      onChange={(event) => handleCustomRangeChange(event.target.value, 'start')}
-                    />
-                  </label>
-                  <label className="reports-date-custom__label">
-                    Data końcowa
-                    <input
-                      type="month"
-                      value={endMonth}
-                      onChange={(event) => handleCustomRangeChange(event.target.value, 'end')}
-                    />
-                  </label>
-                </div>
-              )}
-            </PopoverFilter>
-            <div className="reports-filter-tags reports-filter-tags--topbar" aria-label="Filtry dodatkowe">
+  // Konta i kategorie: w belce na desktopie, w panelu od dołu na telefonie
+  const extraFilters = (
+    <>
               <PopoverFilter
                 id="reports-accounts-filter"
                 label="Filtr kont"
@@ -462,7 +383,128 @@ const ReportsTopbar = ({ controller }: ReportsTopbarProps) => {
                   </div>
                 </div>
               </PopoverFilter>
-            </div>
+    </>
+  );
+
+  return (
+    <header
+      ref={topbarRef}
+      style={
+        {
+          ['--reports-topbar-height' as const]: topbarHeight ? `${topbarHeight}px` : undefined
+        } as CSSProperties
+      }
+      className={`reports-topbar${topbarHidden ? ' is-hidden' : ''}`}
+    >
+      <div className="reports-topbar__inner">
+        <ReportsTabBar activeTab={activeTab} onSelect={setActiveTab} />
+
+        <div className="reports-topbar__filters">
+          <div className="reports-filter-row reports-filter-row--topbar">
+            <PopoverFilter
+              id="reports-date-filter"
+              label="Wybór zakresu dat raportów"
+              className="reports-date-control"
+              panelClassName="reports-date-menu"
+              isOpen={dateMenuOpen}
+              onOpenChange={handleDateMenuOpenChange}
+              trigger={({ ref, panelId, isOpen, onToggle }) => (
+                <button
+                  ref={ref}
+                  type="button"
+                  className="reports-date-trigger is-focusable"
+                  aria-haspopup="dialog"
+                  aria-expanded={isOpen}
+                  aria-controls={panelId}
+                  onClick={onToggle}
+                >
+                  <span className="reports-date-trigger__icon" aria-hidden="true">
+                    <Calendar size={16} />
+                  </span>
+                  <div className="reports-date-trigger__labels">
+                    <span className="reports-date-trigger__value">
+                      {!startMonth || !endMonth
+                        ? 'Wybierz zakres'
+                        : isCompact
+                          ? formatMonthRangeShort(startMonth, endMonth)
+                          : `${formatMonthLabel(startMonth)} – ${formatMonthLabel(endMonth)}`}
+                    </span>
+                  </div>
+                  <span className="reports-date-trigger__chevron" aria-hidden="true">
+                    ▾
+                  </span>
+                </button>
+              )}
+            >
+              <div className="reports-date-menu__options">
+                {QUICK_RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`reports-date-option${
+                      activeQuickRange === option.id ? ' is-active' : ''
+                    }`}
+                    onClick={() => handleQuickRangeSelect(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`reports-date-option reports-date-option--custom${
+                    customRangeMode ? ' is-active' : ''
+                  }`}
+                  onClick={() => {
+                    setActiveQuickRange(null);
+                    setCustomRangeMode(true);
+                  }}
+                >
+                  Zakres niestandardowy
+                </button>
+              </div>
+
+              {customRangeMode && (
+                <div className="reports-date-custom">
+                  <label className="reports-date-custom__label">
+                    Data początkowa
+                    <input
+                      type="month"
+                      value={startMonth}
+                      onChange={(event) => handleCustomRangeChange(event.target.value, 'start')}
+                    />
+                  </label>
+                  <label className="reports-date-custom__label">
+                    Data końcowa
+                    <input
+                      type="month"
+                      value={endMonth}
+                      onChange={(event) => handleCustomRangeChange(event.target.value, 'end')}
+                    />
+                  </label>
+                </div>
+              )}
+            </PopoverFilter>
+            {isCompact ? (
+              <>
+                <button
+                  type="button"
+                  className="reports-filters-button is-focusable"
+                  aria-haspopup="dialog"
+                  aria-label={activeFilterCount ? `Filtry, aktywne: ${activeFilterCount}` : 'Filtry'}
+                  onClick={() => setFiltersSheetOpen(true)}
+                >
+                  <SlidersHorizontal size={16} aria-hidden="true" />
+                  Filtry{activeFilterCount > 0 && ` · ${activeFilterCount}`}
+                </button>
+                <ReportsFiltersSheet isOpen={filtersSheetOpen} onClose={closeFiltersSheet}>
+                  {extraFilters}
+                </ReportsFiltersSheet>
+              </>
+            ) : (
+              <div className="reports-filter-tags reports-filter-tags--topbar" aria-label="Filtry dodatkowe">
+                {extraFilters}
+              </div>
+            )}
           </div>
         </div>
       </div>

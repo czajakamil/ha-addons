@@ -1,213 +1,86 @@
-import { CSSProperties, useCallback, useMemo, useState } from 'react';
-import { ResponsiveBar, type BarCustomLayerProps } from '@nivo/bar';
-import type { IncomeExpenseMonthRow } from '../../../api';
+import { CSSProperties, useMemo, useState } from 'react';
+import MonthBars from '../../../components/ui/MonthBars';
+import { monthRangeLabel } from '../../../utils/months';
 import {
-  otherCategoryColor,
   SPENDING_TRENDS_CATEGORY_LIMIT,
-  SPENDING_TRENDS_OTHER_KEY,
   SPENDING_TRENDS_OTHER_LABEL,
   UNCATEGORIZED_CATEGORY_NAME,
   isExcludedCategory,
   moneyLabel,
-  resolveTrendBucket,
-  type TrendBarDatum,
-  type TrendCategoryLegend
+  percentLabel,
+  reportMonthLabel,
+  resolveTrendBucket
 } from '../model';
-import { SpendingTrendsTooltip } from '../tooltips';
-import { useChartTheme } from '../useChartTheme';
-import { chartColor } from '../../../utils/tokens';
+import ReportBarList, { type ReportBarRow } from '../components/ReportBarList';
 import type { ReportsController } from '../useReports';
 import ResizableTable from '../../../components/ui/ResizableTable';
+import { useVisibleMonths } from '../../../hooks/useVisibleMonths';
 
 type SpendingTrendsTabProps = {
   controller: ReportsController;
 };
 
+const currentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
   const { data } = controller;
-  const chartTheme = useChartTheme();
   const [spendingTrendView, setSpendingTrendView] = useState<'categories' | 'groups'>('categories');
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   const averageMonthlySpendingCents = data?.spending_trends.average_monthly_spending_cents ?? 0;
   const totalSpendingCents = data?.spending_trends.total_spending_cents ?? 0;
   const trendAverage = data?.spending_trends.average_monthly_spending_cents ?? 0;
 
-  const spendingTrendCategoryTotals = useMemo(() => {
-    const totals = new Map<string, { name: string; total: number }>();
-    if (!data?.income_vs_expense?.months) {
-      return totals;
-    }
-
-    data.income_vs_expense.months.forEach((month) => {
-      month.expense_categories.forEach((category) => {
-        if (isExcludedCategory(category.category_name)) {
-          return;
-        }
-        const { key, label } = resolveTrendBucket(category, spendingTrendView);
-        const value = Math.abs(category.total_cents);
-        if (!value) return;
-        const existing = totals.get(key) ?? { name: label, total: 0 };
-        existing.total += value;
-        totals.set(key, existing);
-      });
-    });
-
-    return totals;
-  }, [data?.income_vs_expense?.months, spendingTrendView]);
-
-  const spendingTrendChart = useMemo(() => {
-    if (!data?.spending_trends?.months?.length) {
-      return { data: [] as TrendBarDatum[], keys: [] as string[], legend: [] as TrendCategoryLegend[], maxValue: 0 };
-    }
-
-    const expenseMonths = data.income_vs_expense?.months ?? [];
-    const monthLookup = new Map<string, IncomeExpenseMonthRow>(
-      expenseMonths.map((month) => [month.month, month])
-    );
-
-    const sortedCategories = Array.from(spendingTrendCategoryTotals.entries()).sort(
-      (a, b) => b[1].total - a[1].total
-    );
-    const baseCategories = sortedCategories.slice(0, SPENDING_TRENDS_CATEGORY_LIMIT);
-
-    const legend: TrendCategoryLegend[] = baseCategories.map(([key, meta], index) => ({
-      key,
-      label: meta.name || UNCATEGORIZED_CATEGORY_NAME,
-      color: chartColor(index)
-    }));
-    const keys = legend.map((entry) => entry.key);
-
-    const dataPoints: TrendBarDatum[] = data.spending_trends.months.map((point) => {
-      const monthRow = monthLookup.get(point.month);
-      const datum: TrendBarDatum = {
+  const monthBars = useMemo(
+    () =>
+      (data?.spending_trends?.months ?? []).map((point) => ({
         month: point.month,
-        label: point.label,
-        total: 0
-      };
-      let otherTotal = 0;
-      let stackTotal = 0;
-
-      monthRow?.expense_categories.forEach((category) => {
-        if (isExcludedCategory(category.category_name)) {
-          return;
-        }
-        const bucket = resolveTrendBucket(category, spendingTrendView);
-        const value = Math.abs(category.total_cents);
-        if (!value) return;
-        if (keys.includes(bucket.key)) {
-          datum[bucket.key] = value;
-        } else {
-          otherTotal += value;
-        }
-        stackTotal += value;
-      });
-
-      if (otherTotal > 0) {
-        datum[SPENDING_TRENDS_OTHER_KEY] = otherTotal;
-        stackTotal += otherTotal;
-      }
-
-      datum.total = stackTotal;
-
-      return datum;
-    });
-
-    if (
-      dataPoints.some(
-        (item) => Number((item as Record<string, number | string>)[SPENDING_TRENDS_OTHER_KEY] ?? 0) > 0
-      )
-    ) {
-      legend.push({
-        key: SPENDING_TRENDS_OTHER_KEY,
-        label: SPENDING_TRENDS_OTHER_LABEL,
-        color: otherCategoryColor()
-      });
-      keys.push(SPENDING_TRENDS_OTHER_KEY);
-    }
-
-    if (keys.length === 0) {
-      const fallbackKey = 'wydatki';
-      dataPoints.forEach((item) => {
-        item[fallbackKey] = item.total;
-      });
-      legend.push({
-        key: fallbackKey,
-        label: 'Wydatki',
-        color: chartColor(0)
-      });
-      keys.push(fallbackKey);
-    }
-
-    const maxValue = dataPoints.reduce(
-      (max, item) => Math.max(max, Number(item.total) || 0),
-      0
-    );
-
-    return { data: dataPoints, keys, legend, maxValue };
-  }, [
-    data?.income_vs_expense?.months,
-    data?.spending_trends?.months,
-    spendingTrendCategoryTotals,
-    spendingTrendView
-  ]);
-
-  const spendingTrendLegendMap = useMemo(
-    () => new Map(spendingTrendChart.legend.map((entry) => [entry.key, entry])),
-    [spendingTrendChart.legend]
+        cents: Math.abs(point.total_spending_cents)
+      })),
+    [data?.spending_trends?.months]
   );
-  const spendingTrendsMaxValue = spendingTrendChart.maxValue || 0;
-  const spendingTrendsChartMax = spendingTrendsMaxValue > 0 ? spendingTrendsMaxValue * 1.12 : 'auto';
-  const hasTrendChartData = spendingTrendChart.data.length > 0;
+  const visibleBars = useVisibleMonths(monthBars);
+  // Zmiana filtrów może zabrać wybrany miesiąc z zakresu; wtedy lista wraca do całego okresu
+  const activeMonth = visibleBars.some((bar) => bar.month === selectedMonth) ? selectedMonth : null;
+  const hasTrendChartData = visibleBars.length > 0;
   const spendingToggleIndex = spendingTrendView === 'categories' ? 0 : 1;
-  const spendingTrendColors = useCallback(
-    (bar: { id: string | number }) =>
-      spendingTrendLegendMap.get(String(bar.id))?.color ?? otherCategoryColor(),
-    [spendingTrendLegendMap]
-  );
-  const renderTrendLineLayer = useCallback(
-    ({ bars }: BarCustomLayerProps<TrendBarDatum>) => {
-      if (!bars.length) {
-        return null;
-      }
 
-      const topPoints = new Map<string, { x: number; y: number }>();
-      bars.forEach((bar) => {
-        const key = String(bar.data.indexValue);
-        const top = { x: bar.x + bar.width / 2, y: bar.y };
-        const existing = topPoints.get(key);
-        if (!existing || top.y < existing.y) {
-          topPoints.set(key, top);
-        }
+  // Kwoty sumowane z pełnego zakresu albo z wybranego miesiąca, po tagach lub grupach
+  const structureRows = useMemo<ReportBarRow[]>(() => {
+    const totals = new Map<string, { name: string; total: number }>();
+    (data?.income_vs_expense?.months ?? [])
+      .filter((month) => !activeMonth || month.month === activeMonth)
+      .forEach((month) => {
+        month.expense_categories.forEach((category) => {
+          if (isExcludedCategory(category.category_name)) return;
+          const value = Math.abs(category.total_cents);
+          if (!value) return;
+          const { key, label } = resolveTrendBucket(category, spendingTrendView);
+          const existing = totals.get(key) ?? { name: label || UNCATEGORIZED_CATEGORY_NAME, total: 0 };
+          existing.total += value;
+          totals.set(key, existing);
+        });
       });
 
-      const points = Array.from(topPoints.values()).sort((a, b) => a.x - b.x);
-      if (!points.length) return null;
-
-      const pathD = points
-        .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-        .join(' ');
-
-      return (
-        <g>
-          <path d={pathD} fill="none" stroke={chartTheme.muted} strokeWidth={2} />
-          {points.map((point, index) => (
-            <g key={`${point.x}-${index}`}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={6.5}
-                fill={chartTheme.surface}
-                stroke={chartTheme.muted}
-                strokeWidth={2}
-              />
-              <circle cx={point.x} cy={point.y} r={2.6} fill={chartTheme.text} />
-            </g>
-          ))}
-        </g>
-      );
-    },
-    [chartTheme]
-  );
+    const sorted = Array.from(totals.entries()).sort((a, b) => b[1].total - a[1].total);
+    const sum = sorted.reduce((acc, [, entry]) => acc + entry.total, 0);
+    const toRow = (key: string, name: string, total: number) => ({
+      key,
+      name,
+      total,
+      percentage: sum > 0 ? total / sum : 0
+    });
+    const rows = sorted
+      .slice(0, SPENDING_TRENDS_CATEGORY_LIMIT)
+      .map(([key, entry]) => toRow(key, entry.name, entry.total));
+    const restTotal = sorted
+      .slice(SPENDING_TRENDS_CATEGORY_LIMIT)
+      .reduce((acc, [, entry]) => acc + entry.total, 0);
+    return restTotal > 0 ? [...rows, toRow('other', SPENDING_TRENDS_OTHER_LABEL, restTotal)] : rows;
+  }, [data?.income_vs_expense?.months, activeMonth, spendingTrendView]);
 
   const spendingTrendRows = useMemo(() => {
     if (!data?.spending_trends?.months?.length) return [];
@@ -228,7 +101,7 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
         <div>
           <h3>Trendy wydatków</h3>
           <p className="report-card__subtitle">
-            Miesięczne wydatki według kategorii z linią sumy.
+            Suma wydatków w każdym miesiącu. Wybierz słupek, żeby zobaczyć jego strukturę.
           </p>
         </div>
         <div className="spending-trends-summary">
@@ -246,84 +119,56 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
         <p className="report-empty">Brak trendów do pokazania.</p>
       ) : (
         <>
-          <div className="spending-trends-controls" role="group" aria-label="Wybierz widok wydatków">
-            <div
-              className="breakdown-toggle"
-              style={{ ['--toggle-index' as const]: spendingToggleIndex } as CSSProperties}
-            >
-              <span className="breakdown-toggle__thumb" aria-hidden />
-              <button
-                type="button"
-                className={`breakdown-toggle__option${
-                  spendingTrendView === 'categories' ? ' is-active' : ''
-                }`}
-                onClick={() => setSpendingTrendView('categories')}
+          <p className="report-chart-range">
+            {monthRangeLabel(visibleBars[0].month, visibleBars[visibleBars.length - 1].month)}
+          </p>
+          <MonthBars
+            months={visibleBars}
+            highlighted={activeMonth ?? currentMonthKey()}
+            selected={activeMonth}
+            onSelect={(month) => setSelectedMonth(month === activeMonth ? null : month)}
+            ariaLabel="Wybierz miesiąc"
+          />
+          <div className="spending-trends-structure">
+            <div className="spending-trends-controls">
+              <h4 className="breakdown-layout__title">
+                {activeMonth ? `Struktura: ${reportMonthLabel(activeMonth)}` : 'Struktura: cały zakres'}
+              </h4>
+              <div
+                className="breakdown-toggle"
+                role="group"
+                aria-label="Wybierz widok wydatków"
+                style={{ ['--toggle-index' as const]: spendingToggleIndex } as CSSProperties}
               >
-                Tagi
-              </button>
-              <button
-                type="button"
-                className={`breakdown-toggle__option${
-                  spendingTrendView === 'groups' ? ' is-active' : ''
-                }`}
-                onClick={() => setSpendingTrendView('groups')}
-              >
-                Grupy
-              </button>
+                <span className="breakdown-toggle__thumb" aria-hidden />
+                <button
+                  type="button"
+                  className={`breakdown-toggle__option${
+                    spendingTrendView === 'categories' ? ' is-active' : ''
+                  }`}
+                  onClick={() => setSpendingTrendView('categories')}
+                >
+                  Tagi
+                </button>
+                <button
+                  type="button"
+                  className={`breakdown-toggle__option${
+                    spendingTrendView === 'groups' ? ' is-active' : ''
+                  }`}
+                  onClick={() => setSpendingTrendView('groups')}
+                >
+                  Grupy
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="spending-trends-chart" role="img" aria-label="Miesięczne wydatki w czasie">
-            <ResponsiveBar
-              data={spendingTrendChart.data}
-              keys={spendingTrendChart.keys}
-              indexBy="label"
-              margin={{ top: 24, right: 16, bottom: 48, left: 86 }}
-              padding={0.32}
-              maxValue={spendingTrendsChartMax}
-              valueScale={{ type: 'linear' }}
-              indexScale={{ type: 'band', round: true }}
-              colors={spendingTrendColors}
-              enableLabel={false}
-              enableGridX={false}
-              enableGridY
-              gridYValues={6}
-              axisLeft={{
-                tickSize: 0,
-                tickPadding: 10,
-                format: (value) => moneyLabel(Number(value)),
-                legendOffset: -70
-              }}
-              axisBottom={{
-                tickSize: 0,
-                tickPadding: 12,
-                tickRotation: -15
-              }}
-              theme={chartTheme.nivoTheme}
-              tooltip={(props) => (
-                <SpendingTrendsTooltip {...props} legendLookup={spendingTrendLegendMap} />
-              )}
-              valueFormat={(value) => moneyLabel(Number(value))}
-              layers={[
-                'grid',
-                'axes',
-                'bars',
-                (layerProps) => renderTrendLineLayer(layerProps),
-                'markers',
-                'legends'
-              ]}
-            />
-          </div>
-          <div className="spending-trends-legend" aria-label="Legenda kategorii wydatków">
-            {spendingTrendChart.legend.map((entry) => (
-              <span key={entry.key} className="spending-trends-legend__item">
-                <span
-                  className="spending-trends-legend__dot"
-                  style={{ backgroundColor: entry.color }}
-                  aria-hidden
-                />
-                <span className="spending-trends-legend__label">{entry.label}</span>
-              </span>
-            ))}
+            {structureRows.length > 0 ? (
+              <ReportBarList
+                title={spendingTrendView === 'categories' ? 'Tagi' : 'Grupy'}
+                rows={structureRows}
+              />
+            ) : (
+              <p className="report-empty">Brak wydatków w tym miesiącu.</p>
+            )}
           </div>
           <div className="table-responsive">
             <ResizableTable tableId="report-trends" className="table report-table spending-trends-table">
@@ -341,22 +186,18 @@ const SpendingTrendsTab = ({ controller }: SpendingTrendsTabProps) => {
               </thead>
               <tbody>
                 {spendingTrendRows.map((row) => {
-                  const isPositive = row.diff >= 0;
-                  const diffLabel = moneyLabel(Math.abs(row.diff));
-                  const percentText = row.percent
-                    ? `${(Math.abs(row.percent) * 100).toFixed(1)}%`
-                    : '0.0%';
+                  const isAbove = row.diff >= 0;
                   return (
                     <tr key={row.month}>
-                      <td>{row.label}</td>
+                      <td>{reportMonthLabel(row.month)}</td>
                       <td>{moneyLabel(row.total)}</td>
                       <td>
                         {row.diff === 0 ? (
                           <span className="spending-trends-diff is-neutral">—</span>
                         ) : (
-                          <span className={`spending-trends-diff ${isPositive ? 'is-positive' : 'is-negative'}`}>
-                            <span aria-hidden="true">{isPositive ? '↑' : '↓'} </span>
-                            {diffLabel} ({percentText})
+                          <span className="spending-trends-diff">
+                            <span aria-hidden="true">{isAbove ? '↑' : '↓'} </span>
+                            {moneyLabel(Math.abs(row.diff))} ({percentLabel(Math.abs(row.percent))})
                           </span>
                         )}
                       </td>

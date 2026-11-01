@@ -212,6 +212,7 @@ mealpilot/data/
 .DS_Store
 # TypeScript incremental build cache — a build artifact, not source.
 *.tsbuildinfo
+node_modules/
 
 # Finance Buddy: lokalna baza z docker-compose.dev.yml
 finance_buddy/data/
