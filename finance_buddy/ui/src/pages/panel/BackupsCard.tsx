@@ -1,29 +1,18 @@
 import { useState } from 'react';
-import { DatabaseBackupIcon, DownloadIcon, RefreshCwIcon } from 'lucide-react';
+import { DatabaseBackup, Download, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useApi } from '../../hooks/useApi';
 import { createBackupNow, downloadBackup, getBackupStatus, type BackupStatus } from '../../api';
 import { backupHealth, formatBytes, type BackupHealth } from './backupStatus';
+import { errorDetail, formatDateTime } from './format';
 import ResizableTable from '../../components/ui/ResizableTable';
 
 const HEALTH_BADGE: Record<BackupHealth, { className: string; label: string }> = {
-  ok: { className: 'bg-green-lt', label: 'Aktualna' },
-  stale: { className: 'bg-yellow-lt', label: 'Nieaktualna' },
-  missing: { className: 'bg-yellow-lt', label: 'Brak kopii' },
-  error: { className: 'bg-red-lt', label: 'Błąd' },
-  disabled: { className: 'bg-secondary-lt', label: 'Wyłączone' }
-};
-
-const formatDateTime = (value: string | null) =>
-  value ? new Date(value).toLocaleString('pl-PL') : '—';
-
-const errorDetail = (err: unknown, fallback: string) => {
-  if (!(err instanceof Error)) return fallback;
-  try {
-    const parsed = JSON.parse(err.message) as { detail?: string };
-    return parsed.detail ?? err.message;
-  } catch {
-    return err.message || fallback;
-  }
+  ok: { className: 'panel-badge--positive', label: 'Aktualna' },
+  stale: { className: 'panel-badge--warning', label: 'Nieaktualna' },
+  missing: { className: 'panel-badge--warning', label: 'Brak kopii' },
+  error: { className: 'panel-badge--negative', label: 'Błąd' },
+  disabled: { className: '', label: 'Wyłączone' }
 };
 
 const saveBlob = (blob: Blob, filename: string) => {
@@ -44,16 +33,14 @@ const BackupsCard = () => {
   });
   const [creating, setCreating] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const handleCreate = async () => {
     setCreating(true);
-    setMessage(null);
     try {
       const backup = await createBackupNow();
-      setMessage({ ok: true, text: `Zapisano kopię ${backup.name}.` });
+      toast(`Zapisano kopię ${backup.name}`);
     } catch (err) {
-      setMessage({ ok: false, text: errorDetail(err, 'Nie udało się zrobić kopii.') });
+      toast.error(errorDetail(err, 'Nie udało się zrobić kopii.'));
     } finally {
       setCreating(false);
       void refetch();
@@ -65,7 +52,7 @@ const BackupsCard = () => {
     try {
       saveBlob(await downloadBackup(name), name);
     } catch (err) {
-      setMessage({ ok: false, text: errorDetail(err, 'Nie udało się pobrać kopii.') });
+      toast.error(errorDetail(err, 'Nie udało się pobrać kopii.'));
     } finally {
       setDownloading(null);
     }
@@ -74,117 +61,126 @@ const BackupsCard = () => {
   const health = data ? HEALTH_BADGE[backupHealth(data)] : null;
 
   return (
-    <div className="card mb-3">
-      <div className="card-header d-flex align-items-center gap-2">
-        <h3 className="card-title mb-0">Kopie zapasowe</h3>
-        {health && <span className={`badge ${health.className}`}>{health.label}</span>}
-        <div className="ms-auto d-flex gap-2">
+    <section className="panel-section">
+      <div className="panel-section__head">
+        <h2 className="panel-section__title">
+          Kopie zapasowe
+          {health && <span className={`panel-badge ${health.className}`}>{health.label}</span>}
+        </h2>
+        <div className="panel-section__actions">
           <button
-            className="btn btn-outline-secondary btn-sm"
+            className="account-button"
             type="button"
             onClick={() => void refetch()}
             disabled={loading}
           >
-            <RefreshCwIcon size={16} className="me-1" />
+            <RefreshCw size={14} aria-hidden="true" />
             Odśwież
           </button>
           <button
-            className="btn btn-primary btn-sm"
+            className="account-button"
             type="button"
             onClick={() => void handleCreate()}
             disabled={creating || Boolean(data?.running)}
           >
-            <DatabaseBackupIcon size={16} className="me-1" />
+            <DatabaseBackup size={14} aria-hidden="true" />
             {creating ? 'Tworzę kopię…' : 'Zrób kopię teraz'}
           </button>
         </div>
       </div>
-      <div className="card-body">
-        {error && <div className="alert alert-danger">{error}</div>}
+
+      {error && (
+        <div className="alert alert-danger mb-0" role="alert">
+          {error}
+        </div>
+      )}
+
+      {data?.last_error && (
+        <div className="alert alert-danger mb-0" role="alert">
+          Ostatnia próba ({formatDateTime(data.last_error_at)}) nie powiodła się: {data.last_error}
+        </div>
+      )}
+
+      <div className="account-settings__card">
         {loading && !data ? (
           <div className="placeholder-glow">
             <div className="placeholder col-6 mb-2" />
             <div className="placeholder col-8" />
           </div>
         ) : data ? (
-          <>
-            <dl className="row mb-0">
-              <dt className="col-sm-4">Ostatnia kopia</dt>
-              <dd className="col-sm-8">{formatDateTime(data.last_backup_at)}</dd>
-              <dt className="col-sm-4">Następna automatyczna</dt>
-              <dd className="col-sm-8">
+          <dl className="panel-facts">
+            <div className="account-settings__row">
+              <dt className="account-field-label">Ostatnia kopia</dt>
+              <dd className="panel-text panel-numbers">{formatDateTime(data.last_backup_at)}</dd>
+            </div>
+            <div className="account-settings__row">
+              <dt className="account-field-label">Następna automatyczna</dt>
+              <dd className="panel-text panel-numbers">
                 {data.enabled
                   ? `${formatDateTime(data.next_backup_at)} (co ${data.interval_hours} h)`
                   : 'Automatyczne kopie wyłączone (FINANCE_BACKUP_ENABLED)'}
               </dd>
-              <dt className="col-sm-4">Katalog</dt>
-              <dd className="col-sm-8">
-                <code className="text-break">{data.directory}</code>
+            </div>
+            <div className="account-settings__row">
+              <dt className="account-field-label">Katalog</dt>
+              <dd className="panel-text panel-break">{data.directory}</dd>
+            </div>
+            <div className="account-settings__row">
+              <dt className="account-field-label">Rotacja</dt>
+              <dd className="panel-text panel-numbers">
+                Dzienne: {data.keep_daily}, tygodniowe: {data.keep_weekly}, miesięczne: {data.keep_monthly}
               </dd>
-              <dt className="col-sm-4">Rotacja</dt>
-              <dd className="col-sm-8">
-                {data.keep_daily} dziennych, {data.keep_weekly} tygodniowych,{' '}
-                {data.keep_monthly} miesięcznych
-              </dd>
-              <dt className="col-sm-4">Załączniki</dt>
-              <dd className="col-sm-8">
+            </div>
+            <div className="account-settings__row">
+              <dt className="account-field-label">Załączniki</dt>
+              <dd className="panel-text panel-numbers">
                 {data.include_attachments
-                  ? `${data.attachments_files} plików, ${formatBytes(data.attachments_bytes)} (wspólne lustro)`
+                  ? `Pliki: ${data.attachments_files}, ${formatBytes(data.attachments_bytes)} (wspólne lustro)`
                   : 'Nie są kopiowane (FINANCE_BACKUP_ATTACHMENTS)'}
               </dd>
-            </dl>
-            {data.last_error && (
-              <div className="alert alert-danger mt-3 mb-0">
-                Ostatnia próba ({formatDateTime(data.last_error_at)}) nie powiodła się:{' '}
-                {data.last_error}
-              </div>
-            )}
-          </>
+            </div>
+          </dl>
         ) : null}
-        {message && (
-          <div className={`alert mt-3 mb-0 ${message.ok ? 'alert-success' : 'alert-danger'}`}>
-            {message.text}
-          </div>
-        )}
       </div>
+
       {data && data.backups.length > 0 && (
-        <div className="table-responsive">
-          <ResizableTable tableId="backups" className="table table-vcenter card-table mb-0">
-            <thead>
-              <tr>
-                <th>Kopia bazy</th>
-                <th>Utworzona</th>
-                <th className="text-end">Rozmiar</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {data.backups.map((backup) => (
-                <tr key={backup.name}>
-                  <td>
-                    <code>{backup.name}</code>
-                  </td>
-                  <td>{formatDateTime(backup.created_at)}</td>
-                  <td className="text-end">{formatBytes(backup.size_bytes)}</td>
-                  <td className="text-end">
-                    <button
-                      className="btn btn-outline-primary btn-sm"
-                      type="button"
-                      onClick={() => void handleDownload(backup.name)}
-                      disabled={downloading === backup.name}
-                      title="Pobierz plik bazy (bez załączników)"
-                    >
-                      <DownloadIcon size={16} className="me-1" />
-                      Pobierz
-                    </button>
-                  </td>
+        <div className="panel-table-card">
+          <div className="table-responsive">
+            <ResizableTable tableId="backups" className="table table-vcenter mb-0 panel-table">
+              <thead>
+                <tr>
+                  <th>Kopia bazy</th>
+                  <th className="panel-hide-phone">Utworzona</th>
+                  <th className="text-end">Rozmiar</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </ResizableTable>
+              </thead>
+              <tbody>
+                {data.backups.map((backup) => (
+                  <tr key={backup.name}>
+                    <td className="panel-break">{backup.name}</td>
+                    <td className="panel-numbers panel-hide-phone">{formatDateTime(backup.created_at)}</td>
+                    <td className="text-end panel-numbers">{formatBytes(backup.size_bytes)}</td>
+                    <td className="panel-table__menu">
+                      <button
+                        className="account-button panel-icon-button"
+                        type="button"
+                        onClick={() => void handleDownload(backup.name)}
+                        disabled={downloading === backup.name}
+                        aria-label={`Pobierz plik bazy ${backup.name}`}
+                        title="Pobierz plik bazy (bez załączników)"
+                      >
+                        <Download size={14} aria-hidden="true" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </ResizableTable>
+          </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

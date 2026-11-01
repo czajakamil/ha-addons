@@ -1,0 +1,220 @@
+@layer components {
+  .panel-screen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-24);
+    max-width: 960px;
+  }
+
+  .panel-screen .page-heading {
+    margin: 0;
+  }
+
+  .panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+
+  .panel-section__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-8) var(--s-16);
+  }
+
+  .panel-section__title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-8);
+    margin: 0;
+    font-size: var(--text-16);
+    line-height: var(--leading-16);
+    font-weight: var(--weight-semibold);
+  }
+
+  .panel-section__count {
+    color: var(--text-muted);
+    font-weight: var(--weight-regular);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .panel-section__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-8);
+  }
+
+  .panel-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    padding: var(--s-16);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  .panel-identity__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .panel-control {
+    display: flex;
+    gap: var(--s-8);
+  }
+
+  .panel-control > .form-control,
+  .panel-control > .form-select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .panel-control > .account-button {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: var(--row-height-compact);
+  }
+
+  .panel-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+    min-width: 0;
+  }
+
+  .panel-icon-button {
+    width: var(--row-height-compact);
+    padding: 0;
+  }
+
+  .panel-text,
+  .panel-value {
+    margin: 0;
+    padding-block-start: var(--s-4);
+    color: var(--text);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+  }
+
+  .panel-stack > .panel-text {
+    padding-block-start: 0;
+  }
+
+  .panel-numbers {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .panel-break {
+    overflow-wrap: anywhere;
+  }
+
+  .panel-facts {
+    margin: 0;
+  }
+
+  .panel-facts dt {
+    padding-block-start: var(--s-4);
+  }
+
+  .panel-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--s-8);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    font-weight: var(--weight-medium);
+  }
+
+  .panel-badge--positive {
+    background: var(--positive-tint);
+    color: var(--positive);
+  }
+
+  .panel-badge--warning {
+    background: var(--warning-tint);
+    color: var(--warning);
+  }
+
+  .panel-badge--negative {
+    background: var(--negative-tint);
+    color: var(--negative);
+  }
+
+  .panel-invite {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-12) var(--s-16);
+    padding: var(--s-16);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--surface-2);
+  }
+
+  .panel-invite__body {
+    display: flex;
+    flex: 1 1 280px;
+    flex-direction: column;
+    gap: var(--s-4);
+    min-width: 0;
+  }
+
+  .panel-invite__token {
+    overflow-wrap: anywhere;
+    font-size: var(--text-14);
+    line-height: var(--leading-14);
+    font-weight: var(--weight-semibold);
+  }
+
+  .panel-table-card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  .panel-table-card__pad {
+    padding: var(--s-16);
+  }
+
+  .panel-table__name {
+    font-size: var(--text-14);
+    line-height: var(--leading-14);
+    font-weight: var(--weight-medium);
+  }
+
+  .panel-table__menu {
+    width: 48px;
+    text-align: end;
+  }
+
+  .panel-table tbody tr:hover .accounts-menu-trigger,
+  .panel-table .accounts-menu-trigger:focus-visible,
+  .panel-table .accounts-menu-trigger[data-state='open'] {
+    opacity: 1;
+  }
+
+  .panel-menu-danger {
+    color: var(--negative);
+  }
+
+  .panel-menu-danger[data-disabled] {
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 640px) {
+    .panel-hide-phone {
+      display: none;
+    }
+  }
+}

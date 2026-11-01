@@ -56,8 +56,9 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 ## Transakcje
 
 - **react-data-grid zamiast TanStack Table.** Siatka jest już w projekcie, wirtualizuje wiersze, zapamiętuje szerokości kolumn i ma działającą edycję w komórkach. Pomiar na 3400 podstawionych wierszach: 17,6 ms na klatkę w p95. TanStack wymagałby przepisania edycji bez zysku dla użytkownika.
+- **Lista wyboru w komórce zapisuje po id, nie po tekście.** Sekcje „Sklepy” i „Przelew na konto” zastępują prefiks „Przelew:”, a wybrana pozycja ma samo tło wiersza, bez znacznika. Dopisek waluty przy kontach zostaje.
 - **Bez kolumny daty.** Datę niesie nagłówek dnia, a zmienia się ją w szczegółach transakcji.
-- **Kwota edytowana ze znakiem:** wydatek z minusem, wpływ bez znaku.
+- **Dwie kolumny kwoty, Wydatek i Wpływ, poza telefonem.** Świadomy wyjątek od zasady jednej kolumny ze znakiem z design systemu: tak wygodniej przeglądać wydatki i wpływy osobno. Kwotę wpisuje się bez znaku, a znak wynika z kolumny, więc wpisanie jej po drugiej stronie zamienia wydatek na wpływ i odwrotnie. Telefon zostaje przy jednej kolumnie Kwota ze znakiem. Suma dnia stoi pod kolumną Wpływ.
 - **Suma dnia dotyczy wczytanych wierszy.** Na granicy strony może być chwilowo niepełna; kolejne strony doładowują się same przed końcem listy.
 - **Filtr kategorii idzie przez `/transactions`,** bo `/transactions/page` go nie obsługuje, a API zostaje bez zmian. Liczba wyników jest wtedy znana dopiero po ostatniej stronie, więc do tego czasu nie pokazujemy łącznej liczby.
 - **Status:** niezatwierdzona ma stałą ikonę, a zatwierdzona i uzgodniona tylko na hover. „Cleared” to „Zatwierdzona”, „Reconciled” to „Uzgodniona”.
@@ -134,9 +135,10 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 ## Pozostałe ekrany i porządki
 
 - **Tabler CSS zostaje.** Okna dialogowe, formularze i układ pozostałych ekranów nadal korzystają z jego klas, a tokeny sprowadzają je do jednego wyglądu. Pakiet `@tabler/icons-react` jest usunięty.
-- **Panel użytkownika ma nowy wygląd przez style globalne, bez przepisywania układu.** Sklepy i Przedmioty mają dodatkowo menu „Kolumny”, a Import z banku kreator w 3 krokach.
+- **Panel ma układ wierszy ustawień, jak strona konta.** Jedyny przycisk główny to „Nowy użytkownik”. Nowy użytkownik, reset dostępu i usunięcie konta idą przez okna, a usunięcie wymaga wpisania nazwy. Zapisany budżet YNAB widać jako „Zapisany budżet”, bo bez pobranej listy znamy tylko jego identyfikator.
+- **Sklepy i Przedmioty mają menu „Kolumny”, a Import z banku kreator w 3 krokach.**
 - **Paleta Cmd+K:** dodanie wydatku, ekrany, konta i kategorie. Wybór kategorii otwiera Budżet. Skrót N działa poza polami tekstowymi.
-- **Dialog wydatku ma jedno pole kwoty ze znakiem,** jak Transakcje: wydatek z minusem, wpływ bez znaku. Pole startuje od „-”, więc zwykłe wpisanie kwoty daje wydatek, a wpływ wymaga skasowania znaku. Klawiatura dziesiętna iPhone'a nie ma minusa, więc inaczej nie dałoby się na niej wpisać wydatku. Pod polem na bieżąco widać „Wydatek: …” albo „Wpływ: …”. Kwota jest na górze z autofokusem. Podpowiedź kategorii to domyślna kategoria sklepu.
+- **Dialog wydatku ma jedno pole kwoty ze znakiem:** wydatek z minusem, wpływ bez znaku. Pole startuje od „-”, więc zwykłe wpisanie kwoty daje wydatek, a wpływ wymaga skasowania znaku. Klawiatura dziesiętna iPhone'a nie ma minusa, więc inaczej nie dałoby się na niej wpisać wydatku. Pod polem na bieżąco widać „Wydatek: …” albo „Wpływ: …”. Kwota jest na górze z autofokusem. Podpowiedź kategorii to domyślna kategoria sklepu.
 - **Toasty (Sonner)** są na dole pośrodku. Potwierdzają dodanie transakcji z palety i zapisy na stronie konta, gdzie mają „Cofnij”.
 
 ## Układ przebudowanych ekranów

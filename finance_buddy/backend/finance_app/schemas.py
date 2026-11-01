@@ -946,6 +946,7 @@ class YnabAuth(BaseModel):
 
 class YnabSettingsRead(BaseModel):
     api_key_set: bool = False
+    api_key_from_config: bool = False
     budget_id: str | None = None
     last_imported_at: dt.datetime | None = None
     last_server_knowledge: int | None = None

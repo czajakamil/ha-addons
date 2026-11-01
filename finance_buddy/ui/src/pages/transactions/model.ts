@@ -40,6 +40,8 @@ export type TransactionColumnId =
   | 'category'
   | 'comment'
   | 'amount'
+  | 'outflow'
+  | 'inflow'
   | 'status';
 
 export type TransactionStatusState = 'pending' | 'cleared' | 'reconciled';
@@ -81,7 +83,9 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>>
   store: 260,
   account: 160,
   category: 200,
-  amount: 128,
+  outflow: 120,
+  inflow: 120,
   status: 40
 };
 export type EditableLookupField = 'account' | 'store' | 'category';
+export type EditableAmountField = 'outflow' | 'inflow';

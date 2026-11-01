@@ -51,6 +51,7 @@ export interface YnabBudgetSummary {
 
 export interface YnabSettings {
   api_key_set: boolean;
+  api_key_from_config: boolean;
   budget_id?: string | null;
   last_imported_at?: string | null;
   last_server_knowledge?: number | null;

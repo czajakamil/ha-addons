@@ -95,6 +95,8 @@ export const copy = {
       category: 'Kategoria',
       comment: 'Komentarz',
       amount: 'Kwota',
+      outflow: 'Wydatek',
+      inflow: 'Wpływ',
       status: 'Status transakcji', balanceAfter: 'Saldo po'
     },
     details: 'Pokaż szczegóły',

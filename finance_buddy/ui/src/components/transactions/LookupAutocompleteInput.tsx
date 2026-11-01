@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -8,18 +9,27 @@ import {
   type FocusEvent as ReactFocusEvent,
   type MouseEvent as ReactMouseEvent
 } from 'react';
+import { ArrowLeftRight } from 'lucide-react';
 import { captureGridCellAnchor, refocusGridCell } from '../../utils/gridFocus';
+import {
+  defaultLookupHighlight,
+  filterLookupOptions,
+  findSelectedLookupIndex,
+  resolveTypedLookup,
+  splitLookupMatch,
+  type LookupOption
+} from './lookupOptions';
 
 
 type LookupAutocompleteInputProps = {
   inputValue: string;
-  suggestions: string[];
+  options: LookupOption[];
   disabled?: boolean;
   placeholder?: string;
   inputId?: string;
   onInputChange: (value: string) => void;
-  onCommit: (value: string) => void; // zapis + wyjście z edycji
-  onCancel: () => void;              // anulowanie (Esc)
+  onCommit: (option: LookupOption | null) => void; // zapis + wyjście z edycji; null = wyczyszczone pole
+  onCancel: () => void;              // anulowanie (Esc lub niepasujący tekst)
 };
 
 const NAVIGATION_KEYS = new Set<string>([
@@ -33,9 +43,14 @@ const NAVIGATION_KEYS = new Set<string>([
   'PageDown'
 ]);
 
+const SECTION_LABELS: Record<LookupOption['kind'], string> = {
+  entry: 'Sklepy',
+  transfer: 'Przelew na konto'
+};
+
 const LookupAutocompleteInput = ({
   inputValue,
-  suggestions,
+  options,
   disabled,
   placeholder,
   inputId,
@@ -51,31 +66,39 @@ const LookupAutocompleteInput = ({
   // jeszcze przed odmontowaniem edytora — ta flaga wyłącza wtedy commit z blura.
   const settledRef = useRef(false);
 
-  const filteredOptions = useMemo(() => {
-    const needle = inputValue.trim().toLowerCase();
-    if (!needle) return suggestions;
-    return suggestions.filter((opt) => opt.toLowerCase().includes(needle));
-  }, [inputValue, suggestions]);
+  // Świeże pole pokazuje całą listę z obecną wartością; filtrujemy dopiero po pisaniu.
+  const [dirty, setDirty] = useState(false);
+  const [initialValue] = useState(inputValue);
+
+  const filteredOptions = useMemo(
+    () => (dirty ? filterLookupOptions(options, inputValue) : options),
+    [dirty, inputValue, options]
+  );
+  const selectedOption = options[findSelectedLookupIndex(options, initialValue)];
+  const hasSections = options.some((option) => option.kind === 'transfer');
 
   const openMenu = () => {
     settledRef.current = false;
     if (!filteredOptions.length) return;
     setIsOpen(true);
-    setHighlightedIndex(0);
+    setHighlightedIndex(
+      dirty
+        ? defaultLookupHighlight(filteredOptions, inputValue)
+        : findSelectedLookupIndex(options, inputValue)
+    );
   };
 
   const closeMenu = () => {
     setIsOpen(false);
   };
 
-  const commit = (value?: string, opts?: { focusCell?: boolean }) => {
+  const commit = (option: LookupOption | null, opts?: { focusCell?: boolean }) => {
     if (settledRef.current) return;
     settledRef.current = true;
     // Kotwica przed commitem — po nim edytor się odmontowuje.
     const anchor = captureGridCellAnchor(containerRef.current);
-    const effective = (value ?? inputValue).trim();
     closeMenu();
-    onCommit(effective);
+    onCommit(option);
     if (opts?.focusCell !== false) {
       refocusGridCell(anchor);
     }
@@ -92,9 +115,11 @@ const LookupAutocompleteInput = ({
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     settledRef.current = false;
-    onInputChange(event.target.value);
+    const value = event.target.value;
+    setDirty(true);
+    onInputChange(value);
     setIsOpen(true);
-    setHighlightedIndex(0);
+    setHighlightedIndex(defaultLookupHighlight(filterLookupOptions(options, value), value));
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -115,15 +140,13 @@ const LookupAutocompleteInput = ({
       event.preventDefault();
       event.stopPropagation();
 
-      const hasOptions = filteredOptions.length > 0;
-      const chosen =
-        hasOptions &&
-        highlightedIndex >= 0 &&
-        highlightedIndex < filteredOptions.length
-          ? filteredOptions[highlightedIndex]
-          : undefined;
-
-      commit(chosen, { focusCell: true });
+      const chosen = filteredOptions[highlightedIndex];
+      if (chosen) {
+        commit(chosen, { focusCell: true });
+      } else if (!inputValue.trim()) {
+        commit(null, { focusCell: true });
+      }
+      // Tekst bez żadnej pasującej pozycji: zostajemy w edycji, można go poprawić.
       return;
     }
 
@@ -136,6 +159,7 @@ const LookupAutocompleteInput = ({
       setHighlightedIndex((prev) => {
         const delta = key === 'ArrowDown' ? 1 : -1;
         const len = filteredOptions.length;
+        if (prev < 0) return key === 'ArrowDown' ? 0 : len - 1;
         return (prev + delta + len) % len; // zawijanie góra/dół
       });
       return;
@@ -153,16 +177,42 @@ const LookupAutocompleteInput = ({
     }
     // blur najczęściej po kliknięciu gdzieś indziej (np. inna komórka / toolbar),
     // nie przejmujemy fokusu na siłę
-    commit(undefined, { focusCell: false });
+    const typed = resolveTypedLookup(options, inputValue);
+    if (typed.kind === 'none') {
+      if (settledRef.current) return;
+      settledRef.current = true;
+      closeMenu();
+      onCancel();
+      return;
+    }
+    commit(typed.kind === 'match' ? typed.option : null, { focusCell: false });
   };
 
   const handleOptionMouseDown = (
-    option: string,
+    option: LookupOption,
     event: ReactMouseEvent<HTMLButtonElement>
   ) => {
     // żeby blur nie zjadł kliknięcia
     event.preventDefault();
     commit(option, { focusCell: true });
+  };
+
+  const renderRowLabel = (option: LookupOption) => {
+    const text = option.rowLabel ?? option.label;
+    const parts = dirty ? splitLookupMatch(text, inputValue) : null;
+    return (
+      <span className="lookup-autocomplete__label" title={text}>
+        {parts ? (
+          <>
+            {parts.before}
+            <mark>{parts.match}</mark>
+            {parts.after}
+          </>
+        ) : (
+          text
+        )}
+      </span>
+    );
   };
 
   return (
@@ -181,25 +231,42 @@ const LookupAutocompleteInput = ({
         autoFocus
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        onFocus={openMenu}
+        autoComplete="off"
+        onFocus={(event) => {
+          // Zaznaczony tekst: pierwsze wpisane znaki zastępują obecną wartość.
+          event.target.select();
+          openMenu();
+        }}
       />
 
       {isOpen && filteredOptions.length > 0 && (
-        <div className="lookup-autocomplete__menu">
-          {filteredOptions.map((option, index) => (
-            <button
-              key={`${option}-${index}`}
-              type="button"
-              ref={index === highlightedIndex ? activeOptionRef : undefined}
-              className={
-                'lookup-autocomplete__option' +
-                (index === highlightedIndex ? ' lookup-autocomplete__option--active' : '')
-              }
-              onMouseDown={(event) => handleOptionMouseDown(option, event)}
-            >
-              {option}
-            </button>
-          ))}
+        <div className="lookup-autocomplete__menu lookup-autocomplete__menu--rows">
+          {filteredOptions.map((option, index) => {
+            const isSelected = option === selectedOption;
+            const startsSection = hasSections && filteredOptions[index - 1]?.kind !== option.kind;
+            return (
+              <Fragment key={`${option.kind}-${option.id}`}>
+                {startsSection && (
+                  <div className="lookup-autocomplete__section">{SECTION_LABELS[option.kind]}</div>
+                )}
+                <button
+                  type="button"
+                  ref={index === highlightedIndex ? activeOptionRef : undefined}
+                  aria-current={isSelected ? 'true' : undefined}
+                  className={
+                    'lookup-autocomplete__option' +
+                    (isSelected ? ' lookup-autocomplete__option--selected' : '') +
+                    (index === highlightedIndex ? ' lookup-autocomplete__option--active' : '')
+                  }
+                  onMouseDown={(event) => handleOptionMouseDown(option, event)}
+                >
+                  {option.kind === 'transfer' && <ArrowLeftRight size={14} aria-hidden="true" />}
+                  {renderRowLabel(option)}
+                </button>
+              </Fragment>
+            );
+          })}
+          <div className="lookup-autocomplete__hint">Enter wybiera · Esc anuluje</div>
         </div>
       )}
     </div>

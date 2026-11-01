@@ -19,7 +19,7 @@ Nie wystawiaj portu aplikacji: `nginx` przyjmuje ruch tylko od bramy Ingress.
 | Opcja | Znaczenie |
 |-------|-----------|
 | `username` | Użytkownik aplikacji. Przy imporcie danych musi zgadzać się z tym w bazie. |
-| `ynab_api_key` | Klucz API YNAB. Pusty, jeśli klucz wpisujesz w aplikacji. |
+| `ynab_api_key` | Klucz API YNAB. Gdy jest ustawiony, ma pierwszeństwo, a panel nie pokazuje pola na klucz. Pusty, jeśli klucz wpisujesz w aplikacji. |
 | `backup_dir` | Katalog automatycznych kopii. Domyślnie w `/share`, poza danymi aplikacji. |
 | `receipt_extractor` | Silnik OCR: `rapidocr` (domyślny) albo `tesseract`. |
 | `log_level` | Poziom logów. |

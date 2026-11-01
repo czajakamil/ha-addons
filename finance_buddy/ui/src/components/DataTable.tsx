@@ -190,7 +190,8 @@ const DataTable = <R,>({
         {...props}
         // Siatka zapamiętuje zmierzoną szerokość kolumn elastycznych i ignoruje późniejszą zmianę;
         // szerokości z serwera przychodzą po pierwszym renderze, więc wtedy montujemy ją od nowa.
-        key={loadedVersion}
+        // Tak samo przy przejściu na układ telefonu i z powrotem: kolumny mają tam te same klucze.
+        key={`${isPhone ? 'phone' : 'wide'}-${loadedVersion}`}
         ref={gridRef}
         columns={columnsWithCurrencyFormatting}
         rows={rows}

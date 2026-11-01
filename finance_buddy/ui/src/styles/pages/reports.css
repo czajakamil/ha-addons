@@ -655,7 +655,8 @@
     border-radius: 0;
     color: var(--text);
     box-shadow: none;
-    z-index: var(--z-menu);
+    /* Belka nie może przykrywać otwartego menu bocznego ani jego tła */
+    z-index: calc(var(--z-overlay) - 1);
     will-change: transform;
     transition:
       transform 150ms ease-out,
@@ -926,13 +927,16 @@
     .reports-tabs {
       position: sticky;
       top: 0;
-      z-index: var(--z-overlay);
+      z-index: calc(var(--z-overlay) - 2);
       flex-wrap: nowrap;
       gap: var(--s-4);
       margin: 0;
       padding: 0 var(--s-8);
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
+      /* overflow-x: auto sam włącza też przewijanie w pionie, więc pion trzeba zablokować jawnie */
+      overflow: auto hidden;
+      overscroll-behavior: none;
+      /* Palec przesuwa pasek tylko w bok; iOS bez tego potrafi odbić zawartość w pionie */
+      touch-action: pan-x;
       scrollbar-width: none;
       background: var(--surface);
       pointer-events: auto;
@@ -945,6 +949,7 @@
     .reports-tab {
       flex: 0 0 auto;
       min-height: 44px;
+      margin-bottom: 0;
       padding-inline: var(--s-8);
       white-space: nowrap;
     }
@@ -955,7 +960,7 @@
 
     .reports-topbar__filters {
       position: relative;
-      z-index: var(--z-menu);
+      z-index: calc(var(--z-overlay) - 1);
       padding: var(--s-8) var(--s-16);
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -982,6 +987,13 @@
       left: 0;
       right: auto;
       min-width: min(320px, calc(100vw - 32px));
+    }
+  }
+
+  /* Na dotyku :hover zostaje po stuknięciu i wyglądałoby to jak druga aktywna zakładka */
+  @media (hover: none) {
+    .reports-tab:hover:not(.is-active) {
+      color: var(--text-muted);
     }
   }
 

@@ -100,15 +100,19 @@ def _delete_keychain_api_key(user_id: str) -> None:
         ) from exc
 
 
+def _config_api_key() -> str:
+    return os.getenv("YNAB_API_KEY", "").strip()
+
+
 def _resolve_ynab_api_key(
     raw_key: str | None,
     user: User | None = None,
 ) -> str:
-    key = (raw_key or "").strip()
+    # Klucz z konfiguracji HA wygrywa z zapisanym: gdy jest ustawiony, panel nie ma
+    # pola na klucz, więc starego wpisu z pęku kluczy nie dałoby się już zmienić.
+    key = (raw_key or "").strip() or _config_api_key()
     if not key and user:
         key = _get_keychain_api_key(user.id) or ""
-    if not key:
-        key = os.getenv("YNAB_API_KEY", "").strip()
     if not key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -136,11 +140,16 @@ def _serialize_ynab_settings(
     user_id: str,
 ) -> YnabSettingsRead:
     # Ta sama kolejność co w _resolve_ynab_api_key: klucz z env też się liczy.
-    api_key = _get_keychain_api_key(user_id) or os.getenv("YNAB_API_KEY", "").strip()
+    config_key = _config_api_key()
+    api_key = config_key or _get_keychain_api_key(user_id)
     if not settings:
-        return YnabSettingsRead(api_key_set=bool(api_key))
+        return YnabSettingsRead(
+            api_key_set=bool(api_key),
+            api_key_from_config=bool(config_key),
+        )
     return YnabSettingsRead(
         api_key_set=bool(api_key),
+        api_key_from_config=bool(config_key),
         budget_id=settings.budget_id,
         last_imported_at=settings.last_imported_at,
         last_server_knowledge=settings.last_server_knowledge,

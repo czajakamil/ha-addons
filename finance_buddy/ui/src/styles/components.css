@@ -1070,11 +1070,75 @@
     white-space: nowrap;
 }
 
+  .lookup-autocomplete__menu--rows {
+    min-width: max(100%, 320px);
+    width: max-content;
+    max-width: min(420px, calc(100vw - var(--s-32)));
+    max-height: 320px;
+    overflow-x: hidden;
+    padding-block: var(--s-4);
+    border-color: var(--border-strong);
+    border-radius: var(--radius-control);
+  }
+
+  .lookup-autocomplete__menu--rows .lookup-autocomplete__option {
+    gap: var(--s-8);
+    width: 100%;
+    min-height: var(--row-height-compact);
+    padding: 0 var(--s-12);
+    font-size: var(--text-13);
+    line-height: 1.3;
+    /* Żeby przewinięta opcja nie chowała się pod przyklejonym nagłówkiem sekcji. */
+    scroll-margin-block: var(--row-height-compact);
+  }
+
+  .lookup-autocomplete__option svg {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .lookup-autocomplete__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lookup-autocomplete__label mark {
+    padding: 0;
+    color: inherit;
+    background: color-mix(in srgb, var(--warning) 30%, transparent);
+  }
+
+  .lookup-autocomplete__section {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--s-4) var(--s-12);
+    font-size: var(--text-12);
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--surface);
+  }
+
+  .lookup-autocomplete__hint {
+    position: sticky;
+    bottom: calc(var(--s-4) * -1);
+    padding: var(--s-4) var(--s-12);
+    font-size: var(--text-12);
+    color: var(--text-muted);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
   .lookup-autocomplete .form-control.form-control-sm {
     height: 26px;
     padding: 2px 6px;
     font-size: 0.75rem;
     line-height: 1.2;
+  }
+
+  .lookup-autocomplete__option--selected {
+    background: var(--surface-2);
   }
 
   .lookup-autocomplete__option--active,

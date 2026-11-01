@@ -16,6 +16,7 @@ import {
 } from '../../api';
 import { type MoneyColumn } from '../../components/DataTable';
 import LookupAutocompleteInput from '../../components/transactions/LookupAutocompleteInput';
+import { buildStoreOptions, type LookupOption } from '../../components/transactions/lookupOptions';
 import CommentEditCell from '../../components/transactions/CommentEditCell';
 import AmountEditCell from '../../components/transactions/AmountEditCell';
 import { formatMoney, parseAmountToCents } from '../../utils/format';
@@ -98,12 +99,7 @@ export const useBreakdownEditing = ({
     },
     [accountLookup]
   );
-  const storeSuggestions = useMemo(() => {
-    const entries = stores
-      .map((store) => (store.group_name?.trim() || store.name || '').trim())
-      .filter(Boolean);
-    return Array.from(new Set(entries));
-  }, [stores]);
+  const storeOptions = useMemo(() => buildStoreOptions(stores), [stores]);
   const getBreakdownStoreInputValue = useCallback(
     (transaction: Transaction) => {
       if (!transaction.store_id) return '';
@@ -174,7 +170,7 @@ export const useBreakdownEditing = ({
     [getBreakdownStoreInputValue]
   );
   const commitBreakdownLookupEdit = useCallback(
-    async (overrideValue?: string) => {
+    async (option: LookupOption | null) => {
       if (!editingBreakdownLookup) return;
 
       const transaction = breakdownTransactions.find(
@@ -185,33 +181,14 @@ export const useBreakdownEditing = ({
         return;
       }
 
-      const rawValue = overrideValue ?? editingBreakdownLookup.inputValue;
-      const normalized = rawValue.trim().toLowerCase();
-      let newId: string | null = null;
-
-      if (normalized) {
-        const foundExact = stores.find((store) => {
-          const display = (store.group_name?.trim() || store.name || '').trim().toLowerCase();
-          return display === normalized;
-        });
-        const foundFuzzy = stores.find((store) => {
-          const display = (store.group_name?.trim() || store.name || '').trim().toLowerCase();
-          return display.includes(normalized);
-        });
-        newId = (foundExact ?? foundFuzzy)?.id ?? null;
-      }
-
-      if (!newId && normalized) {
-        setBreakdownEditError('Nie znaleziono pozycji o takiej nazwie.');
+      // Ta sama pozycja co dotąd: nie zapisujemy, żeby np. wyjście z pola nie
+      // przepięło transakcji na inny sklep tej samej grupy.
+      if ((option?.label ?? '') === getBreakdownStoreInputValue(transaction)) {
         setEditingBreakdownLookup(null);
         return;
       }
 
-      const currentStoreId = transaction.store_id ?? null;
-      if (newId === currentStoreId) {
-        setEditingBreakdownLookup(null);
-        return;
-      }
+      const newId = option?.id ?? null;
 
       setSavingBreakdownLookupId(transaction.id);
       try {
@@ -228,7 +205,7 @@ export const useBreakdownEditing = ({
         setSavingBreakdownLookupId(null);
       }
     },
-    [breakdownTransactions, editingBreakdownLookup, stores]
+    [breakdownTransactions, editingBreakdownLookup, getBreakdownStoreInputValue]
   );
   const startEditingBreakdownAmount = useCallback(
     (transaction: Transaction, field: BreakdownEditableAmountField) => {
@@ -367,19 +344,17 @@ export const useBreakdownEditing = ({
             <LookupAutocompleteInput
               inputValue={editingBreakdownLookup?.inputValue ?? ''}
               disabled={isSaving}
-              suggestions={storeSuggestions}
+              options={storeOptions}
               onInputChange={(value) => {
                 setBreakdownEditError(null);
                 setEditingBreakdownLookup((prev) => (prev ? { ...prev, inputValue: value } : prev));
               }}
-              onCommit={(value) => {
-                void commitBreakdownLookupEdit(value);
+              onCommit={(option) => {
+                void commitBreakdownLookupEdit(option);
               }}
               onCancel={() => setEditingBreakdownLookup(null)}
             />
-            <div className="editable-cell__meta">
-              {isSaving ? 'Zapisywanie…' : 'Enter – zapisz, Esc – anuluj'}
-            </div>
+            {isSaving && <div className="editable-cell__meta">Zapisywanie…</div>}
           </div>
         );
       }
@@ -422,7 +397,7 @@ export const useBreakdownEditing = ({
       formatTransferLabel,
       savingBreakdownLookupId,
       storeLookup,
-      storeSuggestions
+      storeOptions
     ]
   );
   const renderBreakdownAmountCell = useCallback(

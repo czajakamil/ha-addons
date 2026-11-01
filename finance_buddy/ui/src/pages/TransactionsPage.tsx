@@ -25,7 +25,7 @@ import { copy } from '../copy/pl';
 import { formatDayHeading } from '../utils/date';
 import { userComment } from '../utils/transactionLabels';
 import { buildBalanceAfter } from './accounts/balanceHistory';
-import { DEFAULT_COLUMN_WIDTHS, type FilterState } from './transactions/model';
+import { DEFAULT_COLUMN_WIDTHS, type EditableAmountField, type FilterState } from './transactions/model';
 import {
   buildTransactionGridRows,
   itemLabel,
@@ -405,8 +405,15 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     }
   ];
 
-  // Wiersz dnia sięga do kolumny kwoty, a jej pozycja zależy od ukrytych kolumn
-  const dayRowColumns = 6 - (scope ? 1 : 0) - (hideCommentColumn ? 1 : 0);
+  // Wiersz dnia sięga do kolumny wpływu, a jej pozycja zależy od ukrytych kolumn
+  const dayRowColumns = 7 - (scope ? 1 : 0) - (hideCommentColumn ? 1 : 0);
+
+  // Pozycja podziału stoi po stronie wynikającej z jej własnego znaku
+  const renderItemAmount = (row: Extract<TransactionGridRow, { kind: 'item' }>, field: EditableAmountField) => {
+    const cents = (row.transaction.total_cents < 0 ? -1 : 1) * row.totalCents;
+    if (field === 'outflow' ? cents > 0 : cents <= 0) return null;
+    return <Money cents={Math.abs(cents)} currency={row.transaction.currency} tone="neutral" />;
+  };
 
   const fullColumns: readonly MoneyColumn<TransactionGridRow>[] = [
     {
@@ -499,21 +506,20 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
             }
           }
         ]),
-    {
-      key: 'amount',
-      name: labels.columns.amount,
-      width: DEFAULT_COLUMN_WIDTHS.amount,
-      cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
-      headerCellClass: 'transactions-grid__cell--numeric',
-      renderCell: ({ row }) => {
-        if (row.kind === 'day') return null;
-        if (row.kind === 'item') {
-          const sign = row.transaction.total_cents < 0 ? -1 : 1;
-          return <Money cents={sign * row.totalCents} currency={row.transaction.currency} tone="neutral" />;
+    ...(['outflow', 'inflow'] as const).map(
+      (field): MoneyColumn<TransactionGridRow> => ({
+        key: field,
+        name: labels.columns[field],
+        width: DEFAULT_COLUMN_WIDTHS[field],
+        cellClass: 'transactions-grid__cell transactions-grid__cell--numeric',
+        headerCellClass: 'transactions-grid__cell--numeric',
+        renderCell: ({ row }) => {
+          if (row.kind === 'day') return null;
+          if (row.kind === 'item') return renderItemAmount(row, field);
+          return renderAmountCell(row.transaction, field);
         }
-        return renderAmountCell(row.transaction);
-      }
-    },
+      })
+    ),
     ...(balanceAfter
       ? [
           {
