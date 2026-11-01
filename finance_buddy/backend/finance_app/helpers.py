@@ -92,18 +92,28 @@ def _is_internal_transfer():
     )
 
 
+def _is_reconciliation_adjustment():
+    """Detect the balance corrections that reconciling an account leaves behind."""
+    payee_label = func.lower(func.coalesce(Store.group_name, Store.name, ""))
+    category_label = func.lower(func.coalesce(Category.name, ""))
+    reconciliation_label = "reconciliation balance adjustment"
+
+    return or_(
+        payee_label.like(f"%{reconciliation_label}%"),
+        category_label.like(f"%{reconciliation_label}%"),
+    )
+
+
 def _is_internal_label():
     """Detect internal labels that shouldn't count as spending or income."""
     payee_label = func.lower(func.coalesce(Store.group_name, Store.name, ""))
     category_label = func.lower(func.coalesce(Category.name, ""))
 
-    reconciliation_label = "reconciliation balance adjustment"
     transfer_patterns = ("transfer:%", "transfer :%")
     polish_transfer_pattern = "%przenies%konto%"
 
     return or_(
-        payee_label.like(f"%{reconciliation_label}%"),
-        category_label.like(f"%{reconciliation_label}%"),
+        _is_reconciliation_adjustment(),
         *[payee_label.like(pattern) for pattern in transfer_patterns],
         *[category_label.like(pattern) for pattern in transfer_patterns],
         payee_label.like(polish_transfer_pattern),

@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from ..helpers import (
     _is_internal_report_transaction,
+    _is_reconciliation_adjustment,
     _month_floor,
     _month_key,
     _shift_month,
@@ -51,7 +52,7 @@ STALE_AFTER_DAYS = 7
 # Koperta trafia na listę „blisko limitu", gdy wydano z niej co najmniej tyle.
 NEAR_LIMIT_RATIO = 0.8
 ENVELOPES_LIMIT = 5
-RECENT_LIMIT = 5
+RECENT_LIMIT = 8
 
 
 def _same_day_previous_month(today: dt.date) -> tuple[dt.date, dt.date]:
@@ -174,11 +175,18 @@ def _last_transaction_date(db: Session, user_id: str, today: dt.date) -> dt.date
 
 
 def _recent(db: Session, user_id: str) -> list[HomeRecentTransaction]:
+    # Korekty salda to ślad po uzgadnianiu konta, a nie coś, co się kupiło —
+    # zostają na liście Transakcji, tu zasłaniałyby prawdziwe wydatki.
     rows = db.execute(
         select(Transaction, Account.name, Store.name)
         .join(Account, Transaction.account_id == Account.id)
         .outerjoin(Store, Transaction.store_id == Store.id)
-        .where(Transaction.user_id == user_id, Account.is_deleted.is_(False))
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Account.is_deleted.is_(False),
+            ~_is_reconciliation_adjustment(),
+        )
         .order_by(Transaction.date.desc(), Transaction.recorded_at.desc())
         .limit(RECENT_LIMIT)
     ).all()
