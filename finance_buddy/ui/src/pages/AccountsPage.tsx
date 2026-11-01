@@ -44,7 +44,7 @@ const AccountsPage = () => {
   const [showClosedAccounts, setShowClosedAccounts] = useState(false);
   const [showEmptyBudget, setShowEmptyBudget] = useState(false);
   const [showEmptyTracked, setShowEmptyTracked] = useState(false);
-  const activity = useAccountActivity(accounts);
+  const { activity, loaded: activityLoaded } = useAccountActivity(accounts);
   const [debtAccountId, setDebtAccountId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('name_asc');
 
@@ -146,7 +146,9 @@ const AccountsPage = () => {
     );
   };
 
-  const noResults = !loading && !error && filteredAccounts.length === 0;
+  // Lista czeka na aktywność, żeby puste konta nie mignęły przed ukryciem.
+  const listPending = loading || (!error && accounts.length > 0 && !activityLoaded);
+  const noResults = !listPending && !error && filteredAccounts.length === 0;
   const activeAccounts = useMemo(
     () => accounts.filter((account) => !account.is_closed),
     [accounts]
@@ -180,12 +182,12 @@ const AccountsPage = () => {
         </p>
       ))}
 
-      {loading && <SkeletonRows rows={6} />}
+      {listPending && <SkeletonRows rows={6} />}
       {noResults && (
         <EmptyState icon={Wallet} message={searchQuery.trim() ? labels.empty : labels.emptyAll} />
       )}
 
-      {!loading && !error && (
+      {!listPending && !error && (
         <>
           {renderGroup(labels.onBudget, budgetAccounts, showEmptyBudget, () => setShowEmptyBudget((prev) => !prev))}
           {renderGroup(labels.tracked, trackedAccounts, showEmptyTracked, () => setShowEmptyTracked((prev) => !prev))}

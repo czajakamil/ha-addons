@@ -5,6 +5,8 @@ import { getTransactions, type Account } from '../../api';
 
 export const useAccountActivity = (accounts: Account[]) => {
   const [activity, setActivity] = useState<ReadonlyMap<string, string | null>>(() => new Map());
+  // Pierwsze wczytanie zakończone, także błędem. Późniejsze odświeżenia już nie wstrzymują listy.
+  const [loaded, setLoaded] = useState(false);
   const ids = accounts.map((account) => account.id).join(',');
 
   useEffect(() => {
@@ -17,13 +19,18 @@ export const useAccountActivity = (accounts: Account[]) => {
       })
     )
       .then((entries) => {
-        if (active) setActivity(new Map(entries));
+        if (!active) return;
+        setActivity(new Map(entries));
+        setLoaded(true);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        if (active) setLoaded(true);
+      });
     return () => {
       active = false;
     };
   }, [ids]);
 
-  return activity;
+  return { activity, loaded };
 };
