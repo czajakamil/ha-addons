@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+- Zarchiwizowane konta nie pojawiają się już przy wyborze konta: w przelewach na liście Transakcji,
+  w szczegółach transakcji i w edytorze paragonu. Stare przelewy dalej pokazują ich nazwę, a konto
+  już ustawione w szczegółach transakcji lub na paragonie zostaje na liście.
+
 ## 0.1.5
 
 - Transakcje: poza telefonem osobne kolumny Wydatek i Wpływ. Kwotę wpisuje się bez znaku, a wpisanie jej
