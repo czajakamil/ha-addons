@@ -6,11 +6,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Account,
-  AccountKindSummary,
   Category,
   Store,
   Transaction,
-  getAccountCategoriesReport,
   getAccounts,
   getAllCategories,
   getAllStores,
@@ -49,9 +47,6 @@ export const useReports = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accountCategories, setAccountCategories] = useState<Category[]>([]);
-  const [accountCategorySummary, setAccountCategorySummary] = useState<AccountKindSummary[]>([]);
-  const [accountCategoryLoading, setAccountCategoryLoading] = useState(false);
-  const [accountCategoryError, setAccountCategoryError] = useState<string | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -98,25 +93,6 @@ export const useReports = () => {
       setError(err instanceof Error ? err.message : 'Nie udało się pobrać raportów.');
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  const fetchAccountCategorySummary = useCallback(async (accountIds?: string[]) => {
-    try {
-      setAccountCategoryLoading(true);
-      const payload = await getAccountCategoriesReport(
-        accountIds ? { account_ids: accountIds } : {}
-      );
-      setAccountCategorySummary(payload);
-      setAccountCategoryError(null);
-    } catch (err) {
-      console.error(err);
-      setAccountCategorySummary([]);
-      setAccountCategoryError(
-        err instanceof Error ? err.message : 'Nie udało się pobrać podsumowania kont.'
-      );
-    } finally {
-      setAccountCategoryLoading(false);
     }
   }, []);
 
@@ -273,10 +249,6 @@ export const useReports = () => {
     },
     [allCategoryOptionIds, categories]
   );
-
-  useEffect(() => {
-    void fetchAccountCategorySummary(resolveAccountFilterIds(selectedAccountIds));
-  }, [fetchAccountCategorySummary, resolveAccountFilterIds, selectedAccountIds]);
 
   useEffect(() => {
     if (activeTab !== 'snakey') {
@@ -492,9 +464,6 @@ export const useReports = () => {
     accounts,
     categories,
     accountCategories,
-    accountCategorySummary,
-    accountCategoryLoading,
-    accountCategoryError,
     stores,
     // lookups
     accountLookup,

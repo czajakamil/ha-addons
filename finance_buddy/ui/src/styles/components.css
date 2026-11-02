@@ -1230,6 +1230,8 @@
   }
 
   .month-bars {
+    --bars-below-zero: 0;
+    position: relative;
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
@@ -1301,7 +1303,58 @@
     gap: 2px;
     width: 100%;
     max-width: 44px;
+    height: calc((100% - 44px) * (1 - var(--bars-below-zero)));
+  }
+
+  /* Miejsce na ujemny wynik; ujemny margines znosi odstęp kolumny, żeby oś zgadzała się z linią */
+  .month-bars__below-zero {
+    flex: 0 0 auto;
+    height: calc((100% - 44px) * var(--bars-below-zero));
+    margin-block-start: calc(var(--s-4) * -1);
+  }
+
+  /* Warstwa pokrywa obszar słupków. Wystaje o pół odstępu, więc środki kolumn wypadają w równych częściach szerokości */
+  .month-bars__result {
+    position: absolute;
+    inset-inline: calc(var(--s-8) / -2);
+    bottom: calc(var(--leading-12) + var(--s-4));
     height: calc(100% - 44px);
+    pointer-events: none;
+  }
+
+  .month-bars__result svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .month-bars__result polyline,
+  .month-bars__zero-line {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .month-bars__result polyline {
+    stroke: var(--text-muted);
+    stroke-width: 1px;
+    stroke-linejoin: round;
+  }
+
+  .month-bars__zero-line {
+    stroke: var(--border-strong);
+    stroke-width: 1px;
+  }
+
+  .month-bars__result i {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border: 1px solid var(--surface);
+    border-radius: 50%;
+    background: var(--text-muted);
+    box-sizing: content-box;
+    transform: translate(-50%, -50%);
   }
 
   .month-bars__pair .month-bars__bar {
@@ -1312,6 +1365,15 @@
   .month-bars__bar.month-bars__bar--income,
   .month-bars__dot.month-bars__dot--income {
     background: var(--positive);
+  }
+
+  .month-bars__bar.month-bars__bar--negative,
+  .month-bars__dot.month-bars__dot--negative {
+    background: var(--negative);
+  }
+
+  .month-bars__dot.month-bars__dot--result {
+    background: var(--text-muted);
   }
 
   .month-bars__legend {

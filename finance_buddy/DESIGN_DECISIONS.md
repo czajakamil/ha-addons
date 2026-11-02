@@ -125,8 +125,7 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 
 ## Raporty
 
-- **Struktura wydatków: lista z paskami pełni rolę poziomego wykresu.** Top 10 plus „Pozostałe”, posortowane malejąco, paski neutralne, klikalne jak wcześniej. Biblioteka wykresów nie dawałaby tu nic ponad to, a tekst pozostaje czytelny i dostępny.
-- **Donut w „Tagi kont” pojawia się tylko przy najwyżej 5 pozycjach.**
+- **Wydatki to jedna zakładka: liczby, słupki miesięczne i tabela podziału.** Trendy weszły do niej, więc osobnej zakładki nie ma. Słupki są skumulowane z 5 największych pozycji plus szare „Pozostałe”, z linią średniej z pełnych miesięcy (bieżący jest niepełny, więc jest przygaszony i poza średnią). Tabela ma te same kolory, udział, porównanie ostatniego pełnego miesiąca ze średnią i mini-wykres miesięcy; wiersze poza pierwszą piątką są szare jak „Pozostałe”. Przełącznik Kategorie/Grupy zmienia podział także na wykresie.
 - **Paleta wykresów `--chart-1…8`** to sprawdzona paleta kategorialna, osobno dla obu motywów. Nivo nie rozumie `var()`, więc kolory czytamy z tokenów w `utils/tokens.ts`, a zmiana motywu przebudowuje zakładkę.
 - **Przepływy:** Przychody → grupy → kategorie, 8 największych kategorii, reszta jako „Pozostałe wydatki”. Grupy biorą się ze ścieżki kategorii. Przelewy między kontami nie są już częścią diagramu. Gdy przychody przewyższają wydatki, nadwyżka to osobna gałąź.
 - **Deficyt w Przepływach:** „Przychody” i „Z oszczędności” spływają do węzła „Wydatki”, a dopiero z niego do grup. Bezpośrednie łącza wymagałyby wymyślenia, które źródło opłaciło którą grupę. „Z oszczędności” to matematyczna różnica wydatków i przychodów: dane nie mówią, czy deficyt pokryły oszczędności, czy np. karta kredytowa.
@@ -160,11 +159,13 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 
 ## Wykresy w Raportach
 
-- **Trendy to neutralne słupki sum,** zgodnie z zasadą „sumy za okres”. Skumulowane kolory i linia sumy znikają. Skład miesiąca pokazuje lista z paskami pod wykresem: dotknięcie słupka zawęża ją do tego miesiąca, co działa też bez hovera.
-- **Majątek netto to linia z obszarem,** bo to stan w czasie. Aktywa i zobowiązania są w podsumowaniu, tabeli i podpowiedzi.
-- **Słupki i linię współdzielą** `MonthBars` (też Sklepy) i `MonthLineChart` (też Konta), więc reguły 6 miesięcy poniżej 700 px i osi trzymamy w jednym miejscu.
+- **Wydatki miesięczne to słupki skumulowane,** bo pytanie brzmi „z czego składa się miesiąc”, nie tylko „ile”. To wyjątek od „sumy za okres”; kolory są te same co w tabeli pod wykresem, więc legenda i wiersze się zgadzają.
+- **Majątek netto to para słupków: aktywa i zobowiązania, z netto nad nimi.** To wyjątek od „stan w czasie — linia”, bo linia netto ukrywała, czy majątek rośnie dzięki aktywom, czy spłacie długu. Aktywa są neutralne, a zobowiązania w `--negative`, bo to ujemne salda.
+- **Linia z kropkami na słupkach majątku pokazuje netto,** na środku pary i na wysokości wartości netto, w tej samej skali co słupki. Punkt w połowie między wierzchołkami słupków nie znaczyłby nic finansowo. Gdy netto jest ujemne, oś schodzi poniżej zera i pojawia się linia zera.
+- **Słupki i linię współdzielą** `MonthBars` (też Sklepy), `MonthPairBars` (Przychody i wydatki, Majątek) i `MonthLineChart` (Konta), więc reguły 6 miesięcy poniżej 700 px i osi trzymamy w jednym miejscu.
 - **Przepływy poniżej 700 px to lista grup z paskami,** wyjątek od zasady „przepływy — Sankey”. Sankey wymaga 720 px na etykiety, a przewijanie w bok ukrywało jego całość.
-- **Tagi kont bez donuta.** Mieszał salda dodatnie z długami: środek pokazywał inną sumę niż „Łączne saldo”, a udział długu wyglądał jak część majątku. Lista z paskami zostawia kwotę ze znakiem, a pasek pokazuje wielkość. `@nivo/pie` wypada z zależności.
+- **Skład majątku bez donuta.** Mieszał salda dodatnie z długami, a udział długu wyglądał jak część majątku. Lista z paskami zostawia kwotę ze znakiem, a pasek pokazuje wielkość. `@nivo/pie` wypada z zależności.
+- **Tagi kont są częścią zakładki Majątek.** Stan w czasie i skład to ta sama odpowiedź na pytanie, ile mam i w czym. Skład przychodzi z raportu majątku, liczony na koniec okresu i tym samym filtrem kont, więc jego suma równa się „Netto”. Dlatego obejmuje też zamknięte konta z saldem. Endpoint `/reports/account-categories` zniknął.
 - **Przychody i wydatki mają parę słupków z bilansem nad nią.** To wyjątek od neutralnych sum: przychód w `--positive`, wydatek neutralny, ujemny bilans w `--negative`.
 - **Nazwy miesięcy w Raportach liczy front z klucza `RRRR-MM`,** bo pole `label` z backendu jest angielskie, a korzysta z niego też budżet.
 - **Belka Raportów poniżej 700 px:** zakładki w jednym przewijanym rzędzie bez ikon, okres i przycisk „Filtry” z licznikiem w drugim. Przyklejone są tylko zakładki, żeby wykres miał ekran dla siebie. Konta i kategorie są w natywnym `<dialog>` od dołu; to wyjątek od zasady „modal tylko do tworzenia”, bo filtr nie jest edycją obiektu.

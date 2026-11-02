@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Account, Store, Category, TransactionCreate } from '../../api';
 import { createTransaction, ensureCategoryPath } from '../../api';
 import TagPathInput from '../tags/TagPathInput';
+import { toRecordedAt } from '../../utils/date';
 import { formatMoney, parseAmountToCents } from '../../utils/format';
 
 type NewTransactionFormState = {
   date: string;
+  time: string;
   accountId: string;
   storeId: string;
   categoryPath: string;
@@ -42,6 +44,7 @@ const parseSignedAmount = (value: string) => parseAmountToCents(value.replace('\
 
 const getInitialTransactionFormState = (defaultAccountId: string | undefined): NewTransactionFormState => ({
   date: new Date().toISOString().slice(0, 10),
+  time: '',
   accountId: defaultAccountId ?? '',
   storeId: '',
   categoryPath: '',
@@ -135,6 +138,7 @@ const NewTransactionModal = ({
       category_id: categoryId,
       transfer_account_id: transferAccountId || undefined,
       date: formState.date || undefined,
+      recorded_at: formState.date && formState.time ? toRecordedAt(formState.date, formState.time) : undefined,
       currency: accountCurrency,
       comment: formState.comment.trim() || undefined,
       cleared: formState.cleared,
@@ -225,6 +229,19 @@ const NewTransactionModal = ({
                     onChange={(event) => handleInputChange('date', event.target.value)}
                     disabled={submitting}
                     required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="transaction-time">
+                    Godzina (opcjonalnie)
+                  </label>
+                  <input
+                    id="transaction-time"
+                    type="time"
+                    className="form-control"
+                    value={formState.time}
+                    onChange={(event) => handleInputChange('time', event.target.value)}
+                    disabled={submitting}
                   />
                 </div>
                 <div className="mb-3">

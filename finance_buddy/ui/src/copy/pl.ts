@@ -90,6 +90,7 @@ export const copy = {
     removeFilter: (label: string) => `Usuń filtr: ${label}`,
     clearFilters: 'Wyczyść',
     columns: {
+      time: 'Godz.',
       store: 'Sklep',
       account: 'Konto',
       category: 'Kategoria',

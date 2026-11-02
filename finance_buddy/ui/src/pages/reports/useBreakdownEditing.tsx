@@ -1,7 +1,7 @@
-// Inline-edit sub-module for the spending-breakdown drill-down table. Owns the
+// Inline-edit sub-module for the spending drill-down table. Owns the
 // selected category, the fetched transactions for it, and the editable
 // comment / store / amount cells. Kept separate from useReports because it is
-// self-contained and only the SpendingBreakdown tab consumes it.
+// self-contained and only the Spending tab consumes it.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ListIcon } from 'lucide-react';

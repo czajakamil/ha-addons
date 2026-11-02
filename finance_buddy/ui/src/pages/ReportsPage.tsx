@@ -1,11 +1,9 @@
 import { useTheme } from '../hooks/useTheme';
 import ReportsTopbar from './reports/components/ReportsTopbar';
-import AccountCategoriesTab from './reports/tabs/AccountCategoriesTab';
 import FlowsTab from './reports/tabs/FlowsTab';
 import IncomeExpenseTab from './reports/tabs/IncomeExpenseTab';
 import NetWorthTab from './reports/tabs/NetWorthTab';
-import SpendingBreakdownTab from './reports/tabs/SpendingBreakdownTab';
-import SpendingTrendsTab from './reports/tabs/SpendingTrendsTab';
+import SpendingTab from './reports/tabs/SpendingTab';
 import { useReports, type ReportsController } from './reports/useReports';
 
 const renderActiveTab = (controller: ReportsController) => {
@@ -15,12 +13,8 @@ const renderActiveTab = (controller: ReportsController) => {
   }
 
   switch (activeTab) {
-    case 'spending-breakdown':
-      return <SpendingBreakdownTab controller={controller} />;
-    case 'account-categories':
-      return <AccountCategoriesTab controller={controller} />;
-    case 'spending-trends':
-      return <SpendingTrendsTab controller={controller} />;
+    case 'spending':
+      return <SpendingTab controller={controller} />;
     case 'income-expense':
       return <IncomeExpenseTab controller={controller} />;
     case 'net-worth':

@@ -7,18 +7,6 @@ export interface MonthlyCategorySummary {
   total_amount: number;
 }
 
-export interface AccountKindSummary {
-  account_kind: string;
-  total_cents: number;
-  total_amount: number;
-  accounts_count: number;
-}
-
-export interface AccountCategoriesReportParams {
-  include_closed?: boolean;
-  account_ids?: string[];
-}
-
 export interface SpendingBreakdownEntry {
   category_id?: string | null;
   category_name?: string | null;
@@ -89,11 +77,19 @@ export interface NetWorthPoint {
   change_cents: number;
 }
 
+export interface NetWorthAccountBalance {
+  account_id: string;
+  account_kind: string;
+  category_id?: string | null;
+  balance_cents: number;
+}
+
 export interface NetWorthReport {
   months: NetWorthPoint[];
   latest_assets_cents: number;
   latest_debts_cents: number;
   latest_net_worth_cents: number;
+  accounts: NetWorthAccountBalance[];
 }
 
 export interface AgeOfMoneyPoint {
@@ -129,14 +125,6 @@ export interface ReportsDashboardResponse {
 
 export const getMonthlyCategoryReport = (year: number, month: number) =>
   request<MonthlyCategorySummary[]>(`/reports/monthly-category?year=${year}&month=${month}`);
-
-export const getAccountCategoriesReport = (params: AccountCategoriesReportParams = {}) => {
-  const search = new URLSearchParams();
-  if (params.include_closed) search.set('include_closed', 'true');
-  if (params.account_ids) params.account_ids.forEach((id) => search.append('account_ids', id));
-  const query = search.toString();
-  return request<AccountKindSummary[]>(`/reports/account-categories${query ? `?${query}` : ''}`);
-};
 
 export interface ReportsDashboardParams {
   start_date?: string;

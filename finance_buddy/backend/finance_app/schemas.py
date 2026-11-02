@@ -743,13 +743,6 @@ class MonthlyCategorySummary(BaseModel):
     total_amount: float
 
 
-class AccountKindSummary(BaseModel):
-    account_kind: str
-    total_cents: int
-    total_amount: float
-    accounts_count: int
-
-
 class SpendingBreakdownEntry(BaseModel):
     category_id: str | None
     category_name: str | None
@@ -822,11 +815,19 @@ class NetWorthPoint(BaseModel):
     change_cents: int
 
 
+class NetWorthAccountBalance(BaseModel):
+    account_id: str
+    account_kind: str
+    category_id: str | None
+    balance_cents: int
+
+
 class NetWorthReport(BaseModel):
     months: list[NetWorthPoint]
     latest_assets_cents: int
     latest_debts_cents: int
     latest_net_worth_cents: int
+    accounts: list[NetWorthAccountBalance]
 
 
 class AgeOfMoneyPoint(BaseModel):
@@ -1244,7 +1245,6 @@ class BankImportUndoResult(BaseModel):
 __all__ = [
     "AccountBalanceAdjustment",
     "AccountCreate",
-    "AccountKindSummary",
     "AccountRead",
     "AccountUpdate",
     "AgeOfMoneyPoint",
@@ -1293,6 +1293,7 @@ __all__ = [
     "ItemUpdate",
     "MonthlyCategorySummary",
     "MonthlySpendingPoint",
+    "NetWorthAccountBalance",
     "NetWorthPoint",
     "NetWorthReport",
     "PasskeyAuthenticationOptionsRequest",

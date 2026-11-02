@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { aggregateCategories, moneyLabel, reportMonthLabel } from '../model';
-import IncomeExpenseBars from '../components/IncomeExpenseBars';
+import MonthPairBars from '../components/MonthPairBars';
 import ReportBarList from '../components/ReportBarList';
 import type { ReportsController } from '../useReports';
 import ResizableTable from '../../../components/ui/ResizableTable';
@@ -44,7 +44,17 @@ const IncomeExpenseTab = ({ controller }: IncomeExpenseTabProps) => {
       </div>
       {incomeTotals?.months.length ? (
         <>
-          <IncomeExpenseBars months={incomeTotals.months} />
+          <MonthPairBars
+            months={incomeTotals.months.map((entry) => ({
+              month: entry.month,
+              first_cents: entry.income_cents,
+              second_cents: entry.expense_cents,
+              result_cents: entry.net_cents
+            }))}
+            first={{ label: 'Przychody', modifier: 'income' }}
+            second={{ label: 'Wydatki' }}
+            resultLabel="bilans"
+          />
           <div className="table-responsive report-table-spaced">
             <ResizableTable tableId="report-income-expense" className="table report-table">
               <thead>

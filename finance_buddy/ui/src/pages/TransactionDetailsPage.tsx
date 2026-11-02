@@ -30,7 +30,7 @@ import {
 } from '../api';
 import Money from '../components/ui/Money';
 import SkeletonRows from '../components/ui/SkeletonRows';
-import { formatDayHeading } from '../utils/date';
+import { formatDayHeading, formatRecordedTime, toRecordedAt } from '../utils/date';
 import { useAuthorizedObjectUrl } from '../hooks/useAuthorizedObjectUrl';
 import { formatMoney, parseAmountToCents } from '../utils/format';
 import ResizableTable from '../components/ui/ResizableTable';
@@ -46,6 +46,7 @@ type EditableTransactionFields = {
   store_id: string;
   comment: string;
   date: string;
+  time: string;
 };
 
 type NewItemForm = {
@@ -182,7 +183,8 @@ const TransactionDetailsPage = () => {
     account_id: '',
     store_id: '',
     comment: '',
-    date: ''
+    date: '',
+    time: ''
   });
   const [newItemForm, setNewItemForm] = useState<NewItemForm>(EMPTY_ITEM_FORM);
   const [showItemForm, setShowItemForm] = useState(false);
@@ -275,7 +277,8 @@ const TransactionDetailsPage = () => {
       account_id: transaction.account_id ?? '',
       store_id: transaction.store_id ?? '',
       comment: transaction.comment ?? '',
-      date: transaction.date ?? ''
+      date: transaction.date ?? '',
+      time: formatRecordedTime(transaction.recorded_at) ?? ''
     });
     const currentCategory = categories.find((cat) => cat.id === (transaction.category_id ?? ''));
     setCategoryPath(currentCategory?.path ?? '');
@@ -361,6 +364,10 @@ const TransactionDetailsPage = () => {
     if (resolvedCategoryId !== (transaction.category_id ?? null)) payload.category_id = resolvedCategoryId;
     if (editFields.comment !== (transaction.comment ?? '')) payload.comment = editFields.comment || null;
     if (editFields.date !== (transaction.date ?? '')) payload.date = editFields.date || null;
+    // Sama zmiana daty zachowuje godzinę po stronie backendu
+    if (editFields.time !== (formatRecordedTime(transaction.recorded_at) ?? '')) {
+      payload.recorded_at = toRecordedAt(editFields.date, editFields.time);
+    }
 
     if (!Object.keys(payload).length) {
       setFormError('Brak zmian do zapisania.');
@@ -506,6 +513,7 @@ const TransactionDetailsPage = () => {
               <h1>{heading}</h1>
               <p>
                 {transaction.date ? formatDayHeading(transaction.date) : '—'}
+                {formatRecordedTime(transaction.recorded_at) ? `, ${formatRecordedTime(transaction.recorded_at)}` : ''}
                 {accountName ? ` · ${accountName}` : ''}
               </p>
             </div>
@@ -710,6 +718,16 @@ const TransactionDetailsPage = () => {
                   />
                 </div>
                 <div>
+                  <label className="form-label" htmlFor="tx-time">Godzina (opcjonalnie)</label>
+                  <input
+                    id="tx-time"
+                    type="time"
+                    className="form-control"
+                    value={editFields.time}
+                    onChange={(e) => handleFieldChange('time', e.target.value)}
+                  />
+                </div>
+                <div>
                   <label className="form-label">Konto</label>
                   <EntityAutocomplete
                     value={editFields.account_id}
@@ -756,7 +774,6 @@ const TransactionDetailsPage = () => {
                 <Button type="submit" disabled={savingForm} fullWidth className="justify-content-center">
                   {savingForm ? 'Zapisywanie…' : 'Zapisz zmiany'}
                 </Button>
-                <p className="tx-page__muted">Zarejestrowano: {formatDateTime(transaction.recorded_at)}</p>
               </div>
             </form>
           </div>

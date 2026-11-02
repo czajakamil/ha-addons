@@ -35,6 +35,7 @@ export const datePresetRange = (preset: DatePreset, now = new Date()) => {
 export type TransactionColumnId =
   | 'select'
   | 'open'
+  | 'time'
   | 'account'
   | 'store'
   | 'category'
@@ -80,7 +81,8 @@ export const getNextStatusPayload = (transaction: Transaction): StatusUpdatePayl
 export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>> = {
   select: 40,
   open: 44,
-  store: 260,
+  time: 64,
+  store: 196,
   account: 160,
   category: 200,
   outflow: 120,

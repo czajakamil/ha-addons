@@ -199,6 +199,12 @@
     font-weight: var(--weight-medium);
   }
 
+  .transactions-grid__cell--time {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    font-variant-numeric: tabular-nums;
+  }
+
   .transactions-day {
     display: flex;
     align-items: center;
@@ -312,6 +318,7 @@
   }
 
   .transactions-compact .truncate,
+  .transactions-compact .transactions-muted,
   .transactions-compact .transactions-transfer {
     height: auto;
     line-height: var(--leading-13);

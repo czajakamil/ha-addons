@@ -22,7 +22,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SkeletonRows from '../components/ui/SkeletonRows';
 import TruncatedText from '../components/ui/TruncatedText';
 import { copy } from '../copy/pl';
-import { formatDayHeading } from '../utils/date';
+import { formatDayHeading, formatRecordedTime } from '../utils/date';
 import { userComment } from '../utils/transactionLabels';
 import { buildBalanceAfter } from './accounts/balanceHistory';
 import { DEFAULT_COLUMN_WIDTHS, type EditableAmountField, type FilterState } from './transactions/model';
@@ -362,6 +362,14 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const dayRowSpan = (columnCount: number) => (args: ColSpanArgs<TransactionGridRow, unknown>) =>
     args.type === 'ROW' && args.row.kind === 'day' ? columnCount : undefined;
 
+  const compactMeta = (transaction: Transaction) =>
+    [
+      formatRecordedTime(transaction.recorded_at),
+      scope ? null : accountMap.get(transaction.account_id)?.name
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
   const compactColumns: readonly MoneyColumn<TransactionGridRow>[] = [
     {
       key: 'store',
@@ -373,8 +381,8 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         return (
           <div className="transactions-compact">
             {renderLookupCell(row.transaction, 'store')}
-            {!scope && (
-              <span className="transactions-compact__meta">{accountMap.get(row.transaction.account_id)?.name}</span>
+            {compactMeta(row.transaction) && (
+              <span className="transactions-compact__meta">{compactMeta(row.transaction)}</span>
             )}
           </div>
         );
@@ -404,7 +412,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   ];
 
   // Wiersz dnia sięga do kolumny wpływu, a jej pozycja zależy od ukrytych kolumn
-  const dayRowColumns = 7 - (scope ? 1 : 0) - (hideCommentColumn ? 1 : 0);
+  const dayRowColumns = 8 - (scope ? 1 : 0) - (hideCommentColumn ? 1 : 0);
 
   // Pozycja podziału stoi po stronie wynikającej z jej własnego znaku
   const renderItemAmount = (row: Extract<TransactionGridRow, { kind: 'item' }>, field: EditableAmountField) => {
@@ -448,6 +456,15 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
           />
         );
       }
+    },
+    {
+      key: 'time',
+      name: labels.columns.time,
+      width: DEFAULT_COLUMN_WIDTHS.time,
+      resizable: false,
+      cellClass: 'transactions-grid__cell transactions-grid__cell--time',
+      renderCell: ({ row }) =>
+        row.kind === 'transaction' ? formatRecordedTime(row.transaction.recorded_at) : null
     },
     {
       key: 'store',

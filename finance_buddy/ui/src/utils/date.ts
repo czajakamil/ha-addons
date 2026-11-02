@@ -38,3 +38,20 @@ export const formatDayHeading = (iso: string) => {
   const label = formatter.format(date);
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
+
+/**
+ * „14:30" z `recorded_at`; null, gdy źródło nie podało godziny (zapisana jest wtedy północ).
+ * Backend trzyma czas lokalny jako UTC, więc odczyt też idzie w UTC, a nie w strefie przeglądarki.
+ */
+export const formatRecordedTime = (recordedAt?: string | null) => {
+  if (!recordedAt) return null;
+  const moment = new Date(recordedAt);
+  if (Number.isNaN(moment.getTime())) return null;
+  const hours = moment.getUTCHours();
+  const minutes = moment.getUTCMinutes();
+  if (hours === 0 && minutes === 0) return null;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+/** `recorded_at` z pól formularza. Godzina idzie jako UTC, a pusta to północ, czyli brak godziny. */
+export const toRecordedAt = (date: string, time: string) => `${date}T${time || '00:00'}:00Z`;

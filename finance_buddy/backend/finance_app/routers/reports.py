@@ -1,4 +1,4 @@
-"""Reporting endpoints (account categories, monthly category, dashboard)."""
+"""Reporting endpoints (monthly category, dashboard)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ from ..helpers import (
 )
 from ..models import Account, Category, Store, Transaction, User
 from ..schemas import (
-    AccountKindSummary,
     AgeOfMoneyPoint,
     AgeOfMoneyReport,
     IncomeExpenseCategoryRow,
@@ -34,6 +33,7 @@ from ..schemas import (
     IncomeExpenseReport,
     MonthlyCategorySummary,
     MonthlySpendingPoint,
+    NetWorthAccountBalance,
     NetWorthPoint,
     NetWorthReport,
     ReportsDashboardResponse,
@@ -321,12 +321,34 @@ def _build_net_worth(
     latest_assets = points[-1].assets_cents if points else 0
     latest_debts = points[-1].debts_cents if points else 0
     latest_net = points[-1].net_worth_cents if points else 0
+    nonzero_balances = {
+        account_id: balance for account_id, balance in account_balances.items() if balance != 0
+    }
+    account_rows = (
+        db.execute(
+            select(Account.id, Account.account_kind, Account.category_id).where(
+                Account.user_id == user_id, Account.id.in_(nonzero_balances)
+            )
+        ).all()
+        if nonzero_balances
+        else []
+    )
+    accounts = [
+        NetWorthAccountBalance(
+            account_id=row.id,
+            account_kind=_normalize_account_kind(row.account_kind) or "unknown",
+            category_id=row.category_id,
+            balance_cents=nonzero_balances[row.id],
+        )
+        for row in account_rows
+    ]
 
     return NetWorthReport(
         months=points,
         latest_assets_cents=latest_assets,
         latest_debts_cents=latest_debts,
         latest_net_worth_cents=latest_net,
+        accounts=accounts,
     )
 
 
@@ -430,73 +452,6 @@ def _build_age_of_money(
         sampled_days=latest_snapshot["sampled_days"],
         history=history,
     )
-
-
-@router.get("/reports/account-categories", response_model=list[AccountKindSummary])
-def account_categories_report(
-    account_ids: list[str] | None = Query(None),
-    include_closed: bool = Query(False),
-    db: Session = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
-):
-    balances_subq = (
-        select(
-            Transaction.account_id.label("account_id"),
-            func.coalesce(func.sum(Transaction.total_cents), 0).label("balance_cents"),
-        )
-        .where(Transaction.user_id == current_user.id)
-        .group_by(Transaction.account_id)
-        .subquery()
-    )
-
-    stmt = (
-        select(
-            Account.id,
-            Account.account_kind,
-            func.coalesce(balances_subq.c.balance_cents, 0).label("balance_cents"),
-        )
-        .outerjoin(balances_subq, balances_subq.c.account_id == Account.id)
-        .where(Account.user_id == current_user.id)
-    )
-    if account_ids:
-        requested_ids = set(account_ids)
-        count = db.scalar(
-            select(func.count(Account.id)).where(
-                Account.user_id == current_user.id,
-                Account.id.in_(requested_ids),
-            )
-        )
-        if count != len(requested_ids):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account filter."
-            )
-        stmt = stmt.where(Account.id.in_(requested_ids))
-    if not include_closed:
-        stmt = stmt.where(Account.is_closed.is_(False))
-
-    rows = db.execute(stmt).all()
-
-    totals: dict[str, dict[str, int]] = {}
-    for row in rows:
-        normalized_kind = _normalize_account_kind(row.account_kind) or "unknown"
-        bucket = totals.get(normalized_kind)
-        if bucket is None:
-            bucket = {"total_cents": 0, "accounts_count": 0}
-            totals[normalized_kind] = bucket
-        bucket["total_cents"] += int(row.balance_cents or 0)
-        bucket["accounts_count"] += 1
-
-    summaries = [
-        AccountKindSummary(
-            account_kind=kind,
-            total_cents=payload["total_cents"],
-            total_amount=_cents_to_amount(payload["total_cents"]),
-            accounts_count=payload["accounts_count"],
-        )
-        for kind, payload in totals.items()
-    ]
-    summaries.sort(key=lambda item: abs(item.total_cents), reverse=True)
-    return summaries
 
 
 @router.get("/reports/monthly-category", response_model=list[MonthlyCategorySummary])

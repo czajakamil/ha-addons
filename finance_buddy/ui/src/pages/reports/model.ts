@@ -2,7 +2,7 @@
 // helpers. Extracted from ReportsPage.tsx to keep the page component focused on
 // state and rendering. Nothing here touches React state or the DOM.
 import { fullMonthName, monthDate } from '../../utils/months';
-import { ArrowLeftRightIcon, ChartAreaIcon, ChartLineIcon, ChartPieIcon, WorkflowIcon } from 'lucide-react';
+import { ArrowLeftRightIcon, ChartAreaIcon, ChartPieIcon, WorkflowIcon } from 'lucide-react';
 import type { Category, IncomeExpenseCategoryRow, IncomeExpenseMonthRow } from '../../api';
 import { DATA_TABLE_ROW_HEIGHT } from '../../components/DataTable';
 import { formatMoney } from '../../utils/format';
@@ -195,9 +195,7 @@ export const aggregateCategories = (months: IncomeExpenseMonthRow[], type: 'inco
 };
 
 export const REPORT_TABS = [
-  { id: 'spending-breakdown', label: 'Wydatki', icon: ChartPieIcon },
-  { id: 'account-categories', label: 'Tagi', icon: ChartPieIcon },
-  { id: 'spending-trends', label: 'Trendy', icon: ChartLineIcon },
+  { id: 'spending', label: 'Wydatki', icon: ChartPieIcon },
   { id: 'net-worth', label: 'Majątek', icon: ChartAreaIcon },
   { id: 'snakey', label: 'Przepływy', icon: WorkflowIcon },
   { id: 'income-expense', label: 'Przychody i wydatki', icon: ArrowLeftRightIcon }
@@ -207,15 +205,12 @@ export type ReportTabId = (typeof REPORT_TABS)[number]['id'];
 
 export const MIN_BREAKDOWN_PERCENTAGE = 0.01;
 export const OTHER_CATEGORIES_LABEL = 'Pozostałe';
-export const BREAKDOWN_TOP_LIMIT = 10;
 export const OTHER_ACCOUNT_KINDS_LABEL = 'Pozostałe typy';
 export const otherCategoryColor = () => readToken('--text-muted');
 export const UNCATEGORIZED_CATEGORY_ID = '__uncategorized__';
 export const UNCATEGORIZED_CATEGORY_NAME = 'Bez tagu';
 export const ACCOUNT_UNCATEGORIZED_ID = '__account_uncategorized__';
-export const ACCOUNT_UNCATEGORIZED_NAME = 'Bez kategorii';
-export const SPENDING_TRENDS_CATEGORY_LIMIT = 6;
-export const SPENDING_TRENDS_OTHER_LABEL = 'Pozostałe';
+export const ACCOUNT_UNCATEGORIZED_NAME = 'Bez tagu';
 export const SNAKEY_MAX_TRANSACTIONS = 2000;
 export const SNAKEY_PAGE_SIZE = 200;
 export const SNAKEY_SPENDING_CATEGORY_LIMIT = 8;

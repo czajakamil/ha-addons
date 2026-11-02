@@ -1,4 +1,4 @@
-// Stan na koniec miesiąca: neutralna linia z obszarem, wspólna dla kont i majątku netto.
+// Stan na koniec miesiąca: neutralna linia z obszarem.
 import type { ReactNode } from 'react';
 import { ResponsiveLine } from '@nivo/line';
 import { useVisibleMonths } from '../../../hooks/useVisibleMonths';

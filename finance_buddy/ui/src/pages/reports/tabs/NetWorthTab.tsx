@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { moneyLabel, reportMonthLabel, reportMonthShort } from '../model';
-import MonthLineChart from '../components/MonthLineChart';
+import { moneyLabel, reportMonthLabel } from '../model';
+import MonthPairBars from '../components/MonthPairBars';
+import NetWorthComposition from '../components/NetWorthComposition';
 import type { ReportsController } from '../useReports';
 import ResizableTable from '../../../components/ui/ResizableTable';
 
@@ -9,18 +9,8 @@ type NetWorthTabProps = {
 };
 
 const NetWorthTab = ({ controller }: NetWorthTabProps) => {
-  const { data } = controller;
+  const { data, accountCategories } = controller;
   const netWorth = data?.net_worth;
-  const chartPoints = useMemo(
-    () =>
-      (netWorth?.months ?? []).map((point) => ({
-        label: reportMonthShort(point.month),
-        cents: point.net_worth_cents,
-        assets: point.assets_cents,
-        debts: point.debts_cents
-      })),
-    [netWorth?.months]
-  );
 
   return (
     <section className="card report-card report-card--full">
@@ -46,18 +36,19 @@ const NetWorthTab = ({ controller }: NetWorthTabProps) => {
       </div>
       {netWorth?.months.length ? (
         <>
-          <MonthLineChart
-            className="net-worth-chart"
-            ariaLabel="Majątek netto na koniec miesiąca"
-            points={chartPoints}
-            renderTooltip={(point) => (
-              <>
-                <strong>{point.label}: {moneyLabel(point.cents)}</strong>
-                <div>Aktywa: {moneyLabel(point.assets)}</div>
-                <div>Zobowiązania: {moneyLabel(point.debts)}</div>
-              </>
-            )}
+          <MonthPairBars
+            months={netWorth.months.map((point) => ({
+              month: point.month,
+              first_cents: point.assets_cents,
+              second_cents: point.debts_cents,
+              result_cents: point.net_worth_cents
+            }))}
+            first={{ label: 'Aktywa' }}
+            second={{ label: 'Zobowiązania', modifier: 'negative' }}
+            resultLabel="netto"
+            showResultLine
           />
+          <NetWorthComposition balances={netWorth.accounts} categories={accountCategories} />
           <div className="table-responsive">
             <ResizableTable tableId="report-net-worth" className="table report-table">
               <thead>
