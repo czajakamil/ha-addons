@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.9
+
+- Raporty: okres wybiera się rządkiem przycisków nad wykresami (na telefonie z listy), a nagłówek
+  „Raporty” wrócił na górę. Filtry kont i kategorii mają prostsze podsumowanie wybranych pozycji.
+- Raporty: w zakładce Wydatki „Pozostałe” rozwijają się do poszczególnych kategorii. Najechanie
+  na słupek pokazuje dymek z podziałem miesiąca na kategorie.
+- Daty i godziny w nowej transakcji, szczegółach transakcji i filtrach listy można wpisać z klawiatury
+  (np. „1.11.2026”, „9:15”). W aplikacji Home Assistant na Macu natywny wybierak daty powodował awarię.
+
 ## 0.1.8
 
 - Raporty: zakładka Wydatki ma nowy układ. Na górze łączna kwota, średnia miesięczna i bieżący miesiąc w toku,
