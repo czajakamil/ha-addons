@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.8
+
+- Raporty: zakładka Wydatki ma nowy układ. Na górze łączna kwota, średnia miesięczna i bieżący miesiąc w toku,
+  niżej słupki miesięczne ułożone z największych kategorii (z linią średniej), a pod nimi tabela z udziałem,
+  porównaniem ostatniego miesiąca ze średnią i mini-wykresem. Kategorie i Grupy przełącza się nad tabelą.
+  Zakładka Trendy jest w niej zawarta, więc zniknęła. Na telefonie słupki pokazują ostatnie pół roku,
+  a wiersze mają układ kart.
+- Raporty: zakładka Tagi weszła do zakładki Majątek jako „Skład majątku” z przełącznikiem Typy/Tagi.
+  Skład liczy się teraz na koniec wybranego okresu, więc zmiana okresu go zmienia, a suma listy
+  zgadza się z „Netto”. Obejmuje też zamknięte konta, które mają saldo.
+- Raporty: wykres majątku jest słupkowy. Każdy miesiąc ma parę słupków, aktywa i zobowiązania, a nad nią netto. Linia z kropkami pokazuje zmianę netto z miesiąca na miesiąc.
+- Transakcje: lista i szczegóły pokazują godzinę, jeśli źródło ją podało (paragon, CSV z banku z godziną).
+  Można ją też wpisać ręcznie, opcjonalnie, przy nowej transakcji i w szczegółach.
+
 ## 0.1.7
 
 - Konta: lista nie miga już przy wejściu na ekran. Puste konta od razu są ukryte pod „Pokaż puste”,
