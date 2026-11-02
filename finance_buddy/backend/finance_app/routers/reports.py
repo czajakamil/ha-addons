@@ -502,6 +502,10 @@ def monthly_category_report(
     return summaries
 
 
+def _earliest_transaction_date(db: Session, user_id: str) -> dt.date | None:
+    return db.scalar(select(func.min(Transaction.date)).where(Transaction.user_id == user_id))
+
+
 @router.get("/reports/dashboard", response_model=ReportsDashboardResponse)
 def reports_dashboard(
     start_date: dt.date | None = Query(None),
@@ -605,6 +609,7 @@ def reports_dashboard(
     return ReportsDashboardResponse(
         start_date=resolved_start,
         end_date=resolved_end,
+        earliest_transaction_date=_earliest_transaction_date(db, current_user.id),
         spending_breakdown=spending_breakdown,
         spending_trends=spending_trends,
         net_worth=net_worth,

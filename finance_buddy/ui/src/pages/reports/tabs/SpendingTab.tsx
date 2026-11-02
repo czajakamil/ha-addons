@@ -1,4 +1,5 @@
-import { CSSProperties, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import Button from '../../../components/Button';
 import DataTable from '../../../components/DataTable';
 import SegmentedControl from '../../../components/ui/SegmentedControl';
@@ -6,6 +7,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { pluralPL } from '../../../utils/format';
 import { monthDate } from '../../../utils/months';
 import { chartColor } from '../../../utils/tokens';
+import Sparkline from '../components/Sparkline';
 import SpendingChart from '../components/SpendingChart';
 import {
   UNCATEGORIZED_CATEGORY_ID,
@@ -53,6 +55,10 @@ const SpendingTab = ({ controller }: SpendingTabProps) => {
   const isCompact = useMediaQuery('(max-width: 699px)');
   const [view, setView] = useState<SpendingView>('categories');
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  // Rozwinięcie dotyczy jednego podziału; po zmianie widoku w „Pozostałych” jest co innego
+  const othersScope = `${view}:${groupFilter ?? ''}`;
+  const [expandedScope, setExpandedScope] = useState<string | null>(null);
+  const othersExpanded = expandedScope === othersScope;
 
   const {
     selectedBreakdownCategory,
@@ -101,6 +107,9 @@ const SpendingTab = ({ controller }: SpendingTabProps) => {
   const compareLabel = model.compareMonth
     ? capitalize(shortMonth.format(monthDate(model.compareMonth)))
     : null;
+
+  // „Pozostałe” potrafią być większe od największej kategorii
+  const barBase = Math.max(...model.rows.map((row) => row.total), 1);
 
   const openRow = (row: SpendingSeries) => {
     if (row.isOther) return;
@@ -266,60 +275,62 @@ const SpendingTab = ({ controller }: SpendingTabProps) => {
                 <span>{monthCount} mies.</span>
               </div>
               <ul className="spending-table__list">
-                {model.rows.map((row) => {
-                  const peak = Math.max(...row.values, 1);
-                  const content = (
-                    <>
-                      <span className="spending-row__name">
-                        <span className="spending-row__dot" style={{ background: row.color }} aria-hidden="true" />
-                        <span className="spending-row__label">{row.name}</span>
-                      </span>
-                      <span className="spending-row__bar" aria-hidden="true">
-                        <span
-                          style={{
-                            width: `${Math.max(1, (row.total / model.rows[0].total) * 100)}%`,
-                            background: row.color
-                          }}
-                        />
-                      </span>
-                      <span className="spending-row__amount">{moneyLabel(row.total)}</span>
-                      <span className="spending-row__share">
-                        {percentLabel(row.share)}
-                        <span className="spending-row__suffix"> wydatków</span>
-                      </span>
-                      <span className="spending-row__change">
-                        {compareLabel && (
-                          <span className="spending-row__suffix">{compareLabel.toLowerCase()} vs śr. </span>
-                        )}
-                        {changeLabel(row.change)}
-                      </span>
-                      <span className="spending-row__spark" aria-hidden="true">
-                        {row.values.map((value, index) => (
+                {model.rows.flatMap((row) => {
+                  const renderRow = (item: SpendingSeries, isChild: boolean) => {
+                    const content = (
+                      <>
+                        <span className="spending-row__name">
+                          <span className="spending-row__dot" style={{ background: item.color }} aria-hidden="true" />
+                          <span className="spending-row__label">{item.name}</span>
+                          {item.isOther && (
+                            <ChevronDown
+                              className={`spending-row__chevron${othersExpanded ? ' is-open' : ''}`}
+                              size={14}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </span>
+                        <span className="spending-row__bar" aria-hidden="true">
                           <span
-                            key={model.months[index].month}
-                            style={
-                              {
-                                height: `${Math.max(1, Math.round((value / peak) * 20))}px`,
-                                background: row.color,
-                                opacity: model.months[index].partial ? 0.35 : 1
-                              } as CSSProperties
-                            }
+                            style={{
+                              width: `${Math.max(1, (item.total / barBase) * 100)}%`,
+                              background: item.color
+                            }}
                           />
-                        ))}
-                      </span>
-                    </>
-                  );
-                  return (
-                    <li key={row.key}>
-                      {row.isOther ? (
-                        <div className="spending-row">{content}</div>
-                      ) : (
-                        <button type="button" className="spending-row is-clickable" onClick={() => openRow(row)}>
+                        </span>
+                        <span className="spending-row__amount">{moneyLabel(item.total)}</span>
+                        <span className="spending-row__share">
+                          {percentLabel(item.share)}
+                          <span className="spending-row__suffix"> wydatków</span>
+                        </span>
+                        <span className="spending-row__change">
+                          {compareLabel && (
+                            <span className="spending-row__suffix">{compareLabel.toLowerCase()} vs śr. </span>
+                          )}
+                          {changeLabel(item.change)}
+                        </span>
+                        <Sparkline months={model.months} values={item.values} color={item.color} />
+                      </>
+                    );
+                    return (
+                      <li key={item.key}>
+                        <button
+                          type="button"
+                          className={`spending-row is-clickable${isChild ? ' spending-row--child' : ''}`}
+                          aria-expanded={item.isOther ? othersExpanded : undefined}
+                          onClick={() =>
+                            item.isOther
+                              ? setExpandedScope(othersExpanded ? null : othersScope)
+                              : openRow(item)
+                          }
+                        >
                           {content}
                         </button>
-                      )}
-                    </li>
-                  );
+                      </li>
+                    );
+                  };
+                  const children = othersExpanded ? (row.children ?? []) : [];
+                  return [renderRow(row, false), ...children.map((child) => renderRow(child, true))];
                 })}
               </ul>
             </div>

@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from backend.finance_app.models import Account, Base, Transaction
-from backend.finance_app.routers.reports import _build_net_worth
+from backend.finance_app.routers.reports import _build_net_worth, _earliest_transaction_date
 
 USER = "user-1"
 MONTHS = [dt.date(2026, 9, 1), dt.date(2026, 10, 1)]
@@ -83,3 +83,12 @@ def test_account_filter_limits_balances(db: Session) -> None:
 
     assert [row.account_id for row in report.accounts] == ["old"]
     assert report.latest_net_worth_cents == 50
+
+
+def test_earliest_transaction_date_is_per_user(db: Session) -> None:
+    assert _earliest_transaction_date(db, USER) is None
+    add_tx(db, "bank", dt.date(2024, 3, 9), 100)
+    add_tx(db, "bank", dt.date(2025, 1, 2), 100)
+    db.flush()
+    assert _earliest_transaction_date(db, USER) == dt.date(2024, 3, 9)
+    assert _earliest_transaction_date(db, "someone-else") is None

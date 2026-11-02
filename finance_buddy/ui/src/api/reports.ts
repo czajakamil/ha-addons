@@ -116,6 +116,7 @@ export interface AgeOfMoneyReport {
 export interface ReportsDashboardResponse {
   start_date: string;
   end_date: string;
+  earliest_transaction_date?: string | null;
   spending_breakdown: SpendingBreakdownReport;
   spending_trends: SpendingTrendsReport;
   net_worth: NetWorthReport;

@@ -26,6 +26,8 @@ export type SpendingSeries = {
   change: number | null;
   /** Wiersz zbiorczy „Pozostałe”: nie da się go otworzyć. */
   isOther?: boolean;
+  /** Pozycje schowane w wierszu zbiorczym tabeli, do rozwinięcia. */
+  children?: SpendingSeries[];
   categoryId?: string;
   groupName?: string;
 };
@@ -144,7 +146,10 @@ export const buildSpending = ({
       view === 'groups'
         ? pluralPL(n, 'grupa', 'grupy', 'grup')
         : pluralPL(n, 'kategoria', 'kategorie', 'kategorii');
-    rows.push(aggregate(tableRest, `${OTHER_CATEGORIES_LABEL} · ${n} ${word}`));
+    rows.push({
+      ...aggregate(tableRest, `${OTHER_CATEGORIES_LABEL} · ${n} ${word}`),
+      children: tableRest.map(finish)
+    });
   }
 
   const monthTotals = months.map((_, index) => sum(ranked.map((series) => series.values[index])));

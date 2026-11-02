@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatRecordedTime, toRecordedAt } from './date';
+import { formatRecordedTime, formatTypedDate, parseTypedDate, parseTypedTime, toRecordedAt } from './date';
 
 describe('formatRecordedTime', () => {
   it('pokazuje godzinę tak, jak ją zapisano, bez przeliczania na strefę przeglądarki', () => {
@@ -25,5 +25,26 @@ describe('toRecordedAt', () => {
 
   it('pusta godzina czyści ją', () => {
     expect(formatRecordedTime(toRecordedAt('2026-11-01', ''))).toBeNull();
+  });
+});
+
+describe('wpisywanie daty i godziny', () => {
+  it('rozumie datę po polsku i ISO', () => {
+    expect(parseTypedDate('1.11.2026')).toBe('2026-11-01');
+    expect(parseTypedDate('2026-11-01')).toBe('2026-11-01');
+    expect(formatTypedDate('2026-11-01')).toBe('01.11.2026');
+  });
+
+  it('odrzuca datę, której nie ma, a pusta jest dozwolona', () => {
+    expect(parseTypedDate('31.02.2026')).toBeNull();
+    expect(parseTypedDate('1.11')).toBeNull();
+    expect(parseTypedDate(' ')).toBe('');
+  });
+
+  it('rozumie godzinę i odrzuca niemożliwą', () => {
+    expect(parseTypedTime('9:15')).toBe('09:15');
+    expect(parseTypedTime('14.30')).toBe('14:30');
+    expect(parseTypedTime('24:00')).toBeNull();
+    expect(parseTypedTime('')).toBe('');
   });
 });

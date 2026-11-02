@@ -1,8 +1,10 @@
 // Miesięczne wydatki jako słupki ułożone z największych pozycji, z linią średniej.
+import { useCallback, useState } from 'react';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { pluralPL } from '../../../utils/format';
 import { monthDate } from '../../../utils/months';
 import { moneyLabel, reportMonthLabel, reportMonthShort } from '../model';
+import ChartTooltip from './ChartTooltip';
 import { niceScale, wholeAmount, wholeMoneyLabel, type SpendingModel } from '../spending';
 
 const COMPACT_MONTHS = 6;
@@ -22,6 +24,8 @@ type SpendingChartProps = {
 
 const SpendingChart = ({ model }: SpendingChartProps) => {
   const isCompact = useMediaQuery('(max-width: 699px)');
+  const [hover, setHover] = useState<{ month: string; anchor: DOMRect } | null>(null);
+  const dismissHover = useCallback(() => setHover(null), []);
   // Na telefonie mieści się tylko ostatnie pół roku
   const offset = isCompact ? Math.max(0, model.months.length - COMPACT_MONTHS) : 0;
   const months = model.months.slice(offset);
@@ -31,6 +35,9 @@ const SpendingChart = ({ model }: SpendingChartProps) => {
   const at = (cents: number) => `${(cents / top) * 100}%`;
   const isDense = months.length > MAX_LABELED_MONTHS;
   const labelStep = Math.ceil(months.length / MAX_LABELED_MONTHS);
+
+  const hoveredIndex = months.findIndex((entry) => entry.month === hover?.month);
+  const hoveredMonth = months[hoveredIndex];
 
   const summary = months
     .map((entry) => `${reportMonthLabel(entry.month)}: ${moneyLabel(entry.total)}`)
@@ -86,8 +93,11 @@ const SpendingChart = ({ model }: SpendingChartProps) => {
               {months.map((entry, index) => (
                 <div
                   key={entry.month}
-                  className={`spending-chart__column${entry.partial ? ' is-partial' : ''}`}
-                  title={`${reportMonthLabel(entry.month)}: ${moneyLabel(entry.total)}${entry.partial ? ' (w toku)' : ''}`}
+                  className={`spending-chart__column${entry.partial ? ' is-partial' : ''}${hover?.month === entry.month ? ' is-hovered' : ''}`}
+                  onMouseEnter={(event) =>
+                    setHover({ month: entry.month, anchor: event.currentTarget.getBoundingClientRect() })
+                  }
+                  onMouseLeave={dismissHover}
                 >
                   {series.map((item) =>
                     item.values[index] > 0 ? (
@@ -135,6 +145,26 @@ const SpendingChart = ({ model }: SpendingChartProps) => {
         </div>
       </div>
       {isCompact && legend}
+      {hover && hoveredMonth && (
+        <ChartTooltip anchor={hover.anchor} beside onDismiss={dismissHover}>
+          <div className="report-tooltip__title">
+            {reportMonthLabel(hoveredMonth.month)}
+            {hoveredMonth.partial && <span className="report-tooltip__muted"> · w toku</span>}
+          </div>
+          <div className="report-tooltip__subtotal">{moneyLabel(hoveredMonth.total)}</div>
+          <ul className="report-tooltip__list">
+            {series
+              .filter((item) => item.values[hoveredIndex] > 0)
+              .map((item) => (
+                <li key={item.key} className="report-tooltip__row">
+                  <span className="spending-chart__swatch" style={{ background: item.color }} aria-hidden="true" />
+                  <span className="report-tooltip__row-label">{item.name}</span>
+                  <span className="report-tooltip__row-value">{moneyLabel(item.values[hoveredIndex])}</span>
+                </li>
+              ))}
+          </ul>
+        </ChartTooltip>
+      )}
     </section>
   );
 };

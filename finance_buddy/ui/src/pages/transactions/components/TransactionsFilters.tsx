@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { Account, Category } from '../../../api';
+import { DateInput } from '../../../components/ui/DateTimeInput';
 import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
 import { datePresetRange, type DatePreset, type FilterState } from '../model';
@@ -103,19 +104,17 @@ const TransactionsFilters = ({
         </select>
         {preset === 'custom' && (
           <>
-            <input
-              type="date"
+            <DateInput
               className="form-control"
               aria-label={labels.dateFrom}
               value={filters.startDate}
-              onChange={(event) => onChange({ ...filters, startDate: event.target.value })}
+              onChange={(startDate) => onChange({ ...filters, startDate })}
             />
-            <input
-              type="date"
+            <DateInput
               className="form-control"
               aria-label={labels.dateTo}
               value={filters.endDate}
-              onChange={(event) => onChange({ ...filters, endDate: event.target.value })}
+              onChange={(endDate) => onChange({ ...filters, endDate })}
             />
           </>
         )}

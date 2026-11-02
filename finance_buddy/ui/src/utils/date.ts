@@ -55,3 +55,34 @@ export const formatRecordedTime = (recordedAt?: string | null) => {
 
 /** `recorded_at` z pól formularza. Godzina idzie jako UTC, a pusta to północ, czyli brak godziny. */
 export const toRecordedAt = (date: string, time: string) => `${date}T${time || '00:00'}:00Z`;
+
+/** „1.11.2026" albo „2026-11-01" → ISO; null, gdy to nie jest prawdziwa data, pusty tekst → ''. */
+export const parseTypedDate = (text: string) => {
+  const value = text.trim();
+  if (!value) return '';
+  const dayFirst = /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/.exec(value);
+  const yearFirst = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+  const parts = dayFirst
+    ? [dayFirst[3], dayFirst[2], dayFirst[1]]
+    : yearFirst && [yearFirst[1], yearFirst[2], yearFirst[3]];
+  if (!parts) return null;
+  const [year, month, day] = parts.map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return toIsoDate(date);
+};
+
+/** ISO → „01.11.2026". */
+export const formatTypedDate = (iso: string) => {
+  const [year, month, day] = iso.split('-');
+  return year && month && day ? `${day}.${month}.${year}` : iso;
+};
+
+/** „9:15" albo „09.15" → „09:15"; null, gdy to nie jest godzina, pusty tekst → ''. */
+export const parseTypedTime = (text: string) => {
+  const value = text.trim();
+  if (!value) return '';
+  const match = /^(\d{1,2})[:.](\d{2})$/.exec(value);
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+};

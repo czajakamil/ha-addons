@@ -35,7 +35,7 @@ export const useReports = () => {
   const initialRange = useMemo(() => createInitialRange(), []);
   const [startMonth, setStartMonth] = useState(initialRange.start);
   const [endMonth, setEndMonth] = useState(initialRange.end);
-  const [activeQuickRange, setActiveQuickRange] = useState<QuickRangeId | null>(DEFAULT_QUICK_RANGE);
+  const [activeQuickRange, setActiveQuickRange] = useState<QuickRangeId>(DEFAULT_QUICK_RANGE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ReportsDashboardResponse | null>(null);
@@ -57,7 +57,6 @@ export const useReports = () => {
   const [accountsMenuOpen, setAccountsMenuOpen] = useState(false);
   const [categoriesMenuOpen, setCategoriesMenuOpen] = useState(false);
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
-  const [customRangeMode, setCustomRangeMode] = useState(false);
   const [topbarHidden, setTopbarHidden] = useState(false);
   const [topbarHeight, setTopbarHeight] = useState(0);
   const topbarRef = useRef<HTMLElement | null>(null);
@@ -260,53 +259,25 @@ export const useReports = () => {
     void fetchSnakeyTransactions(startDate, endDate);
   }, [activeTab, data, endMonth, fetchSnakeyTransactions, startMonth]);
 
-  const applyDateRange = (
-    start: string,
-    end: string,
-    options: { quickId?: QuickRangeId | null; closeMenu?: boolean } = {}
-  ) => {
-    if (start > end) {
-      setError('Początek zakresu nie może być późniejszy niż koniec.');
-      return;
-    }
-    setStartMonth(start);
-    setEndMonth(end);
-    setActiveQuickRange(options.quickId ?? null);
-    setCustomRangeMode(!options.quickId);
-    setError(null);
-    void fetchReports(start, end, {
-      accountIds: resolveAccountFilterIds(selectedAccountIds),
-      categoryIds: resolveCategoryFilterIds(selectedCategoryIds)
-    });
-    if (options.closeMenu) {
-      setDateMenuOpen(false);
-    }
-  };
-
   const handleQuickRangeSelect = (rangeId: QuickRangeId) => {
     const option = QUICK_RANGE_OPTIONS.find((item) => item.id === rangeId);
     if (!option) return;
-    const range = option.getRange();
-    applyDateRange(range.start, range.end, { quickId: rangeId, closeMenu: true });
-  };
-
-  const handleCustomRangeChange = (value: string, kind: 'start' | 'end') => {
-    const nextStart = kind === 'start' ? value : startMonth;
-    const nextEnd = kind === 'end' ? value : endMonth;
-    setStartMonth(nextStart);
-    setEndMonth(nextEnd);
-    setActiveQuickRange(null);
-    setCustomRangeMode(true);
-    if (nextStart && nextEnd) {
-      applyDateRange(nextStart, nextEnd, { quickId: null });
-    }
+    const range = option.getRange(data?.earliest_transaction_date);
+    setStartMonth(range.start);
+    setEndMonth(range.end);
+    setActiveQuickRange(rangeId);
+    setError(null);
+    setDateMenuOpen(false);
+    void fetchReports(range.start, range.end, {
+      accountIds: resolveAccountFilterIds(selectedAccountIds),
+      categoryIds: resolveCategoryFilterIds(selectedCategoryIds)
+    });
   };
 
   const applyAccountSelection = useCallback(
     (nextIds: string[], options: { closeMenu?: boolean } = {}) => {
       setSelectedAccountIds(nextIds);
       setPendingAccountIds(nextIds);
-      setActiveQuickRange(null);
       void fetchReports(startMonth, endMonth, {
         accountIds: resolveAccountFilterIds(nextIds),
         categoryIds: resolveCategoryFilterIds(selectedCategoryIds)
@@ -353,7 +324,6 @@ export const useReports = () => {
     (nextIds: string[], options: { closeMenu?: boolean } = {}) => {
       setSelectedCategoryIds(nextIds);
       setPendingCategoryIds(nextIds);
-      setActiveQuickRange(null);
       void fetchReports(startMonth, endMonth, {
         accountIds: resolveAccountFilterIds(selectedAccountIds),
         categoryIds: resolveCategoryFilterIds(nextIds)
@@ -442,12 +412,7 @@ export const useReports = () => {
     startMonth,
     endMonth,
     activeQuickRange,
-    customRangeMode,
-    setCustomRangeMode,
-    setActiveQuickRange,
-    applyDateRange,
     handleQuickRangeSelect,
-    handleCustomRangeChange,
     // data + status
     data,
     loading,

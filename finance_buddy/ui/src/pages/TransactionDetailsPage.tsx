@@ -33,6 +33,7 @@ import SkeletonRows from '../components/ui/SkeletonRows';
 import { formatDayHeading, formatRecordedTime, toRecordedAt } from '../utils/date';
 import { useAuthorizedObjectUrl } from '../hooks/useAuthorizedObjectUrl';
 import { formatMoney, parseAmountToCents } from '../utils/format';
+import { DateInput, TimeInput } from '../components/ui/DateTimeInput';
 import ResizableTable from '../components/ui/ResizableTable';
 
 type RouteParams = {
@@ -708,23 +709,21 @@ const TransactionDetailsPage = () => {
                 )}
                 <div>
                   <label className="form-label" htmlFor="tx-date">Data księgowania</label>
-                  <input
+                  <DateInput
                     id="tx-date"
-                    type="date"
                     className="form-control"
                     value={editFields.date}
-                    onChange={(e) => handleFieldChange('date', e.target.value)}
+                    onChange={(value) => handleFieldChange('date', value)}
                     required
                   />
                 </div>
                 <div>
                   <label className="form-label" htmlFor="tx-time">Godzina (opcjonalnie)</label>
-                  <input
+                  <TimeInput
                     id="tx-time"
-                    type="time"
                     className="form-control"
                     value={editFields.time}
-                    onChange={(e) => handleFieldChange('time', e.target.value)}
+                    onChange={(value) => handleFieldChange('time', value)}
                   />
                 </div>
                 <div>

@@ -854,6 +854,7 @@ class AgeOfMoneyReport(BaseModel):
 class ReportsDashboardResponse(BaseModel):
     start_date: dt.date
     end_date: dt.date
+    earliest_transaction_date: dt.date | None = None
     spending_breakdown: SpendingBreakdownReport
     spending_trends: SpendingTrendsReport
     net_worth: NetWorthReport

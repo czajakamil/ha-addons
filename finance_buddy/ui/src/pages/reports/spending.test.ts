@@ -62,6 +62,9 @@ describe('buildSpending', () => {
     expect(model.rows).toHaveLength(11);
     expect(model.rows[10].name).toBe('Pozostałe · 2 kategorie');
     expect(model.rows[5].color).toBe('grey');
+    expect(model.rows[10].children?.map((row) => row.name)).toEqual(['T10', 'T11']);
+    expect(model.rows[10].children?.[0].categoryId).toBe('id10');
+    expect(model.rows[10].children?.[0].share).toBeGreaterThan(0);
   });
 
   it('grupuje i zawęża do grupy', () => {

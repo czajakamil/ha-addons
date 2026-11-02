@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Account, Store, Category, TransactionCreate } from '../../api';
 import { createTransaction, ensureCategoryPath } from '../../api';
 import TagPathInput from '../tags/TagPathInput';
+import { DateInput, TimeInput } from '../ui/DateTimeInput';
 import { toRecordedAt } from '../../utils/date';
 import { formatMoney, parseAmountToCents } from '../../utils/format';
 
@@ -221,12 +222,11 @@ const NewTransactionModal = ({
                   <label className="form-label" htmlFor="transaction-date">
                     Data
                   </label>
-                  <input
+                  <DateInput
                     id="transaction-date"
-                    type="date"
                     className="form-control"
                     value={formState.date}
-                    onChange={(event) => handleInputChange('date', event.target.value)}
+                    onChange={(value) => handleInputChange('date', value)}
                     disabled={submitting}
                     required
                   />
@@ -235,12 +235,11 @@ const NewTransactionModal = ({
                   <label className="form-label" htmlFor="transaction-time">
                     Godzina (opcjonalnie)
                   </label>
-                  <input
+                  <TimeInput
                     id="transaction-time"
-                    type="time"
                     className="form-control"
                     value={formState.time}
-                    onChange={(event) => handleInputChange('time', event.target.value)}
+                    onChange={(value) => handleInputChange('time', value)}
                     disabled={submitting}
                   />
                 </div>

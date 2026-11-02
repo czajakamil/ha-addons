@@ -9,7 +9,7 @@ import { formatMoney } from '../../utils/format';
 
 import { readToken } from '../../utils/tokens';
 export type MonthRange = { start: string; end: string };
-export type QuickRangeId = 'this-month' | 'last-3-months' | 'last-6-months' | 'last-year' | 'ytd';
+export type QuickRangeId = 'last-3-months' | 'last-6-months' | 'last-12-months' | 'ytd' | 'all';
 export type ReportFilters = { accountIds?: string[]; categoryIds?: string[] };
 
 export const formatMonthInput = (date: Date) =>
@@ -17,55 +17,40 @@ export const formatMonthInput = (date: Date) =>
 
 export const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
-export const QUICK_RANGE_OPTIONS: { id: QuickRangeId; label: string; getRange: () => MonthRange }[] = [
-  {
-    id: 'this-month',
-    label: 'Ten miesiąc',
-    getRange: () => {
-      const now = startOfMonth(new Date());
-      const month = formatMonthInput(now);
-      return { start: month, end: month };
-    }
-  },
-  {
-    id: 'last-3-months',
-    label: 'Ostatnie 3 miesiące',
-    getRange: () => {
-      const now = startOfMonth(new Date());
-      const startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      return { start: formatMonthInput(startDate), end: formatMonthInput(now) };
-    }
-  },
-  {
-    id: 'last-6-months',
-    label: 'Ostatnie 6 miesięcy',
-    getRange: () => {
-      const now = startOfMonth(new Date());
-      const startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      return { start: formatMonthInput(startDate), end: formatMonthInput(now) };
-    }
-  },
-  {
-    id: 'last-year',
-    label: 'Ostatni rok',
-    getRange: () => {
-      const now = startOfMonth(new Date());
-      const startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-      return { start: formatMonthInput(startDate), end: formatMonthInput(now) };
-    }
-  },
+const lastMonths = (count: number): MonthRange => {
+  const now = startOfMonth(new Date());
+  const startDate = new Date(now.getFullYear(), now.getMonth() - (count - 1), 1);
+  return { start: formatMonthInput(startDate), end: formatMonthInput(now) };
+};
+
+export const QUICK_RANGE_OPTIONS: {
+  id: QuickRangeId;
+  label: string;
+  getRange: (earliestDate?: string | null) => MonthRange;
+}[] = [
+  { id: 'last-3-months', label: '3 mies.', getRange: () => lastMonths(3) },
+  { id: 'last-6-months', label: '6 mies.', getRange: () => lastMonths(6) },
+  { id: 'last-12-months', label: '12 mies.', getRange: () => lastMonths(12) },
   {
     id: 'ytd',
-    label: 'YTD',
+    label: 'Ten rok',
     getRange: () => {
       const now = startOfMonth(new Date());
-      const startDate = new Date(now.getFullYear(), 0, 1);
-      return { start: formatMonthInput(startDate), end: formatMonthInput(now) };
+      return { start: formatMonthInput(new Date(now.getFullYear(), 0, 1)), end: formatMonthInput(now) };
+    }
+  },
+  {
+    id: 'all',
+    label: 'Wszystko',
+    getRange: (earliestDate) => {
+      const end = formatMonthInput(startOfMonth(new Date()));
+      const start = earliestDate?.slice(0, 7) ?? end;
+      return { start: start < end ? start : end, end };
     }
   }
 ];
 
-export const DEFAULT_QUICK_RANGE: QuickRangeId = 'last-3-months';
+export const DEFAULT_QUICK_RANGE: QuickRangeId = 'last-12-months';
 
 export const createInitialRange = () =>
   QUICK_RANGE_OPTIONS.find((option) => option.id === DEFAULT_QUICK_RANGE)?.getRange() ??
@@ -88,6 +73,13 @@ export const moneyLabel = (cents: number) => formatMoney(cents, REPORT_CURRENCY)
 export const percentLabel = (value: number) => `${(value * 100).toFixed(1).replace('.', ',')}%`;
 // Backend podpisuje miesiące po angielsku, więc nazwę bierzemy z klucza „RRRR-MM”
 export const reportMonthLabel = (month: string) => fullMonthName.format(monthDate(month));
+const shortMonthName = new Intl.DateTimeFormat('pl-PL', { month: 'short' });
+/** Etykieta wyboru okresu na telefonie, np. „12 mies. · gru–lis”. */
+export const quickRangeSummary = (label: string, start: string, end: string) => {
+  const first = shortMonthName.format(monthDate(start));
+  const last = shortMonthName.format(monthDate(end));
+  return start === end ? `${label} · ${last}` : `${label} · ${first}–${last}`;
+};
 export const reportMonthShort = (month: string) => {
   const date = monthDate(month);
   return `${date.toLocaleDateString('pl-PL', { month: 'short' })} ${String(date.getFullYear()).slice(2)}`;
@@ -98,20 +90,6 @@ export const formatDate = (isoDate: string) =>
     month: 'short',
     day: 'numeric'
   });
-export const formatMonthLabel = (month: string) =>
-  new Date(`${month}-01`).toLocaleDateString('pl-PL', {
-    year: 'numeric',
-    month: 'short'
-  });
-
-// Rok podajemy raz, gdy oba końce zakresu leżą w tym samym
-export const formatMonthRangeShort = (start: string, end: string) => {
-  const endLabel = fullMonthName.format(monthDate(end));
-  if (start.slice(0, 4) !== end.slice(0, 4)) return `${fullMonthName.format(monthDate(start))} – ${endLabel}`;
-  if (start === end) return endLabel;
-  return `${monthDate(start).toLocaleDateString('pl-PL', { month: 'short' })} – ${endLabel}`;
-};
-
 export type CategoryAggregate = { id?: string | null; name: string; total: number };
 export type BreakdownChartEntry = {
   key: string;
@@ -196,9 +174,9 @@ export const aggregateCategories = (months: IncomeExpenseMonthRow[], type: 'inco
 
 export const REPORT_TABS = [
   { id: 'spending', label: 'Wydatki', icon: ChartPieIcon },
+  { id: 'income-expense', label: 'Przychody i wydatki', icon: ArrowLeftRightIcon },
   { id: 'net-worth', label: 'Majątek', icon: ChartAreaIcon },
-  { id: 'snakey', label: 'Przepływy', icon: WorkflowIcon },
-  { id: 'income-expense', label: 'Przychody i wydatki', icon: ArrowLeftRightIcon }
+  { id: 'snakey', label: 'Przepływy', icon: WorkflowIcon }
 ] as const;
 
 export type ReportTabId = (typeof REPORT_TABS)[number]['id'];
