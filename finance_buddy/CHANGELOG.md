@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.10
+
+- Paragony: na telefonie i tablecie jest przycisk „Zrób zdjęcie”, który od razu otwiera tylny aparat.
+  Zdjęcie trafia do skrzynki jako szkic, tak jak wgrany plik.
+- Paragony: przed wysłaniem duże zdjęcia są zmniejszane do 3200 px na dłuższym boku i zapisywane jako JPEG,
+  także te wybrane z galerii. Wysyłka przez komórkowy internet jest dzięki temu kilka razy szybsza,
+  a zdjęcia HEIC z iPhone'a dają się odczytać. PDF-y i małe pliki idą bez zmian.
+
 ## 0.1.9
 
 - Raporty: okres wybiera się rządkiem przycisków nad wykresami (na telefonie z listy), a nagłówek
