@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileInputIcon, ReceiptIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
+import { CameraIcon, FileInputIcon, ReceiptIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import Button from '../../components/Button';
 import {
   deleteReceiptDraft,
@@ -16,6 +16,8 @@ import SegmentedControl from '../../components/ui/SegmentedControl';
 import SkeletonRows from '../../components/ui/SkeletonRows';
 import TruncatedText from '../../components/ui/TruncatedText';
 import { formatShortDate } from '../../utils/date';
+import { cameraPhotoName, prepareReceiptFile } from '../../utils/receiptPhoto';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { formatMoney } from '../../utils/format';
 import ResizableTable from '../../components/ui/ResizableTable';
 
@@ -77,19 +79,26 @@ const ReceiptInboxPage = () => {
 
   // Wybór plików od razu startuje rozpoznawanie: nic nie trafia jeszcze do transakcji,
   // a szkic zawsze można usunąć.
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files ?? []);
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, fromCamera = false) => {
+    const pickedFiles = Array.from(event.target.files ?? []);
     event.target.value = '';
-    if (!selectedFiles.length) return;
+    if (!pickedFiles.length) return;
 
     const controller = new AbortController();
     abortRef.current = controller;
     setUploading(true);
     setError(null);
     setProgress(5);
-    setProgressMessage('Ładowanie plików…');
 
     try {
+      if (pickedFiles.some((file) => file.type.startsWith('image/'))) {
+        setProgressMessage('Przygotowywanie zdjęć…');
+      }
+      const selectedFiles = await Promise.all(
+        pickedFiles.map((file) => prepareReceiptFile(file, fromCamera ? cameraPhotoName() : file.name))
+      );
+      if (controller.signal.aborted) return;
+      setProgressMessage('Ładowanie plików…');
       const response = await uploadReceiptsWithProgress(selectedFiles, {
         onUploadProgress: (loaded, total) => {
           setProgress(Math.min(50, Math.max(8, (loaded / (total || 1)) * 45 + 5)));
@@ -131,6 +140,10 @@ const ReceiptInboxPage = () => {
   };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  // Telefon i tablet: tam aparat jest pod ręką. Na komputerze `capture` i tak
+  // otwiera zwykły wybór pliku, więc drugi przycisk tylko by mylił.
+  const hasTouchCamera = useMediaQuery('(pointer: coarse)');
 
   const openFirst = () => {
     const first = drafts[0];
@@ -153,13 +166,33 @@ const ReceiptInboxPage = () => {
               <RefreshCwIcon size={14} aria-hidden="true" />
               Odśwież
             </button>
+            {hasTouchCamera && (
+              <Button
+                icon={<CameraIcon size={16} aria-hidden="true" />}
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={uploading}
+              >
+                Zrób zdjęcie
+              </Button>
+            )}
             <Button
+              // Na telefonie główną akcją jest aparat, wgrywanie plików schodzi na drugi plan.
+              variant={hasTouchCamera ? 'outline-secondary' : 'primary'}
               icon={<FileInputIcon size={16} aria-hidden="true" />}
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
               {uploading ? 'Przetwarzanie…' : 'Wgraj paragony'}
             </Button>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              className="d-none"
+              accept="image/*"
+              capture="environment"
+              aria-label="Zdjęcie paragonu"
+              onChange={(event) => void handleFileChange(event, true)}
+            />
             <input
               ref={fileInputRef}
               type="file"
