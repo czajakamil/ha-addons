@@ -70,13 +70,13 @@ const NetWorthComposition = ({ balances, categories }: NetWorthCompositionProps)
             className={`breakdown-toggle__option${view === 'tags' ? ' is-active' : ''}`}
             onClick={() => setView('tags')}
           >
-            Tagi
+            Kategorie
           </button>
         </div>
       </div>
       {view === 'tags' && activeTagId && (
         <div className="breakdown-filter">
-          <span className="breakdown-filter__label">Ścieżka tagu:</span>
+          <span className="breakdown-filter__label">Ścieżka kategorii:</span>
           <span className="breakdown-filter__value">{tagPath(activeTagId, categories)}</span>
           <button type="button" className="breakdown-filter__clear" onClick={handleBack}>
             Wróć
@@ -84,7 +84,7 @@ const NetWorthComposition = ({ balances, categories }: NetWorthCompositionProps)
         </div>
       )}
       <ReportBarList
-        title={view === 'types' ? 'Typy kont' : 'Tagi kont'}
+        title={view === 'types' ? 'Typy kont' : 'Kategorie kont'}
         rows={rows.map((entry) => {
           const { categoryId } = entry;
           return {

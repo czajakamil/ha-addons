@@ -29,7 +29,7 @@ export const refreshUntaggedCount = (): Promise<void> => {
     })
     .catch((err) => {
       // Licznik to dodatek — błąd nie może psuć nawigacji.
-      console.warn('Nie udało się pobrać licznika nieotagowanych', err);
+      console.warn('Nie udało się pobrać licznika transakcji bez kategorii', err);
     })
     .finally(() => {
       inFlight = null;

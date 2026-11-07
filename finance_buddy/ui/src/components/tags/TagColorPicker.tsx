@@ -146,7 +146,7 @@ const TagColorPicker = ({ resolved, ownColorId, canInherit = true, disabled, onS
         disabled={disabled}
         aria-haspopup="true"
         aria-expanded={open}
-        title="Zmień kolor tagu"
+        title="Zmień kolor kategorii"
       >
         <TagColorDot value={resolved.value} inherited={resolved.inherited} size={14} />
       </button>

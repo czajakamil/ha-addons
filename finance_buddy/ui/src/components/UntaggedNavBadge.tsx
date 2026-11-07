@@ -19,7 +19,7 @@ const UntaggedNavBadge = () => {
 
   if (!count) return null;
   return (
-    <span className="sidebar__badge" title={`${count} do otagowania`} aria-label={`${count} do otagowania`}>
+    <span className="sidebar__badge" title={`${count} bez kategorii`} aria-label={`${count} bez kategorii`}>
       {count}
     </span>
   );

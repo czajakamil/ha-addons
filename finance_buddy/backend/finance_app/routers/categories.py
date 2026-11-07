@@ -47,7 +47,7 @@ def list_categories(
     parent_id: str | None = None,
     for_accounts: bool | None = Query(None),
     path_prefix: str | None = Query(
-        None, description="Zwraca tag o tej ścieżce i całe jego pod-drzewo."
+        None, description="Zwraca kategorię o tej ścieżce i całe jej pod-drzewo."
     ),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
@@ -101,7 +101,8 @@ def create_category(
         existing = find_child(db, current_user.id, payload.parent_id, payload.name)
         if existing:
             raise HTTPException(
-                status.HTTP_409_CONFLICT, detail="Tag o tej nazwie już istnieje na tym poziomie."
+                status.HTTP_409_CONFLICT,
+                detail="Kategoria o tej nazwie już istnieje na tym poziomie.",
             )
         category = Category(
             name=sanitize_segment(payload.name),
@@ -142,13 +143,13 @@ def update_category(
         if is_descendant_or_self(db, current_user.id, new_parent_id, category.id):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                detail="Nie można przenieść tagu do jego własnego pod-drzewa.",
+                detail="Nie można przenieść kategorii do jej własnego pod-drzewa.",
             )
 
     sibling = find_child(db, current_user.id, new_parent_id, new_name)
     if sibling and sibling.id != category.id:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, detail="Tag o tej nazwie już istnieje na tym poziomie."
+            status.HTTP_409_CONFLICT, detail="Kategoria o tej nazwie już istnieje na tym poziomie."
         )
 
     category.name = new_name

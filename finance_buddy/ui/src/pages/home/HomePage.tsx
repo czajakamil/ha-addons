@@ -220,7 +220,7 @@ const HomePage = () => {
                           {tx.category_id ? (
                             <TagChip category={categoryById.get(tx.category_id)} byId={categoryById} />
                           ) : tx.needs_tag ? (
-                            <Link to="/transactions/untagged" className="text-button">
+                            <Link to="/transactions/uncategorized" className="text-button">
                               {labels.addTag}
                             </Link>
                           ) : null}

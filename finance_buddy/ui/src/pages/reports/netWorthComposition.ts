@@ -86,7 +86,7 @@ export const buildTagEntries = (
 
     const activeIndex = chain.findIndex((category) => category.id === activeParentId);
     if (activeIndex === 0) {
-      addToBucket(buckets, `${activeParentId}::self`, 'Bez podtagu', amount);
+      addToBucket(buckets, `${activeParentId}::self`, 'Bez podkategorii', amount);
     } else if (activeIndex > 0) {
       const child = chain[activeIndex - 1];
       addToBucket(buckets, child.id, child.name, amount, child.id);

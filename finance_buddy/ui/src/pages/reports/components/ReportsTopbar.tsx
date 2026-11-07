@@ -185,7 +185,7 @@ const ReportsTopbar = ({ controller }: ReportsTopbarProps) => {
       if (categoryId === UNCATEGORIZED_CATEGORY_ID) {
         return UNCATEGORIZED_CATEGORY_NAME;
       }
-      return categories.find((item) => item.id === categoryId)?.name ?? 'Tag';
+      return categories.find((item) => item.id === categoryId)?.name ?? 'Kategoria';
     },
     [categories]
   );

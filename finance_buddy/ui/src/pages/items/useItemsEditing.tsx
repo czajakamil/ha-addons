@@ -52,7 +52,7 @@ export const useItemsEditing = ({
     },
     setError: setInlineError,
     errorMessages: {
-      resolve: 'Nie udało się utworzyć tagu.',
+      resolve: 'Nie udało się utworzyć kategorii.',
       save: 'Nie udało się zaktualizować przedmiotu.'
     }
   });

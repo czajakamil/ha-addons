@@ -1,17 +1,26 @@
-// Menu kontekstowe wiersza transakcji (otwórz szczegóły / usuń).
+// Menu kontekstowe wiersza transakcji (otwórz szczegóły / uzgodnij / usuń).
 // Fokus wchodzi do menu po otwarciu; strzałki/Home/End przełączają pozycje,
 // Enter/Spacja aktywują, Esc (obsługiwany na poziomie strony) zamyka.
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { ListIcon, Trash2Icon } from 'lucide-react';
+import { ListIcon, LockIcon, LockOpenIcon, Trash2Icon } from 'lucide-react';
 
 type TransactionsContextMenuProps = {
   x: number;
   y: number;
+  reconciled: boolean;
   onOpenDetails: () => void;
+  onToggleReconciled: () => void;
   onDelete: () => void;
 };
 
-const TransactionsContextMenu = ({ x, y, onOpenDetails, onDelete }: TransactionsContextMenuProps) => {
+const TransactionsContextMenu = ({
+  x,
+  y,
+  reconciled,
+  onOpenDetails,
+  onToggleReconciled,
+  onDelete
+}: TransactionsContextMenuProps) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -73,6 +82,21 @@ const TransactionsContextMenu = ({ x, y, onOpenDetails, onDelete }: Transactions
             aria-hidden="true"
           />
           <span className="transactions-context-menu__label">Pokaż szczegóły</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="transactions-context-menu__item is-focusable u-inline-center"
+          onClick={onToggleReconciled}
+        >
+          {reconciled ? (
+            <LockOpenIcon className="transactions-context-menu__icon u-inline-center" size={18} aria-hidden="true" />
+          ) : (
+            <LockIcon className="transactions-context-menu__icon u-inline-center" size={18} aria-hidden="true" />
+          )}
+          <span className="transactions-context-menu__label">
+            {reconciled ? 'Cofnij uzgodnienie' : 'Oznacz jako uzgodnioną'}
+          </span>
         </button>
         <button
           type="button"

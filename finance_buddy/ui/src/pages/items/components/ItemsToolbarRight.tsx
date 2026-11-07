@@ -26,7 +26,7 @@ const ItemsToolbarRight = ({
           id="items-search-input"
           type="search"
           className="form-control form-control-sm accounts-search"
-          placeholder="Nazwa, grupa, tag, producent…"
+          placeholder="Nazwa, grupa, kategoria, producent…"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           aria-label="Szukaj przedmiotów"

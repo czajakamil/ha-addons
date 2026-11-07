@@ -467,7 +467,7 @@ const ReceiptDraftEditorPage = () => {
             });
             setStores(await getAllStores());
           } catch (err) {
-            console.error('Nie udało się zapamiętać tagu dla sklepu', err);
+            console.error('Nie udało się zapamiętać kategorii dla sklepu', err);
           }
         }
         await refreshQueue();
@@ -795,7 +795,7 @@ const ReceiptDraftEditorPage = () => {
               />
             </div>
             <div className="receipt-field">
-              <label className="form-label">Tag transakcji</label>
+              <label className="form-label">Kategoria transakcji</label>
               <TagPathInput
                 value={form.categoryPath}
                 categories={categories}
@@ -814,7 +814,7 @@ const ReceiptDraftEditorPage = () => {
                   <span className="text-secondary">
                     {tagSuggestion.source === 'store'
                       ? `zapamiętany dla: ${storeLabel}`
-                      : `wspólny tag ${tagSuggestion.tagged} z ${tagSuggestion.total} pozycji`}
+                      : `wspólna kategoria ${tagSuggestion.tagged} z ${tagSuggestion.total} pozycji`}
                   </span>
                 </div>
               ) : null}
@@ -827,7 +827,7 @@ const ReceiptDraftEditorPage = () => {
                     onChange={(event) => setRememberStoreTag(event.target.checked)}
                   />
                   <span className="text-secondary">
-                    Zapamiętaj ten tag dla sklepu {storeLabel}
+                    Zapamiętaj tę kategorię dla sklepu {storeLabel}
                   </span>
                 </label>
               ) : null}

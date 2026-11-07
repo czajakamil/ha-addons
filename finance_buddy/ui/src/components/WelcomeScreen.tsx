@@ -485,9 +485,9 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                   </div>
 
                   <div className="welcome__stat">
-                    <span>Tagi</span>
+                    <span>Kategorie</span>
                     <strong>{summary.categories}</strong>
-                    <small>Załadowane tagi</small>
+                    <small>Załadowane kategorie</small>
                   </div>
 
                   <div className="welcome__stat">

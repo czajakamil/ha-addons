@@ -70,7 +70,7 @@ const BudgetTable = ({
           icon={PiggyBank}
           message={copy.budget.emptyAll}
           action={
-            <Link to="/tags" className="text-button">
+            <Link to="/categories" className="text-button">
               {copy.budget.addGroup}
             </Link>
           }

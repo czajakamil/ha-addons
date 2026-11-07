@@ -1,4 +1,19 @@
-/* Okno przedmiotu: nazwy z paragonów i scalanie. */
+/* Lista przedmiotów: kolumny zakupów jak w tabeli sklepów. */
+
+.items-grid .items-grid__count,
+.items-grid .items-grid__last {
+  color: var(--text-muted);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.items-grid .items-grid__spent {
+  font-weight: var(--weight-medium);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Okno przedmiotu: zakupy, nazwy z paragonów i scalanie. */
 
 .item-sections {
   display: flex;

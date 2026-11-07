@@ -80,6 +80,24 @@ export interface ItemUsage {
 
 export const getItemUsage = () => request<ItemUsage[]>('/items/usage');
 
+/** Zakupy przedmiotu. Przedmiot nigdy niekupiony nie ma wiersza. */
+export interface ItemStatsRow {
+  item_id: string;
+  count: number;
+  spent_cents_12m: number;
+  last_date?: string | null;
+}
+
+export interface ItemMonthlySpend {
+  month: string;
+  cents: number;
+}
+
+export const getItemStats = () => request<ItemStatsRow[]>('/items/stats');
+
+export const getItemMonthlySpend = (itemId: string) =>
+  request<ItemMonthlySpend[]>(`/items/stats/monthly?item_ids=${encodeURIComponent(itemId)}`);
+
 export interface ItemMergeResult {
   target_id: string;
   merged_count: number;

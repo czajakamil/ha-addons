@@ -44,16 +44,16 @@ describe('skład majątku', () => {
     expect(entries[2].total).toBe(-30_00);
   });
 
-  it('konto z nieznanym tagiem trafia do „Bez tagu”', () => {
+  it('konto z nieznanym tagiem trafia do „Bez kategorii”', () => {
     const entries = buildTagEntries([balance(10_00, 'skasowany')], categories, null);
-    expect(entries[0].name).toBe('Bez tagu');
+    expect(entries[0].name).toBe('Bez kategorii');
   });
 
   it('po wejściu w tag grupuje według podtagów i konta bezpośrednio na tagu', () => {
     const entries = buildTagEntries(balances, categories, 'savings');
     expect(entries.map((entry) => [entry.name, entry.total])).toEqual([
       ['Emerytura', 100_00],
-      ['Bez podtagu', 50_00]
+      ['Bez podkategorii', 50_00]
     ]);
   });
 

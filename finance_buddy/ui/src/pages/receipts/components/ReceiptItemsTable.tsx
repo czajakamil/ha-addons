@@ -243,7 +243,7 @@ const ReceiptItemsTable = ({
                           value={row.categoryPath}
                           categories={categories}
                           forAccounts={false}
-                          placeholder="tag, np. jedzenie/nabiał"
+                          placeholder="kategoria, np. jedzenie/nabiał"
                           onChange={(value) => onChange(index, { categoryPath: value })}
                         />
                       </div>

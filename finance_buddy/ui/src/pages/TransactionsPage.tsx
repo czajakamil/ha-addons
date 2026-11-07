@@ -146,7 +146,8 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     inlineError,
     setInlineError,
     statusUpdatingId,
-    cycleTransactionStatus,
+    toggleTransactionStatus,
+    toggleTransactionReconciled,
     renderCommentCell,
     renderLookupCell,
     renderAmountCell,
@@ -288,6 +289,15 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     openTransactionDetails(transaction.id);
   };
 
+  const handleContextMenuToggleReconciledClick = () => {
+    if (!contextMenu) {
+      return;
+    }
+    const transaction = contextMenu.transaction;
+    closeContextMenu({ refocusCell: true });
+    void toggleTransactionReconciled(transaction);
+  };
+
   const toggleExpanded = useCallback((transactionId: string) => {
     setExpandedIds((current) => {
       const next = new Set(current);
@@ -348,7 +358,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
           {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
         </button>
         {tagCount > 1 ? (
-          <span className="transactions-split__badge" title="Pozycje mają różne tagi">
+          <span className="transactions-split__badge" title="Pozycje mają różne kategorie">
             podział ({tagCount})
           </span>
         ) : null}
@@ -565,7 +575,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
           <TransactionStatusCell
             transaction={row.transaction}
             updating={statusUpdatingId === row.transaction.id}
-            onCycle={(transaction) => void cycleTransactionStatus(transaction)}
+            onToggle={(transaction) => void toggleTransactionStatus(transaction)}
           />
         ) : null
     },
@@ -729,7 +739,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
           actions={
             <>
               {untaggedCount ? (
-                <button type="button" className="text-button" onClick={() => navigate('/transactions/untagged')}>
+                <button type="button" className="text-button" onClick={() => navigate('/transactions/uncategorized')}>
                   <Tags size={14} aria-hidden="true" />
                   {labels.toTag(untaggedCount)}
                 </button>
@@ -856,7 +866,9 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         <TransactionsContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          reconciled={contextMenu.transaction.reconciled}
           onOpenDetails={handleContextMenuOpenClick}
+          onToggleReconciled={handleContextMenuToggleReconciledClick}
           onDelete={handleContextMenuDeleteClick}
         />
       )}

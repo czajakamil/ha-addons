@@ -216,7 +216,7 @@ const NewAccountModal = ({
                 </div>
                 <div className="mb-3">
                   <label htmlFor="new-account-category" className="form-label">
-                    Tag konta (opcjonalnie)
+                    Kategoria konta (opcjonalnie)
                   </label>
                   <TagPathInput
                     inputId="new-account-category"
@@ -228,7 +228,7 @@ const NewAccountModal = ({
                     onChange={(value) => setFormState((prev) => ({ ...prev, categoryName: value }))}
                   />
                   <div className="form-text text-secondary mb-0">
-                    Wybierz typ konta korzystając z hierarchii tagów (np. inwestycje/obligacje).
+                    Wybierz typ konta korzystając z hierarchii kategorii (np. inwestycje/obligacje).
                   </div>
                 </div>
                 <div className="mb-3">

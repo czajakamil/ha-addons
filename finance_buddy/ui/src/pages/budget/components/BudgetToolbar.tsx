@@ -57,7 +57,7 @@ const BudgetToolbar = ({
           count: filterCounts[value]
         }))}
       />
-      <Link to="/tags" className="text-button">
+      <Link to="/categories" className="text-button">
         {copy.budget.addGroup}
       </Link>
     </div>

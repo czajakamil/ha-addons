@@ -47,7 +47,7 @@ describe('buildSpending', () => {
 
   it('sortuje malejąco, koloruje największych i porównuje ostatni pełny miesiąc ze średnią', () => {
     const [rent, food, none] = build().rows;
-    expect([rent.name, food.name, none.name]).toEqual(['Czynsz', 'Zakupy', 'Bez tagu']);
+    expect([rent.name, food.name, none.name]).toEqual(['Czynsz', 'Zakupy', 'Bez kategorii']);
     expect(rent.color).toBe('c0');
     expect(rent.change).toBeCloseTo(0);
     expect(food.change).toBeCloseTo((80_00 - 60_00) / 60_00);
@@ -69,7 +69,7 @@ describe('buildSpending', () => {
 
   it('grupuje i zawęża do grupy', () => {
     const groups = build({ view: 'groups' }).rows;
-    expect(groups.map((row) => row.name)).toEqual(['Dom', 'Jedzenie', 'Bez tagu']);
+    expect(groups.map((row) => row.name)).toEqual(['Dom', 'Jedzenie', 'Bez kategorii']);
     const food = build({ groupFilter: 'jedzenie' });
     expect(food.rows.map((row) => row.name)).toEqual(['Zakupy']);
   });

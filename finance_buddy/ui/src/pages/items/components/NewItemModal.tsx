@@ -67,7 +67,7 @@ const NewItemModal = ({ onClose, onCreated, categories, ensureCategory }: NewIte
         payload.category_id = await ensureCategory(categoryPath);
       } catch (err) {
         console.error(err);
-        setError('Nie udało się utworzyć tagu.');
+        setError('Nie udało się utworzyć kategorii.');
         return;
       }
     }
@@ -132,7 +132,7 @@ const NewItemModal = ({ onClose, onCreated, categories, ensureCategory }: NewIte
                 </div>
                 <div className="mb-3">
                   <label htmlFor="new-item-category" className="form-label">
-                    Tag (opcjonalnie)
+                    Kategoria (opcjonalnie)
                   </label>
                   <TagPathInput
                     inputId="new-item-category"
@@ -143,7 +143,7 @@ const NewItemModal = ({ onClose, onCreated, categories, ensureCategory }: NewIte
                     placeholder="np. dom/remont"
                     onChange={(value) => setFormState((prev) => ({ ...prev, categoryPath: value }))}
                   />
-                  <p className="form-hint mb-0">Wpisz ścieżkę tagu, np. "dom/remont".</p>
+                  <p className="form-hint mb-0">Wpisz ścieżkę kategorii, np. "dom/remont".</p>
                 </div>
                 <div className="mb-3">
                   <label htmlFor="new-item-group-name" className="form-label">

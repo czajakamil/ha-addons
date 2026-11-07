@@ -6,15 +6,18 @@ import { useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Category, Item, ItemUpdate, deleteItem, updateItem } from '../../../api';
 import TagPathInput from '../../../components/tags/TagPathInput';
-import { getItemLabel } from '../model';
+import { getItemLabel, type ItemStat } from '../model';
 import ItemAliasesSection from './ItemAliasesSection';
 import ItemMergeSection from './ItemMergeSection';
+import ItemPurchasesSection from './ItemPurchasesSection';
 
 type ManageItemModalProps = {
   item: Item;
   /** Wszystkie przedmioty — kandydaci na cel scalenia. */
   items: Item[];
   usageById: Map<string, number>;
+  /** Zakupy przedmiotu; null, gdy nie był kupiony albo statystyki się nie wczytały. */
+  stat: ItemStat | null;
   categories: Category[];
   /** Zamienia ścieżkę tagu na id, tworząc brakujące tagi (wraz z przodkami). */
   ensureCategory: (path: string) => Promise<string>;
@@ -63,6 +66,7 @@ const ManageItemModal = ({
   item,
   items,
   usageById,
+  stat,
   categories,
   ensureCategory,
   onClose,
@@ -129,7 +133,7 @@ const ManageItemModal = ({
           normalizedCategoryId = await ensureCategory(normalizedTagPath);
         } catch (err) {
           console.error(err);
-          setError('Nie udało się utworzyć tagu.');
+          setError('Nie udało się utworzyć kategorii.');
           return;
         }
       }
@@ -241,7 +245,7 @@ const ManageItemModal = ({
 
                   <div className="col-12">
                     <label className="form-label" htmlFor="manage-item-category">
-                      Tag
+                      Kategoria
                     </label>
                     <TagPathInput
                       inputId="manage-item-category"
@@ -252,7 +256,7 @@ const ManageItemModal = ({
                       placeholder="np. dom/remont"
                       onChange={(value) => setField('categoryPath', value)}
                     />
-                    <p className="form-hint mb-0">Nieistniejący tag zostanie utworzony przy zapisie.</p>
+                    <p className="form-hint mb-0">Nieistniejąca kategoria zostanie utworzona przy zapisie.</p>
                   </div>
 
                   <div className="col-lg-6">
@@ -302,6 +306,7 @@ const ManageItemModal = ({
                 </div>
 
                 <div className="item-sections">
+                  <ItemPurchasesSection itemId={item.id} stat={stat} />
                   <ItemAliasesSection itemId={item.id} disabled={busy} />
                   <ItemMergeSection
                     item={item}

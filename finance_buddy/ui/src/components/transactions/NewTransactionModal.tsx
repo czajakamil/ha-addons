@@ -128,7 +128,7 @@ const NewTransactionModal = ({
         categoryId = await ensureCategoryPath(formState.categoryPath, categories, false);
       } catch (err) {
         console.error(err);
-        setError('Nie udało się zapisać tagu.');
+        setError('Nie udało się zapisać kategorii.');
         return;
       }
     }
@@ -299,7 +299,7 @@ const NewTransactionModal = ({
                       ))}
                   </select>
                   <div className="form-hint">
-                    Jeśli wybierzesz konto docelowe, sklep i tag zostaną pominięte.
+                    Jeśli wybierzesz konto docelowe, sklep i kategoria zostaną pominięte.
                   </div>
                 </div>
                 <div className="mb-3">
@@ -332,7 +332,7 @@ const NewTransactionModal = ({
                 </div>
                 <div className="mb-3">
                   <label className="form-label" htmlFor="transaction-category">
-                    Tag (opcjonalnie)
+                    Kategoria (opcjonalnie)
                   </label>
                   <TagPathInput
                     inputId="transaction-category"

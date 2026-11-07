@@ -170,7 +170,7 @@ const UntaggedQueuePage = () => {
       releaseFocus();
     } catch (err) {
       console.error(err);
-      setError('Nie udało się zapisać tagu.');
+      setError('Nie udało się zapisać kategorii.');
     } finally {
       setBusy(false);
     }
@@ -188,7 +188,7 @@ const UntaggedQueuePage = () => {
     if (!current?.store_id || busy) return;
     const path = draftPath.trim();
     if (!path) {
-      setError('Najpierw wybierz tag (T), potem otaguj cały sklep.');
+      setError('Najpierw wybierz kategorię (T), potem nadaj ją całemu sklepowi.');
       focusTagInput();
       return;
     }
@@ -227,7 +227,7 @@ const UntaggedQueuePage = () => {
       setNotice(`${confirm.storeName}: ${updated} × → ${confirm.path}`);
     } catch (err) {
       console.error(err);
-      setError('Nie udało się otagować transakcji sklepu.');
+      setError('Nie udało się nadać kategorii transakcjom sklepu.');
     } finally {
       setBusy(false);
     }
@@ -293,7 +293,7 @@ const UntaggedQueuePage = () => {
   return (
     <div className="page-shell page-stack-layout untagged-queue">
       <PageHeader
-        title="Do otagowania"
+        title="Bez kategorii"
         count={loading ? undefined : total}
         actions={
           <Link to="/transactions" className="text-button">
@@ -316,8 +316,8 @@ const UntaggedQueuePage = () => {
           ) : !items.length ? (
             <div className="untagged-queue__empty">
               <CheckIcon size={24} strokeWidth={1.5} aria-hidden="true" />
-              <strong>Wszystko otagowane</strong>
-              <span className="untagged-queue__muted">Nowe transakcje bez tagu pojawią się tutaj.</span>
+              <strong>Wszystko ma kategorię</strong>
+              <span className="untagged-queue__muted">Nowe transakcje bez kategorii pojawią się tutaj.</span>
             </div>
           ) : !current ? (
             <div className="untagged-queue__empty">
@@ -355,7 +355,7 @@ const UntaggedQueuePage = () => {
 
               <div className="untagged-queue__field">
                 <label className="form-label" htmlFor={TAG_INPUT_ID}>
-                  Tag
+                  Kategoria
                 </label>
                 <TagPathInput
                   inputId={TAG_INPUT_ID}
@@ -363,7 +363,7 @@ const UntaggedQueuePage = () => {
                   categories={categories}
                   forAccounts={false}
                   commitOnBlur={false}
-                  placeholder="Wpisz tag, np. jedzenie/zakupy"
+                  placeholder="Wpisz kategorię, np. jedzenie/zakupy"
                   disabled={busy}
                   onChange={(path) => setOverride({ id: current.id, path })}
                   onCommit={(path) => void tagCurrent(path)}
@@ -379,20 +379,20 @@ const UntaggedQueuePage = () => {
                       <span className="untagged-queue__muted">{describeSuggestion(suggestion)}</span>
                     </>
                   ) : (
-                    <span className="untagged-queue__muted">Brak podpowiedzi: nic podobnego nie ma jeszcze tagu.</span>
+                    <span className="untagged-queue__muted">Brak podpowiedzi: nic podobnego nie ma jeszcze kategorii.</span>
                   )}
                 </div>
               </div>
 
               {confirm ? (
-                <div className="untagged-queue__confirm" role="alertdialog" aria-label="Otagować cały sklep?">
+                <div className="untagged-queue__confirm" role="alertdialog" aria-label="Nadać kategorię całemu sklepowi?">
                   <p>
-                    Otagować <strong>{confirm.count}</strong> {confirm.count === 1 ? 'transakcję' : 'transakcji'} z „
-                    {confirm.storeName}” tagiem <strong>{confirm.path}</strong>?
+                    Nadać kategorię <strong>{confirm.path}</strong> <strong>{confirm.count}</strong>{' '}
+                    {confirm.count === 1 ? 'transakcji' : 'transakcjom'} z „{confirm.storeName}”?
                   </p>
                   <div className="untagged-queue__actions">
                     <Button onClick={() => void confirmTagStore()} disabled={busy}>
-                      Tak, otaguj <Kbd>⏎</Kbd>
+                      Tak, nadaj <Kbd>⏎</Kbd>
                     </Button>
                     <Button variant="outline-secondary" onClick={() => setConfirm(null)}>
                       Anuluj <Kbd>Esc</Kbd>
@@ -429,7 +429,7 @@ const UntaggedQueuePage = () => {
 
           {notice ? <div className="untagged-queue__notice">Ostatnio: {notice}</div> : null}
           <div className="untagged-queue__help">
-            <Kbd>T</Kbd> inny tag · <Kbd>J</Kbd>/<Kbd>K</Kbd> następna/poprzednia · <Kbd>Esc</Kbd> wyjście z pola
+            <Kbd>T</Kbd> inna kategoria · <Kbd>J</Kbd>/<Kbd>K</Kbd> następna/poprzednia · <Kbd>Esc</Kbd> wyjście z pola
           </div>
         </section>
 

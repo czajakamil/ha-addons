@@ -47,14 +47,16 @@ export type TransactionColumnId =
 
 export type TransactionStatusState = 'pending' | 'cleared' | 'reconciled';
 
-export const STATUS_PRESENTATION: Record<
-  TransactionStatusState,
-  { short: string; label: string; nextAction: string }
-> = {
-  pending: { short: 'N', label: 'Niezatwierdzona', nextAction: 'zatwierdzić' },
-  cleared: { short: 'Z', label: 'Zatwierdzona', nextAction: 'oznaczyć jako uzgodnioną' },
-  reconciled: { short: 'U', label: 'Uzgodniona', nextAction: 'cofnąć zatwierdzenie' }
+// Kliknięcie w status przełącza tylko niezatwierdzona ↔ zatwierdzona. Uzgodnienie to świadoma
+// decyzja (menu kontekstowe), a jego cofnięcie wymaga potwierdzenia — przypadkowe kliknięcie
+// nie może zdjąć statusu „sprawdzone z wyciągiem”.
+export const STATUS_PRESENTATION: Record<TransactionStatusState, { label: string; clickHint: string }> = {
+  pending: { label: 'Niezatwierdzona', clickHint: 'Kliknij, aby zatwierdzić.' },
+  cleared: { label: 'Zatwierdzona', clickHint: 'Kliknij, aby cofnąć zatwierdzenie.' },
+  reconciled: { label: 'Uzgodniona', clickHint: 'Kliknij, aby cofnąć uzgodnienie.' }
 };
+
+export const UNRECONCILE_CONFIRM = 'Cofnąć uzgodnienie tej transakcji? Pozostanie zatwierdzona.';
 
 export const getTransactionStatusState = (transaction: Transaction): TransactionStatusState => {
   if (transaction.reconciled) {
@@ -68,15 +70,17 @@ export const getTransactionStatusState = (transaction: Transaction): Transaction
 
 export type StatusUpdatePayload = { cleared: boolean; reconciled: boolean };
 
-export const getNextStatusPayload = (transaction: Transaction): StatusUpdatePayload => {
+/** Payload dla kliknięcia w ikonę statusu. Z uzgodnionej schodzi tylko do zatwierdzonej. */
+export const getToggleStatusPayload = (transaction: Transaction): StatusUpdatePayload => {
   if (transaction.reconciled) {
-    return { cleared: false, reconciled: false };
+    return { cleared: true, reconciled: false };
   }
-  if (transaction.cleared) {
-    return { cleared: true, reconciled: true };
-  }
-  return { cleared: true, reconciled: false };
+  return { cleared: !transaction.cleared, reconciled: false };
 };
+
+/** Payload dla „Oznacz jako uzgodnioną” / „Cofnij uzgodnienie” z menu kontekstowego. */
+export const getToggleReconciledPayload = (transaction: Transaction): StatusUpdatePayload =>
+  transaction.reconciled ? { cleared: true, reconciled: false } : { cleared: true, reconciled: true };
 
 export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>> = {
   select: 40,

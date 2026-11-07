@@ -93,9 +93,9 @@ export const buildTodoItems = (summary: HomeSummary, backup: BackupHealth | null
       key: 'untagged',
       kind: 'untagged',
       tone: 'warning',
-      label: 'Transakcje bez tagu',
+      label: 'Transakcje bez kategorii',
       value: String(summary.untagged_count),
-      to: '/transactions/untagged'
+      to: '/transactions/uncategorized'
     });
   }
 

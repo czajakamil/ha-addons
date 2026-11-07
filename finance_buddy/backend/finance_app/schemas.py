@@ -366,6 +366,20 @@ class ItemAliasRead(BaseModel):
     store_name: str | None = None
 
 
+class ItemStats(BaseModel):
+    """Zakupy przedmiotu: liczba transakcji, wydatki z 12 miesięcy i ostatni zakup."""
+
+    item_id: str
+    count: int
+    spent_cents_12m: int
+    last_date: dt.date | None = None
+
+
+class ItemMonthlySpend(BaseModel):
+    month: str
+    cents: int
+
+
 class ItemUsageRead(BaseModel):
     """Liczba pozycji transakcji i aliasów produktu — do listy i scalania."""
 

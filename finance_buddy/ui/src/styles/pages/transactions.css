@@ -252,7 +252,7 @@
     line-height: var(--row-height);
   }
 
-  /* Wyjątek widoczny, norma odsłaniana na hover wiersza */
+  /* Status zawsze widoczny; niezatwierdzone wyróżnione kolorem ostrzegawczym */
   .transactions-grid .transactions-status__button {
     display: inline-flex;
     align-items: center;
@@ -271,18 +271,8 @@
     color: var(--warning);
   }
 
-  .transactions-grid .transactions-status__button--cleared,
-  .transactions-grid .transactions-status__button--reconciled,
-  .transactions-row-action {
-    opacity: 0;
-    transition: opacity var(--motion-fast);
-  }
-
-  .rdg-row:hover .transactions-status__button,
-  .rdg-row:hover .transactions-row-action,
-  .transactions-status__button:focus-visible,
-  .transactions-row-action:focus-visible {
-    opacity: 1;
+  .transactions-grid .transactions-status__button--cleared {
+    color: color-mix(in srgb, var(--positive) 60%, var(--text-muted));
   }
 
   .transactions-row-action {

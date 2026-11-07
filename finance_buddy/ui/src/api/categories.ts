@@ -74,7 +74,7 @@ export const ensureCategoryPath = async (
 ): Promise<string> => {
   const trimmed = path.trim();
   if (!trimmed) {
-    throw new Error('Ścieżka tagu jest wymagana.');
+    throw new Error('Ścieżka kategorii jest wymagana.');
   }
   const existing = categories.find(
     (category) =>

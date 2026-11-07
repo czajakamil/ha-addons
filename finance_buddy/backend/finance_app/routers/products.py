@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -18,11 +20,13 @@ from ..schemas import (
     ItemCreate,
     ItemMergeRequest,
     ItemMergeResult,
+    ItemMonthlySpend,
     ItemRead,
+    ItemStats,
     ItemUpdate,
     ItemUsageRead,
 )
-from ..services import product_merges
+from ..services import product_merges, product_stats
 
 router = APIRouter()
 
@@ -87,6 +91,25 @@ def list_item_usage(
         )
         for item_id in ids
     ]
+
+
+@router.get("/items/stats", response_model=list[ItemStats])
+def get_item_stats(
+    item_ids: Annotated[list[str] | None, Query()] = None,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Zakupy przedmiotów; przedmiot nigdy niekupiony nie ma wiersza."""
+    return product_stats.item_stats(db, current_user.id, item_ids)
+
+
+@router.get("/items/stats/monthly", response_model=list[ItemMonthlySpend])
+def get_item_monthly_spend(
+    item_ids: Annotated[list[str], Query(min_length=1)],
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return product_stats.item_monthly_spend(db, current_user.id, item_ids)
 
 
 @router.post("/items/merge", response_model=ItemMergeResult)

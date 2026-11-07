@@ -44,7 +44,7 @@ export const useAccountCategories = (accounts: Account[]) => {
       const data = await getAllCategories(200, { for_accounts: true });
       return data.slice().sort((a, b) => a.name.localeCompare(b.name, 'pl'));
     },
-    { errorMessage: 'Nie udało się wczytać tagów kont.' }
+    { errorMessage: 'Nie udało się wczytać kategorii kont.' }
   );
 
   // Wyliczenie zamiast trzymania drugiej listy w stanie i synchronizowania jej efektem.

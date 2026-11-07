@@ -355,7 +355,7 @@ const TransactionDetailsPage = () => {
         resolvedCategoryId = await ensureCategoryPath(categoryPath, categories, false);
       } catch (err) {
         console.error(err);
-        setFormError('Nie udało się zapisać tagu.');
+        setFormError('Nie udało się zapisać kategorii.');
         return;
       }
     }
@@ -628,7 +628,7 @@ const TransactionDetailsPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="form-label">Tag produktu</label>
+                      <label className="form-label">Kategoria produktu</label>
                       <TagPathInput
                         value={newItemForm.tag_path}
                         categories={categories}

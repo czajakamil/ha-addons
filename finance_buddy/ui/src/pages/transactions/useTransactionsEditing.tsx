@@ -20,7 +20,14 @@ import TruncatedText from '../../components/ui/TruncatedText';
 import { parseAmountToCents } from '../../utils/format';
 import { formatRecordedTime, parseTypedTime, toRecordedAt } from '../../utils/date';
 import { BALANCE_ADJUSTMENT_LABEL, isBalanceAdjustment, userComment } from '../../utils/transactionLabels';
-import { getNextStatusPayload, type EditableAmountField, type EditableLookupField } from './model';
+import {
+  UNRECONCILE_CONFIRM,
+  getToggleReconciledPayload,
+  getToggleStatusPayload,
+  type StatusUpdatePayload,
+  type EditableAmountField,
+  type EditableLookupField
+} from './model';
 
 type UseTransactionsEditingParams = {
   transactions: Transaction[];
@@ -349,16 +356,19 @@ export const useTransactionsEditing = ({
       setInlineError(null);
     } catch (err) {
       console.error(err);
-      setInlineError('Nie udało się zmienić tagu produktu.');
+      setInlineError('Nie udało się zmienić kategorii produktu.');
     } finally {
       setSavingProductId(null);
       setEditingItemCategory(null);
     }
   };
 
-  const cycleTransactionStatus = useCallback(
-    async (transaction: Transaction) => {
-      const payload = getNextStatusPayload(transaction);
+  const applyTransactionStatus = useCallback(
+    async (transaction: Transaction, payload: StatusUpdatePayload) => {
+      // Cofnięcie uzgodnienia zawsze wymaga potwierdzenia, niezależnie od źródła akcji.
+      if (transaction.reconciled && !payload.reconciled && !window.confirm(UNRECONCILE_CONFIRM)) {
+        return;
+      }
       setStatusUpdatingId(transaction.id);
 
       try {
@@ -373,6 +383,16 @@ export const useTransactionsEditing = ({
       }
     },
     [setTransactions]
+  );
+
+  const toggleTransactionStatus = useCallback(
+    (transaction: Transaction) => applyTransactionStatus(transaction, getToggleStatusPayload(transaction)),
+    [applyTransactionStatus]
+  );
+
+  const toggleTransactionReconciled = useCallback(
+    (transaction: Transaction) => applyTransactionStatus(transaction, getToggleReconciledPayload(transaction)),
+    [applyTransactionStatus]
   );
 
   const renderCommentCell = (transaction: Transaction) => {
@@ -616,16 +636,17 @@ export const useTransactionsEditing = ({
 
       event.preventDefault();
       event.preventGridDefault?.();
-      void cycleTransactionStatus(args.row);
+      void toggleTransactionStatus(args.row);
     },
-    [statusUpdatingId, cycleTransactionStatus]
+    [statusUpdatingId, toggleTransactionStatus]
   );
 
   return {
     inlineError,
     setInlineError,
     statusUpdatingId,
-    cycleTransactionStatus,
+    toggleTransactionStatus,
+    toggleTransactionReconciled,
     renderCommentCell,
     renderLookupCell,
     renderAmountCell,

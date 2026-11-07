@@ -115,7 +115,7 @@ const TagRow = ({
         onSaved(category);
       } catch (err) {
         console.error(err);
-        setError('Nie udało się utworzyć tagu potomnego — sprawdź, czy nie tworzy duplikatu.');
+        setError('Nie udało się utworzyć podkategorii — sprawdź, czy nie tworzy duplikatu.');
       } finally {
         setSaving(false);
       }
@@ -163,7 +163,7 @@ const TagRow = ({
       onSaved(updated);
     } catch (err) {
       console.error(err);
-      setError('Nie udało się zmienić koloru tagu.');
+      setError('Nie udało się zmienić koloru kategorii.');
     } finally {
       setSavingColor(false);
     }
@@ -180,7 +180,7 @@ const TagRow = ({
       return;
     }
 
-    const message = `Usunąć tag "${category.path}"? Zostanie usuniętych: ${preview.category_count} tag(ów), odpięte: ${preview.product_count} produkt(ów) i ${preview.transaction_count} transakcji.`;
+    const message = `Usunąć kategorię "${category.path}"? Zostanie usuniętych: ${preview.category_count} kategorii, odpięte: ${preview.product_count} produkt(ów) i ${preview.transaction_count} transakcji.`;
     if (!window.confirm(message)) {
       return;
     }
@@ -191,7 +191,7 @@ const TagRow = ({
       onDeleted(category.id);
     } catch (err) {
       console.error(err);
-      setError('Nie udało się usunąć tagu.');
+      setError('Nie udało się usunąć kategorii.');
     } finally {
       setDeleting(false);
     }
@@ -295,7 +295,7 @@ const TagsPage = () => {
     setData
   } = useApi(
     useCallback(() => getAllCategories(200, { for_accounts: forAccounts }), [forAccounts]),
-    { errorMessage: 'Nie udało się wczytać tagów.' }
+    { errorMessage: 'Nie udało się wczytać kategorii.' }
   );
   const categories = data ?? [];
   // Drzewo znika tylko przy pierwszym ładowaniu / zmianie zakresu (data === undefined).
@@ -357,7 +357,7 @@ const TagsPage = () => {
       await refetch();
     } catch (err) {
       console.error(err);
-      setRowsError('Nie udało się utworzyć tagu.');
+      setRowsError('Nie udało się utworzyć kategorii.');
     } finally {
       setCreating(false);
     }
@@ -365,11 +365,11 @@ const TagsPage = () => {
 
   return (
     <div className="page-shell page-stack-layout tags-page">
-      <PageHeader title="Tagi" count={hasLoaded ? categories.length : undefined} />
+      <PageHeader title="Kategorie" count={hasLoaded ? categories.length : undefined} />
 
       <div className="tags-toolbar">
         <SegmentedControl
-          label="Zakres tagów"
+          label="Zakres kategorii"
           value={scope}
           options={[
             { value: 'spending', label: 'Wydatki' },
@@ -388,7 +388,7 @@ const TagsPage = () => {
             value={newTagPath}
             categories={categories}
             forAccounts={forAccounts}
-            placeholder="Nowy tag, np. dom/remont"
+            placeholder="Nowa kategoria, np. dom/remont"
             disabled={creating}
             onChange={setNewTagPath}
             onCommit={() => void handleCreateTag()}
@@ -412,14 +412,14 @@ const TagsPage = () => {
       <section className="tags-card">
         {loading && !hasLoaded && <SkeletonRows rows={8} />}
         {hasLoaded && !error && !tree.length && (
-          <EmptyState icon={TagsIcon} message="Nie masz jeszcze tagów. Dodaj pierwszy powyżej." />
+          <EmptyState icon={TagsIcon} message="Nie masz jeszcze kategorii. Dodaj pierwszą powyżej." />
         )}
         {hasLoaded && !error && tree.length > 0 && (
           <>
             <div className="tags-card__hint">
-              Kliknij nazwę, aby ją zmienić. Pełna ścieżka, np. „dom/remont”, przenosi tag do innej gałęzi.
+              Kliknij nazwę, aby ją zmienić. Pełna ścieżka, np. „dom/remont”, przenosi kategorię do innej gałęzi.
             </div>
-            <div role="tree" aria-label="Drzewo tagów">
+            <div role="tree" aria-label="Drzewo kategorii">
               {tree.map((node) => (
                 <TagRow
                   key={node.category.id}

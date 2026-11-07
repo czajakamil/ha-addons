@@ -357,7 +357,9 @@ const App = () => {
                   <Route path="/stores" element={<StoresPage />} />
                   <Route path="/payees/:storeId" element={<StoreDetailsPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
-                  <Route path="/transactions/untagged" element={<UntaggedQueuePage />} />
+                  <Route path="/transactions/uncategorized" element={<UntaggedQueuePage />} />
+                  {/* Stary adres kolejki, sprzed zmiany „Tag” na „Kategoria”. */}
+                  <Route path="/transactions/untagged" element={<Navigate to="/transactions/uncategorized" replace />} />
                   <Route path="/transactions/:transactionId" element={<TransactionDetailsPage />} />
                   <Route path="/receipts" element={<ReceiptInboxPage />} />
                   <Route path="/receipts/:draftId" element={<ReceiptDraftEditorPage />} />
@@ -365,7 +367,8 @@ const App = () => {
                   {/* Stary adres importu — skrzynka go zastąpiła. */}
                   <Route path="/receipt-import" element={<Navigate to="/receipts" replace />} />
                   <Route path="/items" element={<ItemsPage />} />
-                  <Route path="/tags" element={<TagsPage />} />
+                  <Route path="/categories" element={<TagsPage />} />
+                  <Route path="/tags" element={<Navigate to="/categories" replace />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/panel" element={<UsersPage />} />
                   <Route path="/users" element={<Navigate to="/panel" replace />} />

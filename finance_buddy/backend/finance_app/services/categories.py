@@ -116,7 +116,7 @@ def ensure_path(
     """
     segments = split_path(path)
     if not segments:
-        raise ValueError("Ścieżka tagu nie może być pusta.")
+        raise ValueError("Ścieżka kategorii nie może być pusta.")
 
     parent: Category | None = None
     node: Category | None = None

@@ -48,7 +48,7 @@ export const navGroups: { label: string; links: { to: string; label: string; ico
       { to: '/receipts', label: copy.nav.receipts, icon: Receipt },
       { to: '/bank-import', label: copy.nav.bankImport, icon: FileUp },
       { to: '/items', label: copy.nav.items, icon: Package },
-      { to: '/tags', label: copy.nav.tags, icon: Tags }
+      { to: '/categories', label: copy.nav.tags, icon: Tags }
     ]
   }
 ];

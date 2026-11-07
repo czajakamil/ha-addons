@@ -7,13 +7,16 @@ import {
   ensureCategoryPath,
   getAllCategories,
   getAllItems,
+  getItemStats,
   getItemUsage
 } from '../api';
 import DataTable from '../components/DataTable';
 import Button from '../components/Button';
 import ColumnsMenu from '../components/ui/ColumnsMenu';
+import Money from '../components/ui/Money';
 import { useApi } from '../hooks/useApi';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { formatShortDate } from '../utils/date';
 import { isAutoComment, userComment } from '../utils/transactionLabels';
 import {
   GROUP_NAME_DATALIST_ID,
@@ -21,6 +24,8 @@ import {
   getItemLabel,
   isEditableField,
   sortItems,
+  toItemStatsMap,
+  type ItemStat,
   type SortOption
 } from './items/model';
 import { useItemsEditing } from './items/useItemsEditing';
@@ -28,13 +33,21 @@ import ItemsToolbarRight from './items/components/ItemsToolbarRight';
 import NewItemModal from './items/components/NewItemModal';
 import ManageItemModal from './items/components/ManageItemModal';
 
-const OPTIONAL_COLUMNS = [
-  { key: 'group_name', label: 'Nazwa grupowa', hasValue: (row: Item) => Boolean(row.group_name?.trim()) },
-  { key: 'tag', label: 'Tag', hasValue: (row: Item) => Boolean(row.category_id) },
-  { key: 'unit_of_measurement', label: 'Jednostka', hasValue: (row: Item) => Boolean(row.unit_of_measurement?.trim()) },
-  { key: 'manufacturer', label: 'Producent', hasValue: (row: Item) => Boolean(row.manufacturer?.trim()) },
-  { key: 'comment', label: 'Komentarz', hasValue: (row: Item) => Boolean(userComment(row.comment)) }
-];
+// Kolumny statystyk liczą się jako wypełnione dla kupionych przedmiotów. Póki statystyki
+// się wczytują, nikt nie ma wartości, ale ukrycie trwa tylko do ich nadejścia.
+const buildOptionalColumns = (stats: ReadonlyMap<string, ItemStat> | null) => {
+  const bought = (row: Item) => Boolean(stats?.has(row.id));
+  return [
+    { key: 'group_name', label: 'Nazwa grupowa', hasValue: (row: Item) => Boolean(row.group_name?.trim()) },
+    { key: 'tag', label: 'Kategoria', hasValue: (row: Item) => Boolean(row.category_id) },
+    { key: 'count', label: 'Zakupy', hasValue: bought },
+    { key: 'spent', label: 'Wydano (12 mies.)', hasValue: bought },
+    { key: 'last', label: 'Ostatni zakup', hasValue: bought },
+    { key: 'unit_of_measurement', label: 'Jednostka', hasValue: (row: Item) => Boolean(row.unit_of_measurement?.trim()) },
+    { key: 'manufacturer', label: 'Producent', hasValue: (row: Item) => Boolean(row.manufacturer?.trim()) },
+    { key: 'comment', label: 'Komentarz', hasValue: (row: Item) => Boolean(userComment(row.comment)) }
+  ];
+};
 
 const ItemsPage = () => {
   const {
@@ -51,6 +64,7 @@ const ItemsPage = () => {
   const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
   const [usageById, setUsageById] = useState<Map<string, number>>(new Map());
   const [notice, setNotice] = useState<string | null>(null);
+  const [statsById, setStatsById] = useState<Map<string, ItemStat> | null>(null);
 
   // Liczniki są tylko podpowiedzią przy scalaniu — bez nich strona działa.
   const fetchUsage = useCallback(
@@ -64,6 +78,21 @@ const ItemsPage = () => {
   useEffect(() => {
     getItemUsage()
       .then((usage) => setUsageById(new Map(usage.map((entry) => [entry.item_id, entry.transaction_items]))))
+      .catch((err: unknown) => console.error(err));
+  }, []);
+
+  // Statystyki zakupów też są dodatkiem: bez nich kolumny pokazują „…”.
+  const fetchStats = useCallback(
+    () =>
+      getItemStats()
+        .then((rows) => setStatsById(toItemStatsMap(rows)))
+        .catch((err: unknown) => console.error(err)),
+    []
+  );
+
+  useEffect(() => {
+    getItemStats()
+      .then((rows) => setStatsById(toItemStatsMap(rows)))
       .catch((err: unknown) => console.error(err));
   }, []);
 
@@ -119,7 +148,7 @@ const ItemsPage = () => {
     ensureCategory: ensureItemCategory
   });
 
-  // Tagi ładujemy od razu — kolumna „Tag" pokazuje ścieżkę tagu przypisanego do przedmiotu.
+  // Kategorie ładujemy od razu — kolumna „Kategoria" pokazuje ścieżkę przypisaną do przedmiotu.
   useEffect(() => {
     void (async () => {
       try {
@@ -127,7 +156,7 @@ const ItemsPage = () => {
         setCategories(data);
       } catch (err) {
         console.error(err);
-        setInlineError('Nie udało się wczytać tagów.');
+        setInlineError('Nie udało się wczytać kategorii.');
       }
     })();
   }, [setInlineError]);
@@ -159,8 +188,9 @@ const ItemsPage = () => {
       setNotice(source && target ? `Scalono „${getItemLabel(source)}” z „${target.name}”.` : 'Scalono przedmioty.');
       void fetchItems();
       void fetchUsage();
+      void fetchStats();
     },
-    [items, fetchItems, fetchUsage]
+    [items, fetchItems, fetchUsage, fetchStats]
   );
 
   const detailsItem = detailsItemId ? items.find((entry) => entry.id === detailsItemId) ?? null : null;
@@ -171,7 +201,9 @@ const ItemsPage = () => {
     }
   }, [detailsItemId, detailsItem]);
 
-  const { hiddenKeys, setVisible } = useColumnVisibility('items', OPTIONAL_COLUMNS, items);
+  const optionalColumns = useMemo(() => buildOptionalColumns(statsById), [statsById]);
+  const { hiddenKeys, setVisible } = useColumnVisibility('items', optionalColumns, items);
+  const statOf = (row: Item) => statsById?.get(row.id);
 
   const allColumns: readonly Column<Item>[] = [
     {
@@ -215,9 +247,38 @@ const ItemsPage = () => {
     },
     {
       key: 'tag',
-      name: 'Tag',
+      name: 'Kategoria',
       width: 220,
       renderCell: ({ row }) => renderTagCell(row)
+    },
+    {
+      key: 'count',
+      name: 'Zakupy',
+      width: 100,
+      headerCellClass: 'text-end',
+      cellClass: 'items-grid__count',
+      renderCell: ({ row }) => (statsById ? statOf(row)?.count ?? 0 : '…')
+    },
+    {
+      key: 'spent',
+      name: 'Wydano (12 mies.)',
+      width: 150,
+      headerCellClass: 'text-end',
+      cellClass: 'items-grid__spent',
+      renderCell: ({ row }) =>
+        statsById ? <Money cents={statOf(row)?.spentCents ?? 0} tone="neutral" /> : '…'
+    },
+    {
+      key: 'last',
+      name: 'Ostatni zakup',
+      width: 130,
+      headerCellClass: 'text-end',
+      cellClass: 'items-grid__last',
+      renderCell: ({ row }) => {
+        if (!statsById) return '…';
+        const lastDate = statOf(row)?.lastDate;
+        return lastDate ? formatShortDate(lastDate) : '—';
+      }
     },
     {
       key: 'unit_of_measurement',
@@ -276,7 +337,10 @@ const ItemsPage = () => {
     );
   });
 
-  const sortedItems = useMemo(() => sortItems(filteredItems, sortOption), [filteredItems, sortOption]);
+  const sortedItems = useMemo(
+    () => sortItems(filteredItems, sortOption, statsById ?? undefined),
+    [filteredItems, sortOption, statsById]
+  );
 
   const noResults = !loading && !error && filteredItems.length === 0;
 
@@ -289,7 +353,7 @@ const ItemsPage = () => {
             <p className="accounts-page__subtitle">{items.length} pozycji w słowniku</p>
           </div>
           <div className="accounts-page__actions">
-            <ColumnsMenu columns={OPTIONAL_COLUMNS} hiddenKeys={hiddenKeys} onChange={setVisible} />
+            <ColumnsMenu columns={optionalColumns} hiddenKeys={hiddenKeys} onChange={setVisible} />
             <Button icon={<PlusIcon size={16} aria-hidden="true" />} onClick={() => setShowNewItemModal(true)}>
               Nowy przedmiot
             </Button>
@@ -394,6 +458,7 @@ const ItemsPage = () => {
           item={detailsItem}
           items={items}
           usageById={usageById}
+          stat={statsById?.get(detailsItem.id) ?? null}
           categories={categories}
           ensureCategory={ensureItemCategory}
           onClose={() => setDetailsItemId(null)}

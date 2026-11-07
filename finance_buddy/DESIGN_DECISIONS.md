@@ -29,7 +29,7 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 
 ## Terminologia
 
-- **„Kategoria”, nie „Koperta”.** To słowo pasuje do kolumny z briefu i do modelu danych. Budżet używał dotąd „Tag”. Ekran „Tagi” zostaje pod tą nazwą, zgodnie z briefem.
+- **„Kategoria”, nie „Koperta”.** To słowo pasuje do kolumny z briefu i do modelu danych. Budżet używał dotąd „Tag”. Ekran „Tagi” został wtedy pod tą nazwą, zgodnie z briefem; później przemianowaliśmy go na „Kategorie” (sekcja Przedmioty).
 
 ## Budżet
 
@@ -61,7 +61,7 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Dwie kolumny kwoty, Wydatek i Wpływ, poza telefonem.** Świadomy wyjątek od zasady jednej kolumny ze znakiem z design systemu: tak wygodniej przeglądać wydatki i wpływy osobno. Kwotę wpisuje się bez znaku, a znak wynika z kolumny, więc wpisanie jej po drugiej stronie zamienia wydatek na wpływ i odwrotnie. Telefon zostaje przy jednej kolumnie Kwota ze znakiem. Suma dnia stoi pod kolumną Wpływ.
 - **Suma dnia dotyczy wczytanych wierszy.** Na granicy strony może być chwilowo niepełna; kolejne strony doładowują się same przed końcem listy.
 - **Filtr kategorii idzie przez `/transactions`,** bo `/transactions/page` go nie obsługuje, a API zostaje bez zmian. Liczba wyników jest wtedy znana dopiero po ostatniej stronie, więc do tego czasu nie pokazujemy łącznej liczby.
-- **Status:** niezatwierdzona ma stałą ikonę, a zatwierdzona i uzgodniona tylko na hover. „Cleared” to „Zatwierdzona”, „Reconciled” to „Uzgodniona”.
+- **Status:** ikona statusu i przycisk szczegółów są zawsze widoczne (na dotyku hover nie istnieje). Każdy stan ma inny kształt: pusty okrąg (niezatwierdzona, kolor ostrzegawczy), okrąg z ptaszkiem (zatwierdzona), kłódka (uzgodniona). Kliknięcie przełącza tylko niezatwierdzona ↔ zatwierdzona; uzgodnienie ustawia się świadomie z menu kontekstowego, a jego cofnięcie (kliknięciem lub z menu) wymaga potwierdzenia i schodzi do zatwierdzonej, nigdy do niezatwierdzonej. „Cleared” to „Zatwierdzona”, „Reconciled” to „Uzgodniona”.
 - **Akcje zbiorcze idą pojedynczymi żądaniami, po 5 naraz,** bo API nie ma zapisu zbiorczego. Zmiana kategorii pomija przelewy, a zatwierdzanie transakcje już zatwierdzone; obie liczby są w podsumowaniu.
 - **Podsumowanie akcji zbiorczej** zostaje do zamknięcia i pokazuje liczbę udanych, listę nieudanych z powodem oraz „Ponów nieudane”. Po akcji zaznaczone zostają tylko nieudane, a ich wiersze mają czerwony tint. Ponowienie działa też po zmianie filtrów, bo podsumowanie pamięta transakcje.
 - **Powód błędu to polski opis statusu** (brak połączenia, transakcja nie istnieje, błąd serwera, odrzucona zmiana), bez surowej odpowiedzi API, która jest po angielsku.
@@ -177,6 +177,8 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Fuzzy porównuje też z aliasami z innych sklepów,** bo paragon z Żabki bardziej przypomina tekst z Lidla niż nazwę „Zupka chińska”. Taki alias to nadal tylko propozycja do potwierdzenia, nie pewne trafienie.
 - **Scalanie przedmiotów jest bez cofania,** inaczej niż sklepów: przedmiot nie ma zewnętrznego id z YNAB, a pozycje i aliasy można przepiąć ręcznie. Dlatego przed scaleniem pokazujemy podgląd skutków. Nazwy scalanego przedmiotu stają się aliasami globalnymi celu, chyba że alias o tej nazwie wskazuje inny przedmiot. Puste pola celu uzupełniają się ze scalanego.
 - **Scalanie i aliasy są w oknie „Zarządzaj przedmiotem”,** bo przedmioty nie mają jeszcze strony obiektu. Gdy powstanie, przejdą do jej Ustawień.
+- **W całym interfejsie jest „Kategoria”, nie „Tag”:** ekran „Kategorie” (`/categories`), kolejka „Bez kategorii” (`/transactions/uncategorized`), konta, raporty, przedmioty, paragony i komunikaty API. Stare adresy `/tags` i `/transactions/untagged` przekierowują na nowe. Nazwy w kodzie (`Tag*`, `tagging`, endpoint `/transactions/untagged`) zostają; nowy kod piszemy już jako `category`, a stare nazwy zmieniamy przy okazji.
+- **Zakupy przedmiotu liczymy jak statystyki sklepu:** liczba transakcji z przedmiotem i ostatni zakup z całej historii, wydatki (cena × ilość) z 12 miesięcy, tylko PLN, bez przelewów i korekt, a pozycja na transakcji-wpływie (zwrot) pomniejsza sumę. Ilości nie sumujemy, bo ten sam przedmiot bywa w kg i w sztukach. Wykres miesięczny jest w oknie przedmiotu, nad nazwami z paragonów.
 
 ## Testy
 
