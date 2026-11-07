@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.15
+
+- Raporty: w menu wyboru kont i kategorii checkbox stoi w jednym wierszu z nazwą, a samo menu nie chowa się
+  już pod paskiem bocznym. Pozycje na liście są niższe.
+- Transakcje: filtr kont to teraz to samo menu co w Raportach, z wyszukiwarką i wyborem kilku kont naraz.
+  Zaznaczenie wszystkich kont działa jak brak filtra.
+
 ## 0.1.14
 
 - W całym interfejsie „Tag” nazywa się teraz „Kategoria”: ekran „Kategorie”, kolejka „Bez kategorii”,
