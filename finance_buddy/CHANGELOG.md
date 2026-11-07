@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.11
+
+- Przedmioty: duplikaty można scalić. W oknie przedmiotu wskazujesz właściwy, a pozycje transakcji
+  i nazwy z paragonów przechodzą do niego. Stara nazwa dalej rozpoznaje się na paragonach.
+- Przedmioty: okno przedmiotu pokazuje nazwy z paragonów, które na niego wskazują, z podziałem
+  na sklepy. Błędnie przypiętą nazwę da się odpiąć.
+- Paragony: propozycje podobnych produktów biorą pod uwagę także nazwy z paragonów innych sklepów.
+  Przy nowym produkcie jest podpowiedź, żeby najpierw poszukać istniejącego.
+- Transakcje: pozycje z paragonu zapamiętują oryginalną nazwę z wydruku i pokazują ją w szczegółach.
+- Transakcje: godzinę i tag pozycji z paragonu można zmienić w tabeli podwójnym kliknięciem. Tag pozycji
+  zmienia się na przedmiocie, więc we wszystkich jego pozycjach. Godzinę da się wpisać skrótem („915”, „9”).
+- Paragony: przy linku w pasku bocznym jest licznik paragonów do przejrzenia.
+- Sklepy: tabelę sortuje się kliknięciem w nagłówek kolumny, drugie kliknięcie odwraca kierunek.
+  Domyślnie lista jest alfabetyczna.
+- Sklepy: „Do uporządkowania” pokazuje grupy sklepów, tak jak widok „Wszystkie”. Grupę z powtarzającymi się
+  nazwami z banku da się scalić w jeden sklep, a sklepy bez transakcji usunąć, także hurtem.
+  Przelew do siebie rozpoznaje się tylko po pełnym imieniu i nazwisku.
+- Import z YNAB: nowy sklep powstaje tylko dla payee, który ma transakcje, więc usunięte puste sklepy
+  nie wracają. Payee o nazwie, którą ma już inny sklep, trafia do tego sklepu zamiast tworzyć duplikat.
+
 ## 0.1.10
 
 - Paragony: na telefonie i tablecie jest przycisk „Zrób zdjęcie”, który od razu otwiera tylny aparat.
