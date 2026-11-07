@@ -1,11 +1,14 @@
-// Miesięczne wydatki jako słupki ułożone z największych pozycji, z linią średniej.
+// Miesięczne wydatki jako słupki ułożone z największych pozycji, z linią średniej,
+// albo — po przełączeniu — podział za cały okres jako pierścień.
 import { useCallback, useState } from 'react';
+import SegmentedControl from '../../../components/ui/SegmentedControl';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { pluralPL } from '../../../utils/format';
 import { monthDate } from '../../../utils/months';
 import { moneyLabel, reportMonthLabel, reportMonthShort } from '../model';
 import ChartTooltip from './ChartTooltip';
-import { niceScale, wholeAmount, wholeMoneyLabel, type SpendingModel } from '../spending';
+import SpendingDonut from './SpendingDonut';
+import { niceScale, wholeAmount, wholeMoneyLabel, type SpendingModel, type SpendingSeries } from '../spending';
 
 const COMPACT_MONTHS = 6;
 const MAX_LABELED_MONTHS = 14;
@@ -18,12 +21,35 @@ const tickLabel = (cents: number, compact: boolean) => {
   return `${String(zloty / 1000).replace('.', ',')}k`;
 };
 
-type SpendingChartProps = {
-  model: SpendingModel;
+type ChartMode = 'bars' | 'pie';
+const MODE_STORAGE_KEY = 'fb-reports-spending-chart';
+
+// Wybór widoku zostaje w przeglądarce; bez dostępu do storage startujemy od słupków
+const readMode = (): ChartMode => {
+  try {
+    return window.localStorage.getItem(MODE_STORAGE_KEY) === 'pie' ? 'pie' : 'bars';
+  } catch {
+    return 'bars';
+  }
 };
 
-const SpendingChart = ({ model }: SpendingChartProps) => {
+type SpendingChartProps = {
+  model: SpendingModel;
+  /** Kliknięcie kategorii na pierścieniu — to samo co kliknięcie wiersza tabeli. */
+  onSelect?: (series: SpendingSeries) => void;
+};
+
+const SpendingChart = ({ model, onSelect }: SpendingChartProps) => {
   const isCompact = useMediaQuery('(max-width: 699px)');
+  const [mode, setMode] = useState<ChartMode>(readMode);
+  const changeMode = (next: ChartMode) => {
+    setMode(next);
+    try {
+      window.localStorage.setItem(MODE_STORAGE_KEY, next);
+    } catch {
+      // Tryb prywatny: wybór działa do odświeżenia strony
+    }
+  };
   const [hover, setHover] = useState<{ month: string; anchor: DOMRect } | null>(null);
   const dismissHover = useCallback(() => setHover(null), []);
   // Na telefonie mieści się tylko ostatnie pół roku
@@ -54,6 +80,30 @@ const SpendingChart = ({ model }: SpendingChartProps) => {
     </ul>
   );
 
+  const modeSwitch = (
+    <SegmentedControl
+      label="Rodzaj wykresu"
+      value={mode}
+      options={[
+        { value: 'bars', label: 'Słupki' },
+        { value: 'pie', label: 'Koło' }
+      ]}
+      onChange={changeMode}
+    />
+  );
+
+  if (mode === 'pie') {
+    return (
+      <section className="card report-card spending-chart" aria-label="Podział wydatków">
+        <div className="spending-chart__header">
+          <h3>Podział wydatków</h3>
+          <div className="spending-chart__header-end">{modeSwitch}</div>
+        </div>
+        <SpendingDonut model={model} onSelect={onSelect} />
+      </section>
+    );
+  }
+
   return (
     <section className="card report-card spending-chart" aria-label="Wydatki miesięcznie">
       <div className="spending-chart__header">
@@ -62,13 +112,14 @@ const SpendingChart = ({ model }: SpendingChartProps) => {
             ? `Ostatnie ${months.length} ${pluralPL(months.length, 'miesiąc', 'miesiące', 'miesięcy')}`
             : 'Wydatki miesięcznie'}
         </h3>
-        {isCompact ? (
-          model.average !== null && (
-            <span className="spending-chart__average-note">śr. {wholeMoneyLabel(model.average)}</span>
-          )
-        ) : (
-          legend
-        )}
+        <div className="spending-chart__header-end">
+          {isCompact
+            ? model.average !== null && (
+                <span className="spending-chart__average-note">śr. {wholeMoneyLabel(model.average)}</span>
+              )
+            : legend}
+          {modeSwitch}
+        </div>
       </div>
       <div className="spending-chart__body">
         <div className="spending-chart__axis" aria-hidden="true">

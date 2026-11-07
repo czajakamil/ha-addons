@@ -237,7 +237,7 @@ const SpendingTab = ({ controller }: SpendingTabProps) => {
         )}
       </section>
 
-      <SpendingChart model={model} />
+      <SpendingChart model={model} onSelect={openRow} />
 
       <section className="spending-breakdown">
         <div className="spending-breakdown__toolbar">
