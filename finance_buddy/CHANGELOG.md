@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.18
+
+- Kategorie: podkategorie z importu YNAB nazywają się już po prostu „Jedzenie”, a nie „Delegacje/Jedzenie”.
+  Aktualizacja poprawia istniejące nazwy (nazwę zostawia, gdy pod tym samym rodzicem jest już kategoria
+  o takiej nazwie), a kolejne importy zapisują same nazwy.
+- Kategorie: sortowanie jak w Sklepach — kliknięcie nagłówka Kategoria, Transakcje, Wydano albo Ostatnio
+  sortuje każdy poziom drzewa, drugie kliknięcie odwraca kierunek. Lista „Sortuj” wraca do własnej
+  kolejności; przeciąganie działa tylko w niej.
+
 ## 0.1.17
 
 - Kategorie: nowy ekran z drzewem w tabeli. Każda kategoria pokazuje liczbę transakcji, wydatki z 12 miesięcy,
