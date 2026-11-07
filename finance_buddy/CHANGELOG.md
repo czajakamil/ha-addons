@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.20
+
+- Transakcje: „Zmień kategorię” przy zaznaczonych wierszach to teraz drzewo z wyszukiwarką zamiast długiej
+  listy ścieżek. Kliknięcie od razu wybiera kategorię, Enter wybiera pierwszą pasującą.
+- Ścieżki kategorii wszędzie wyglądają tak samo: „Rachunki › Czynsz” zamiast „Rachunki/Czynsz”. Dotyczy podpowiedzi
+  po najechaniu na kategorię, kolejki „Bez kategorii”, porządków w Sklepach, szczegółów transakcji, komunikatów
+  po zmianie zbiorczej i palety poleceń.
+- Podpowiedzi w polu kategorii pokazują grupę przygaszoną, a samą kategorię wyraźnie. Wpisywanie „grupa/kategoria”
+  nadal tworzy nową podkategorię.
+- Przedmioty: w kolumnie kategorii jest sama nazwa (jak w Transakcjach), pełna ścieżka w podpowiedzi.
+- Paleta poleceń: kategoria otwiera swoją stronę zamiast Budżetu.
+
 ## 0.1.19
 
 - Transakcje: nowy wybór kategorii zamiast długiej listy ścieżek. Kategorie są drzewem w kolejności z ekranu
