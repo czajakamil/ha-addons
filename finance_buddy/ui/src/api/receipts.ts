@@ -107,6 +107,8 @@ export interface ReceiptDraftCommitResult {
 export const getReceiptDrafts = (filter: ReceiptQueueFilter = 'all') =>
   request<ReceiptDraftListResponse>(`/receipt-drafts?filter=${filter}`);
 
+export const getReceiptTodoCount = () => request<{ count: number }>('/receipt-drafts/todo/count');
+
 export const getReceiptDraft = (draftId: string) =>
   request<ReceiptDraftDetail>(`/receipt-drafts/${draftId}`);
 

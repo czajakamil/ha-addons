@@ -66,14 +66,30 @@ export const isInactiveGroup = (group: StoreGroup, today = new Date()) =>
   !group.lastDate || group.lastDate < spendWindowStart(today);
 
 export type GroupSort = 'spent' | 'name' | 'count' | 'last';
+export type SortDirection = 'asc' | 'desc';
 
-export const sortStoreGroups = (groups: readonly StoreGroup[], sort: GroupSort) => {
+/** Kierunek pierwszego kliknięcia: nazwy od A, liczby i daty od największych. */
+export const DEFAULT_DIRECTION: Record<GroupSort, SortDirection> = {
+  name: 'asc',
+  count: 'desc',
+  spent: 'desc',
+  last: 'desc'
+};
+
+export const sortStoreGroups = (
+  groups: readonly StoreGroup[],
+  sort: GroupSort,
+  direction: SortDirection = DEFAULT_DIRECTION[sort]
+) => {
   const byName = (a: StoreGroup, b: StoreGroup) => a.name.localeCompare(b.name, 'pl');
+  const sign = direction === 'asc' ? 1 : -1;
   const compare: Record<GroupSort, (a: StoreGroup, b: StoreGroup) => number> = {
-    spent: (a, b) => b.spentCents - a.spentCents || byName(a, b),
-    name: byName,
-    count: (a, b) => b.count - a.count || byName(a, b),
-    last: (a, b) => (b.lastDate ?? '').localeCompare(a.lastDate ?? '') || byName(a, b)
+    spent: (a, b) => sign * (a.spentCents - b.spentCents),
+    name: (a, b) => sign * byName(a, b),
+    count: (a, b) => sign * (a.count - b.count),
+    // Sklepy bez transakcji zawsze na końcu, niezależnie od kierunku
+    last: (a, b) =>
+      a.lastDate && b.lastDate ? sign * a.lastDate.localeCompare(b.lastDate) : Number(!a.lastDate) - Number(!b.lastDate)
   };
-  return groups.slice().sort(compare[sort]);
+  return groups.slice().sort((a, b) => compare[sort](a, b) || byName(a, b));
 };

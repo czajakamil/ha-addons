@@ -48,6 +48,20 @@ describe('buildStoreGroups', () => {
     const sorted = sortStoreGroups(buildStoreGroups(stores, stats), 'spent');
     expect(sorted[0].id).toBe('b2');
   });
+
+  it('odwraca kierunek, a sklepy bez transakcji zostawia na końcu', () => {
+    const groups = buildStoreGroups(stores, stats);
+    const ascending = sortStoreGroups(groups, 'spent', 'asc');
+    expect(ascending[ascending.length - 1].id).toBe('b2');
+    expect(sortStoreGroups(groups, 'last', 'asc').map((group) => group.id)).toEqual(['b2', 'i']);
+    expect(sortStoreGroups(groups, 'last', 'desc').map((group) => group.id)).toEqual(['b2', 'i']);
+  });
+
+  it('nazwy sortuje alfabetycznie w obie strony', () => {
+    const groups = buildStoreGroups(stores, stats);
+    const names = sortStoreGroups(groups, 'name').map((group) => group.name);
+    expect(sortStoreGroups(groups, 'name', 'desc').map((group) => group.name)).toEqual(names.slice().reverse());
+  });
 });
 
 describe('isInactiveGroup', () => {

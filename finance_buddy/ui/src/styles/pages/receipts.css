@@ -385,9 +385,15 @@
   margin-top: 0.25rem;
 }
 
-.receipt-items__new-product-hint {
-  color: var(--positive);
+.receipt-items__new-product-hint,
+.receipt-items__match-hint {
+  color: var(--text-muted);
   font-size: var(--text-12);
+}
+
+.receipt-items__match-hint {
+  display: block;
+  margin-top: 0.25rem;
 }
 
 .receipt-items__row--skipped {

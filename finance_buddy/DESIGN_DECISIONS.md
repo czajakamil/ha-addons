@@ -170,6 +170,14 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **Nazwy miesięcy w Raportach liczy front z klucza `RRRR-MM`,** bo pole `label` z backendu jest angielskie, a korzysta z niego też budżet.
 - **Belka Raportów poniżej 700 px:** zakładki w jednym przewijanym rzędzie bez ikon, okres i przycisk „Filtry” z licznikiem w drugim. Przyklejone są tylko zakładki, żeby wykres miał ekran dla siebie. Konta i kategorie są w natywnym `<dialog>` od dołu; to wyjątek od zasady „modal tylko do tworzenia”, bo filtr nie jest edycją obiektu.
 
+## Przedmioty i nazwy z paragonów
+
+- **Jeden przedmiot to jedna rzecz w raportach** („Zupka chińska”), a każdy sklep ma do niego własne nazwy z paragonów (aliasy). Marka i gramatura zostają w aliasach i w `raw_name` pozycji, nie w osobnych przedmiotach.
+- **Pozycja transakcji zapisuje `raw_name`,** czyli tekst z paragonu. Szczegóły transakcji pokazują go pod nazwą przedmiotu, gdy się różni. Pozycje sprzed tej zmiany i dodane ręcznie go nie mają.
+- **Fuzzy porównuje też z aliasami z innych sklepów,** bo paragon z Żabki bardziej przypomina tekst z Lidla niż nazwę „Zupka chińska”. Taki alias to nadal tylko propozycja do potwierdzenia, nie pewne trafienie.
+- **Scalanie przedmiotów jest bez cofania,** inaczej niż sklepów: przedmiot nie ma zewnętrznego id z YNAB, a pozycje i aliasy można przepiąć ręcznie. Dlatego przed scaleniem pokazujemy podgląd skutków. Nazwy scalanego przedmiotu stają się aliasami globalnymi celu, chyba że alias o tej nazwie wskazuje inny przedmiot. Puste pola celu uzupełniają się ze scalanego.
+- **Scalanie i aliasy są w oknie „Zarządzaj przedmiotem”,** bo przedmioty nie mają jeszcze strony obiektu. Gdy powstanie, przejdą do jej Ustawień.
+
 ## Testy
 
 - **Pierwsze testy jednostkowe** (`bulkUpdate.test.ts`, `flows.test.ts`) obejmują logikę, której błąd zmieniałby dane lub liczby: podział wyników akcji zbiorczej i węzły Przepływów.

@@ -2,7 +2,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Store as StoreIcon } from 'lucide-react';
-import { getAllStores, getAmbiguousStoreAliases, getSession, getStoreStats, type Store } from '../api';
+import { toast } from 'sonner';
+import { deleteStore, getAllStores, getAmbiguousStoreAliases, getSession, getStoreStats, type Store } from '../api';
 import Button from '../components/Button';
 import ColumnsMenu from '../components/ui/ColumnsMenu';
 import EmptyState from '../components/ui/EmptyState';
@@ -15,10 +16,11 @@ import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import { buildCleanupItems, type CleanupItem } from './stores/cleanup';
 import { GROUP_NAME_DATALIST_ID } from './stores/model';
 import NewStoreModal from './stores/components/NewStoreModal';
-import StoreGroupsTable from './stores/components/StoreGroupsTable';
+import StoreGroupsTable, { type TableSort } from './stores/components/StoreGroupsTable';
 import StoresCleanup from './stores/components/StoresCleanup';
 import {
   buildStoreGroups,
+  DEFAULT_DIRECTION,
   isInactiveGroup,
   sortStoreGroups,
   toStatsMap,
@@ -30,6 +32,8 @@ import { categoryPayload, useStoreGroupSave } from './stores/useStoreGroupSave';
 
 const labels = copy.stores;
 const SORTS = Object.keys(labels.sort) as GroupSort[];
+
+const DELETE_CONCURRENCY = 5;
 
 const alwaysShown = () => true;
 // Kolumny statystyk są zawsze domyślnie widoczne; rzadkie NIP i adres ukrywa reguła 5%.
@@ -53,7 +57,7 @@ const StoresPage = () => {
   const statsRequest = useApi(() => getStoreStats(), { errorMessage: labels.statsFailed });
   const { categories, categoryMap, ensureCategory } = useStoreCategories();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sort, setSort] = useState<GroupSort>('spent');
+  const [sort, setSort] = useState<TableSort>({ key: 'name', direction: 'asc' });
   const [showInactive, setShowInactive] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showNewStore, setShowNewStore] = useState(false);
@@ -67,8 +71,8 @@ const StoresPage = () => {
   const ownerName = session.data?.display_name?.trim() || session.data?.username?.trim() || '';
   const ambiguousIds = useMemo(() => new Set(ambiguous.data?.map((alias) => alias.store_id)), [ambiguous.data]);
   const cleanupItems = useMemo(
-    () => buildCleanupItems(stores, ownerName, ambiguousIds),
-    [stores, ownerName, ambiguousIds]
+    () => buildCleanupItems(groups, ownerName, ambiguousIds),
+    [groups, ownerName, ambiguousIds]
   );
   const activeGroups = groups.filter((group) => !group.isArchived);
 
@@ -81,7 +85,16 @@ const StoresPage = () => {
     ) ||
     Boolean(group.categoryId && categoryMap.get(group.categoryId)?.path.toLocaleLowerCase('pl-PL').includes(needle));
 
-  const sorted = sortStoreGroups(groups.filter(matches), stats ? sort : 'name');
+  // Pierwsze kliknięcie kolumny ustawia jej naturalny kierunek, kolejne go odwraca
+  const toggleSort = (key: GroupSort) =>
+    setSort((current) =>
+      current.key === key
+        ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: DEFAULT_DIRECTION[key] }
+    );
+  // Bez statystyk liczby są puste, więc do ich wczytania zostaje kolejność alfabetyczna
+  const effectiveSort: TableSort = stats || sort.key === 'name' ? sort : { key: 'name', direction: 'asc' };
+  const sorted = sortStoreGroups(groups.filter(matches), effectiveSort.key, effectiveSort.direction);
   const archivedGroups = sorted.filter((group) => group.isArchived);
   const visibleActive = sorted.filter((group) => !group.isArchived);
   // Bez statystyk nie wiadomo, co jest nieaktywne, więc do ich wczytania pokazujemy wszystko
@@ -91,8 +104,10 @@ const StoresPage = () => {
   const filteredCleanup = useMemo(
     () =>
       needle
-        ? cleanupItems.filter(({ store }) =>
-            [store.name, store.group_name, store.nip].some((value) => value?.toLocaleLowerCase('pl-PL').includes(needle))
+        ? cleanupItems.filter(({ group }) =>
+            [group.name, ...group.members.flatMap((store) => [store.name, store.nip])].some((value) =>
+              value?.toLocaleLowerCase('pl-PL').includes(needle)
+            )
           )
         : cleanupItems,
     [cleanupItems, needle]
@@ -118,11 +133,33 @@ const StoresPage = () => {
   const setCategoryForItems = async (items: CleanupItem[], path: string) => {
     try {
       const categoryId = await ensureCategory(path);
-      return await save(items.map(({ store }) => ({ store, payload: categoryPayload(store, categoryId) })));
+      // Cała grupa dostaje tę samą kategorię, tak jak przy edycji w widoku „Wszystkie”
+      return await save(
+        items.flatMap(({ group }) => group.members.map((store) => ({ store, payload: categoryPayload(store, categoryId) })))
+      );
     } catch (err) {
       console.error(err);
       return false;
     }
+  };
+
+  const deleteGroups = async (items: CleanupItem[]) => {
+    const targets = items.flatMap(({ group }) => group.members);
+    if (!targets.length || !window.confirm(labels.deleteConfirm(items.length))) return;
+    // Po kilka naraz, jak przy zapisie grup: po imporcie z YNAB pustych sklepów bywają setki
+    const results: PromiseSettledResult<void>[] = [];
+    for (let start = 0; start < targets.length; start += DELETE_CONCURRENCY) {
+      const batch = targets.slice(start, start + DELETE_CONCURRENCY);
+      results.push(...(await Promise.allSettled(batch.map((store) => deleteStore(store.id)))));
+    }
+    const removed = new Set(targets.filter((_, index) => results[index].status === 'fulfilled').map((store) => store.id));
+    const failed = targets.length - removed.size;
+    results.forEach((result) => result.status === 'rejected' && console.error(result.reason));
+    if (removed.size) setStores((current) => current?.filter((store) => !removed.has(store.id)));
+    if (failed) toast.error(labels.deletePartial(failed, targets.length));
+    else toast(labels.deleted(items.length));
+    // Usunięta nazwa może przestać być niejednoznaczna dla innego sklepu
+    void ambiguous.refetch();
   };
 
   const { hiddenKeys, setVisible } = useColumnVisibility('stores-groups', OPTIONAL_COLUMNS, activeGroups);
@@ -132,6 +169,8 @@ const StoresPage = () => {
       groups={rows}
       stats={stats}
       hiddenKeys={hiddenKeys}
+      sort={effectiveSort}
+      onSort={toggleSort}
       categoryMap={categoryMap}
       onOpen={(group) => navigate(`/payees/${group.id}`)}
       onSettings={(group) => navigate(`/payees/${group.id}?tab=settings`)}
@@ -185,8 +224,11 @@ const StoresPage = () => {
           <select
             className="form-select form-select-sm stores-toolbar__sort"
             aria-label={labels.sortLabel}
-            value={sort}
-            onChange={(event) => setSort(event.target.value as GroupSort)}
+            value={sort.key}
+            onChange={(event) => {
+              const key = event.target.value as GroupSort;
+              setSort({ key, direction: DEFAULT_DIRECTION[key] });
+            }}
           >
             {SORTS.map((value) => (
               <option key={value} value={value}>
@@ -249,7 +291,10 @@ const StoresPage = () => {
           categories={categories}
           categoryMap={categoryMap}
           onOpen={(storeId) => navigate(`/payees/${storeId}`)}
-          onArchive={({ store }) => void save([{ store, payload: { is_deleted: true } }], labels.archived)}
+          onArchive={({ group }) =>
+            void save(group.members.map((store) => ({ store, payload: { is_deleted: true } })), labels.archived)
+          }
+          onDelete={(items) => void deleteGroups(items)}
           onSetCategory={setCategoryForItems}
           ensureCategory={ensureCategory}
           onMerged={async () => {

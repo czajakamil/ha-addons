@@ -134,6 +134,7 @@ def serialize_transaction_detail(tx: Transaction) -> TransactionDetail:
             quantity=item.quantity,
             unit=item.unit,
             comment=item.comment,
+            raw_name=item.raw_name,
             product_name=item.product.name if item.product else None,
         )
         for item in tx.items

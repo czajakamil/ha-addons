@@ -19,6 +19,7 @@ from ..schemas import (
     ReceiptDraftDetail,
     ReceiptDraftListResponse,
     ReceiptDraftUpdate,
+    UntaggedCount,
 )
 from ..services import receipt_drafts as drafts_service
 
@@ -78,6 +79,15 @@ def list_receipt_drafts(
     return ReceiptDraftListResponse(
         drafts=drafts, counts=counts, rules=drafts_service.check_rules()
     )
+
+
+@router.get("/receipt-drafts/todo/count", response_model=UntaggedCount)
+def count_todo_receipt_drafts(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Sama liczba paragonów do przejrzenia — tania, bo woła ją pasek boczny."""
+    return UntaggedCount(count=drafts_service.count_todo(db, current_user.id))
 
 
 @router.get("/receipt-drafts/{draft_id}", response_model=ReceiptDraftDetail)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Store } from '../../api';
-import { buildCleanupItems, maskAccountNumbers, normalizeStoreName } from './cleanup';
+import { buildCleanupItems as buildFromGroups, maskAccountNumbers, normalizeStoreName } from './cleanup';
+import { buildStoreGroups } from './groups';
 
 let nextId = 0;
 const store = (name: string, extra: Partial<Store> = {}): Store => ({
@@ -13,6 +14,9 @@ const store = (name: string, extra: Partial<Store> = {}): Store => ({
   is_deleted: false,
   ...extra
 });
+
+const buildCleanupItems = (stores: Store[], ownerName = '', ambiguous: ReadonlySet<string> = new Set()) =>
+  buildFromGroups(buildStoreGroups(stores, new Map()), ownerName, ambiguous);
 
 const reasonOf = (name: string, others: Store[] = [], owner = 'Jan Kowalski') =>
   buildCleanupItems([store(name), ...others], owner).find((item) => item.store.name === name);
@@ -71,6 +75,12 @@ describe('buildCleanupItems', () => {
     expect(reasonOf('JAN KOWALSKI SENT FROM', [], '')).toBeUndefined();
   });
 
+  it('przelew własny nie zgaduje po samym imieniu ani po fragmencie słowa', () => {
+    expect(reasonOf('JAN NOWAK - PRZELEW - Account: 4211 5446', [], 'Jan')).toBeUndefined();
+    expect(reasonOf('JAN NOWAK - PRZELEW - Account: 4211 5446', [], 'jan')).toBeUndefined();
+    expect(reasonOf('JANINA KOWALSKA - Account: 4211 5446', [], 'Jan Kowalsk')).toBeUndefined();
+  });
+
   it('bez kategorii: tylko gdy nie ma mocniejszego powodu, a każdy sklep ma jeden powód', () => {
     const items = buildCleanupItems([
       store('Adwokat', { automatic_category_id: null }),
@@ -83,6 +93,32 @@ describe('buildCleanupItems', () => {
     const lone = store('Lidl');
     const [item] = buildCleanupItems([lone], '', new Set([lone.id]));
     expect(item).toMatchObject({ reason: 'duplicate', isAmbiguous: true });
+  });
+
+  it('grupa z uporządkowaną nazwą nie jest surowa, choć nazwa z banku zostaje', () => {
+    const items = buildCleanupItems([
+      store('BIEDRONKA ul. Długa 5 30-001 Kraków', { group_name: 'Biedronka' }),
+      store('Sklep ul. Krótka 2')
+    ]);
+    expect(items.map((item) => [item.group.name, item.reason])).toEqual([['Sklep ul. Krótka 2', 'raw']]);
+  });
+
+  it('kategoria jednego sklepu wystarcza całej grupie, a grupa bez kategorii to jedna pozycja', () => {
+    const items = buildCleanupItems([
+      store('LIDL 1', { group_name: 'Lidl', automatic_category_id: null }),
+      store('LIDL 2', { group_name: 'Lidl' }),
+      store('Adwokat A', { group_name: 'Adwokat', automatic_category_id: null }),
+      store('Adwokat B', { group_name: 'Adwokat', automatic_category_id: null })
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ reason: 'uncategorized', group: { name: 'Adwokat' } });
+  });
+
+  it('nazwy z banku w jednej grupie nie są duplikatami, a dwie grupy o tej samej nazwie są', () => {
+    expect(buildCleanupItems([store('Absolut Sp. z o.o.', { group_name: 'Absolut' }), store('ABSOLUT')])).toEqual([]);
+    const items = buildCleanupItems([store('Absolut Sp. z o.o.'), store('ABSOLUT', { group_name: 'Absolut S.A.' })]);
+    expect(items.map((item) => item.reason)).toEqual(['duplicate', 'duplicate']);
+    expect(items[0].duplicateOf?.key).toBe(items[1].group.key);
   });
 
   it('pomija zarchiwizowane', () => {

@@ -7,15 +7,21 @@ import { createPortal } from 'react-dom';
 import { Category, Item, ItemUpdate, deleteItem, updateItem } from '../../../api';
 import TagPathInput from '../../../components/tags/TagPathInput';
 import { getItemLabel } from '../model';
+import ItemAliasesSection from './ItemAliasesSection';
+import ItemMergeSection from './ItemMergeSection';
 
 type ManageItemModalProps = {
   item: Item;
+  /** Wszystkie przedmioty — kandydaci na cel scalenia. */
+  items: Item[];
+  usageById: Map<string, number>;
   categories: Category[];
   /** Zamienia ścieżkę tagu na id, tworząc brakujące tagi (wraz z przodkami). */
   ensureCategory: (path: string) => Promise<string>;
   onClose: () => void;
   onSaved: (updated: Item) => void;
   onDeleted: (id: string) => void;
+  onMerged: (sourceId: string, targetId: string) => void;
 };
 
 // Backend zwraca błędy jako `{"detail": "..."}` (np. 409 przy usuwaniu przedmiotu
@@ -55,11 +61,14 @@ const getInitialManageItemFormState = (item: Item, categories: Category[]): Mana
 
 const ManageItemModal = ({
   item,
+  items,
+  usageById,
   categories,
   ensureCategory,
   onClose,
   onSaved,
-  onDeleted
+  onDeleted,
+  onMerged
 }: ManageItemModalProps) => {
   const [formState, setFormState] = useState<ManageItemFormState>(() =>
     getInitialManageItemFormState(item, categories)
@@ -68,8 +77,9 @@ const ManageItemModal = ({
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
 
-  const busy = submitting || deleting;
+  const busy = submitting || deleting || merging;
 
   const modalTitleId = 'manage-item-modal-title';
   const displayLabel = getItemLabel(item);
@@ -289,6 +299,18 @@ const ManageItemModal = ({
                       placeholder="np. ulubiony wariant"
                     />
                   </div>
+                </div>
+
+                <div className="item-sections">
+                  <ItemAliasesSection itemId={item.id} disabled={busy} />
+                  <ItemMergeSection
+                    item={item}
+                    items={items}
+                    usageById={usageById}
+                    disabled={submitting || deleting}
+                    onBusyChange={setMerging}
+                    onMerged={onMerged}
+                  />
                 </div>
               </div>
               <div className="modal-footer justify-content-between">

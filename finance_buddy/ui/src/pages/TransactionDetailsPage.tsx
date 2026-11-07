@@ -16,6 +16,7 @@ import {
   Store,
   TransactionAttachment,
   TransactionDetail,
+  type TransactionItemCreate,
   createItem,
   deleteTransactionAttachment,
   ensureCategoryPath,
@@ -455,12 +456,13 @@ const TransactionDetailsPage = () => {
         }
       }
 
-      const currentItemsPayload = transaction.items.map((item) => ({
+      const currentItemsPayload: TransactionItemCreate[] = transaction.items.map((item) => ({
         product_id: item.product_id,
         unit_price_cents: item.unit_price_cents,
         quantity: item.quantity,
         unit: item.unit ?? undefined,
-        comment: item.comment ?? undefined
+        comment: item.comment ?? undefined,
+        raw_name: item.raw_name ?? undefined
       }));
 
       currentItemsPayload.push({
@@ -559,6 +561,11 @@ const TransactionDetailsPage = () => {
                           <tr key={item.id}>
                             <td>
                               {item.product_name ?? 'Produkt'}
+                              {item.raw_name && item.raw_name !== item.product_name && (
+                                <div className="tx-page__muted" title="Nazwa z paragonu">
+                                  {item.raw_name}
+                                </div>
+                              )}
                               {item.comment && <div className="tx-page__muted">{item.comment}</div>}
                             </td>
                             <td className="tx-items__number">

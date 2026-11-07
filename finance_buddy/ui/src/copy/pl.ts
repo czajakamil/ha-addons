@@ -139,7 +139,7 @@ export const copy = {
     search: 'Szukaj: nazwa, nazwa z banku, NIP…',
     searchLabel: 'Szukaj sklepu',
     sortLabel: 'Sortowanie sklepów',
-    sort: { spent: 'Sortuj: Wydano (12 mies.)', name: 'Sortuj: Nazwa', count: 'Sortuj: Transakcje', last: 'Sortuj: Ostatnia' },
+    sort: { name: 'Sortuj: Nazwa', count: 'Sortuj: Transakcje', spent: 'Sortuj: Wydano (12 mies.)', last: 'Sortuj: Ostatnia' },
     banner: (count: number) =>
       `${count} ${pluralPL(count, 'pozycja wymaga', 'pozycje wymagają', 'pozycji wymaga')} uporządkowania: duplikaty, surowe nazwy z banku i sklepy bez kategorii. Psują raporty i podpowiedzi kategorii.`,
     review: 'Przejrzyj',
@@ -169,6 +169,14 @@ export const copy = {
     open: 'Otwórz sklep',
     settingsLink: 'Ustawienia sklepu',
     archive: 'Zarchiwizuj',
+    deleteStore: 'Usuń',
+    deleteEmpty: (count: number) => `Usuń bez transakcji (${count})`,
+    deleteConfirm: (count: number) =>
+      count === 1
+        ? 'Usunąć ten sklep? Nie ma transakcji, a usunięcia nie można cofnąć.'
+        : `Usunąć ${count} ${pluralPL(count, 'sklep', 'sklepy', 'sklepów')}? Nie mają transakcji, a usunięcia nie można cofnąć.`,
+    deleted: (count: number) => `Usunięto ${count} ${pluralPL(count, 'sklep', 'sklepy', 'sklepów')}`,
+    deletePartial: (failed: number, total: number) => `Nie udało się usunąć ${failed} z ${total} sklepów.`,
     restore: 'Przywróć',
     setCategory: 'Ustaw kategorię',
     noCategory: 'Bez kategorii',
@@ -198,6 +206,7 @@ export const copy = {
       address: (name?: string) => (name ? `Zawiera adres — proponowana nazwa: ${name}` : 'Zawiera adres — nadaj czytelną nazwę'),
       account: (name?: string) => (name ? `Zawiera numer konta — proponowana nazwa: ${name}` : 'Zawiera numer konta — nadaj czytelną nazwę'),
       ambiguous: (name: string) => `Ta sama nazwa co „${name}” — import jej nie użyje`,
+      sameNames: 'Nazwy z banku w tej grupie się powtarzają — scal je, żeby import ich używał',
       self: 'Wygląda na przelew między Twoimi kontami',
       uncategorized: 'Bez domyślnej kategorii — podpowiedzi nie zadziałają'
     },
@@ -207,6 +216,7 @@ export const copy = {
     select: (name: string) => `Zaznacz ${name}`,
     selected: (count: number) => `Zaznaczono: ${count}`,
     merge: 'Scal w jeden sklep',
+    mergeMembers: 'Scal nazwy z banku…',
     clearSelection: 'Odznacz',
     mergeDialog: {
       title: (count: number) => `Scal ${count} w jeden sklep`,
@@ -317,6 +327,10 @@ export const copy = {
       nipPlaceholder: 'Pomaga dopasować paragony',
       addressPlaceholder: 'Ulica, miasto',
       nipInvalid: 'Nieprawidłowy NIP (błędna suma kontrolna).',
+      membersTitle: 'Scal nazwy z banku',
+      membersHint: (count: number) =>
+        `${count} ${pluralPL(count, 'nazwa', 'nazwy', 'nazw')} z banku w tej grupie to osobne sklepy. Po scaleniu zostanie jeden: z jedną listą transakcji, a import przestanie traktować powtarzające się nazwy jako niejednoznaczne.`,
+      membersButton: 'Scal w jeden',
       mergeTitle: 'Scal z innym sklepem',
       mergeHint: 'Transakcje i aliasy przejdą do wybranego sklepu. Ten sklep zniknie z listy.',
       mergeButton: 'Scal z…',

@@ -1,5 +1,6 @@
 // Typy, stałe i czyste helpery strony przedmiotów — bez stanu i bez JSX.
-import { Item } from '../../api';
+import type { Item, ItemMergeResult } from '../../api';
+import { pluralPL } from '../../utils/format';
 import { DATA_TABLE_ROW_HEIGHT } from '../../components/DataTable';
 
 export const GROUP_NAME_DATALIST_ID = 'item-group-name-suggestions';
@@ -86,4 +87,16 @@ export const sortItems = (items: Item[], sortOption: SortOption): Item[] => {
     return sortOption === 'name_asc' ? nameDiff : -nameDiff;
   });
   return sorted;
+};
+
+// --- Scalanie przedmiotów ---
+
+export const pozycje = (count: number) => `${count} ${pluralPL(count, 'pozycja', 'pozycje', 'pozycji')}`;
+const nazwy = (count: number) => `${count} ${pluralPL(count, 'nazwa', 'nazwy', 'nazw')}`;
+
+export const describeMerge = (result: ItemMergeResult, sourceLabel: string, targetLabel: string) => {
+  const names = result.aliases_moved + result.aliases_added;
+  const parts = [pozycje(result.items_moved)];
+  if (names) parts.push(`${nazwy(names)} z paragonów`);
+  return `Do „${targetLabel}” przejdzie ${parts.join(' i ')}. „${sourceLabel}” zniknie z listy.`;
 };

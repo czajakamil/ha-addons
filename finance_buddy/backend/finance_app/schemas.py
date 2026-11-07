@@ -330,6 +330,41 @@ class ItemRead(ItemBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ItemMergeRequest(BaseModel):
+    """Scalenie produktów `source_ids` w `target_id`; `dry_run` tylko liczy skutki."""
+
+    source_ids: list[str] = Field(min_length=1)
+    target_id: str
+    dry_run: bool = False
+
+
+class ItemMergeResult(BaseModel):
+    target_id: str
+    merged_count: int
+    items_moved: int
+    aliases_moved: int
+    aliases_added: int
+    dry_run: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ItemAliasRead(BaseModel):
+    """Nazwa z paragonu przypisana do produktu; `store_id` NULL = we wszystkich sklepach."""
+
+    id: str
+    alias: str
+    store_id: str | None = None
+    store_name: str | None = None
+
+
+class ItemUsageRead(BaseModel):
+    """Liczba pozycji transakcji i aliasów produktu — do listy i scalania."""
+
+    item_id: str
+    transaction_items: int
+    aliases: int
+
+
 class CategoryCreate(BaseModel):
     """Tworzenie tagu: albo name (+ opcjonalny parent_id), albo cała ścieżka.
 
@@ -380,6 +415,8 @@ class TransactionItemBase(BaseModel):
     quantity: float = Field(gt=0)
     unit: str | None = None
     comment: str | None = None
+    # Nazwa tak, jak wydrukował ją paragon — przy pozycjach dodanych ręcznie brak.
+    raw_name: str | None = None
 
 
 class TransactionItemCreate(TransactionItemBase):
@@ -1287,11 +1324,15 @@ __all__ = [
     "IncomeExpenseCategoryRow",
     "IncomeExpenseMonthRow",
     "IncomeExpenseReport",
+    "ItemAliasRead",
     "ItemBase",
     "ItemCreate",
     "ItemMatch",
+    "ItemMergeRequest",
+    "ItemMergeResult",
     "ItemRead",
     "ItemUpdate",
+    "ItemUsageRead",
     "MonthlyCategorySummary",
     "MonthlySpendingPoint",
     "NetWorthAccountBalance",

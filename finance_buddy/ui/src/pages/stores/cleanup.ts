@@ -1,13 +1,17 @@
-// Reguły widoku „Do uporządkowania”. Każdy sklep ma jeden powód, żeby liczniki chipów sumowały się do całości.
+// Reguły widoku „Do uporządkowania”. Pozycją jest grupa sklepów, tak jak w widoku „Wszystkie”,
+// a każda grupa ma jeden powód, żeby liczniki chipów sumowały się do całości.
 import type { Store } from '../../api';
+import type { StoreGroup } from './groups';
 
 export type CleanupReason = 'self' | 'duplicate' | 'raw' | 'uncategorized';
 
 export type CleanupItem = {
+  /** Główny sklep grupy: jego id otwiera stronę sklepu i jest kluczem zaznaczenia. */
   store: Store;
+  group: StoreGroup;
   reason: CleanupReason;
-  /** Inny sklep o tej samej nazwie (dla duplikatu). */
-  duplicateOf?: Store;
+  /** Inna grupa o tej samej nazwie (dla duplikatu). */
+  duplicateOf?: StoreGroup;
   /** Alias tej nazwy jest niejednoznaczny, więc importer go nie używa. */
   isAmbiguous?: boolean;
   /** Czytelna nazwa wycięta z surowej (dla surowej nazwy z banku). */
@@ -44,10 +48,17 @@ export const normalizeStoreName = (name: string) => {
   return stripped || name.trim().toLocaleLowerCase('pl-PL');
 };
 
+const words = (text: string) => text.toLocaleLowerCase('pl-PL').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+
+/**
+ * Imię i nazwisko zalogowanego użytkownika, jako całe słowa. Samo imię (albo login) nie wystarcza:
+ * „Kamil” pasowałby do przelewu od każdego innego Kamila.
+ */
 const hasOwnerName = (name: string, ownerName: string) => {
-  const haystack = name.toLocaleLowerCase('pl-PL');
-  const parts = ownerName.toLocaleLowerCase('pl-PL').split(/\s+/).filter(Boolean);
-  return parts.length > 0 && parts.every((part) => haystack.includes(part));
+  const parts = words(ownerName);
+  if (parts.length < 2) return false;
+  const haystack = new Set(words(name));
+  return parts.every((part) => haystack.has(part));
 };
 
 const proposeName = (raw: string) => {
@@ -67,31 +78,41 @@ const rawKindOf = (name: string): CleanupItem['rawKind'] => {
   return undefined;
 };
 
+const isSelfTransfer = (name: string, ownerName: string) =>
+  Boolean(ownerName) && hasOwnerName(name, ownerName) && SELF_MARKER_RE.test(name);
+
+/**
+ * Surowa nazwa liczy się tylko jako nazwa grupy: po zmianie nazwy grupa jest uporządkowana,
+ * choć nazwy z banku zostają (importer po nich dopasowuje). Kategoria jednego sklepu wystarcza całej grupie.
+ */
 export const buildCleanupItems = (
-  stores: readonly Store[],
+  groups: readonly StoreGroup[],
   ownerName = '',
   ambiguousStoreIds: ReadonlySet<string> = new Set()
 ): CleanupItem[] => {
-  const active = stores.filter((store) => !store.is_deleted);
-  const byNormalizedName = new Map<string, Store[]>();
-  active.forEach((store) => {
-    const key = normalizeStoreName(store.name);
-    byNormalizedName.set(key, [...(byNormalizedName.get(key) ?? []), store]);
+  const active = groups.filter((group) => !group.isArchived);
+  const byNormalizedName = new Map<string, StoreGroup[]>();
+  active.forEach((group) => {
+    const key = normalizeStoreName(group.name);
+    byNormalizedName.set(key, [...(byNormalizedName.get(key) ?? []), group]);
   });
 
-  return active.flatMap((store): CleanupItem[] => {
-    if (ownerName && hasOwnerName(store.name, ownerName) && SELF_MARKER_RE.test(store.name)) {
-      return [{ store, reason: 'self' }];
+  return active.flatMap((group): CleanupItem[] => {
+    const store = group.members.find((member) => member.id === group.id) ?? group.members[0];
+    if (group.members.some((member) => isSelfTransfer(member.name, ownerName))) {
+      return [{ store, group, reason: 'self' }];
     }
-    const namesakes = byNormalizedName.get(normalizeStoreName(store.name)) ?? [];
-    const isAmbiguous = ambiguousStoreIds.has(store.id);
+    const namesakes = byNormalizedName.get(normalizeStoreName(group.name)) ?? [];
+    const isAmbiguous = group.members.some((member) => ambiguousStoreIds.has(member.id));
     if (namesakes.length > 1 || isAmbiguous) {
-      return [{ store, reason: 'duplicate', isAmbiguous, duplicateOf: namesakes.find((other) => other.id !== store.id) }];
+      const duplicateOf = namesakes.find((other) => other.key !== group.key);
+      return [{ store, group, reason: 'duplicate', isAmbiguous, duplicateOf }];
     }
-    const rawKind = rawKindOf(store.name);
+    const rawKind = rawKindOf(group.name);
     if (rawKind) {
-      return [{ store, reason: 'raw', rawKind, proposedName: rawKind === 'digits' ? undefined : proposeName(store.name) }];
+      const proposedName = rawKind === 'digits' ? undefined : proposeName(group.name);
+      return [{ store, group, reason: 'raw', rawKind, proposedName }];
     }
-    return store.automatic_category_id ? [] : [{ store, reason: 'uncategorized' }];
+    return group.categoryId ? [] : [{ store, group, reason: 'uncategorized' }];
   });
 };

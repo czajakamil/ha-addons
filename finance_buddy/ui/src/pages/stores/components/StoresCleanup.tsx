@@ -7,7 +7,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import TruncatedText from '../../../components/ui/TruncatedText';
 import { copy } from '../../../copy/pl';
 import { maskAccountNumbers, type CleanupItem, type CleanupReason } from '../cleanup';
-import { getGroupLabel, type StoreStat } from '../groups';
+import type { StoreStat } from '../groups';
 import CategoryDialog from './CategoryDialog';
 import MergeDialog from './MergeDialog';
 import SelfTransferDialog from './SelfTransferDialog';
@@ -20,9 +20,9 @@ const describeHint = (item: CleanupItem, stats: ReadonlyMap<string, StoreStat> |
   switch (item.reason) {
     case 'duplicate': {
       const other = item.duplicateOf;
-      if (!other) return '';
+      if (!other) return item.isAmbiguous && item.group.members.length > 1 ? labels.hints.sameNames : '';
       if (item.isAmbiguous) return labels.hints.ambiguous(maskAccountNumbers(other.name));
-      return labels.hints.duplicate(maskAccountNumbers(other.name), stats ? stats.get(other.id)?.count ?? 0 : null);
+      return labels.hints.duplicate(maskAccountNumbers(other.name), stats ? other.count : null);
     }
     case 'raw':
       if (item.rawKind === 'digits') return labels.hints.digits;
@@ -40,7 +40,10 @@ type StoresCleanupProps = {
   categories: Category[];
   categoryMap: Map<string, Category>;
   onOpen: (storeId: string) => void;
+  /** Archiwizuje całą grupę: wszystkie jej nazwy z banku. */
   onArchive: (item: CleanupItem) => void;
+  /** Usuwa grupy bez transakcji (wszystkie ich nazwy z banku). Grupy z transakcjami trzeba scalić albo zarchiwizować. */
+  onDelete: (items: CleanupItem[]) => void;
   onSetCategory: (items: CleanupItem[], path: string) => Promise<boolean>;
   ensureCategory: (path: string) => Promise<string>;
   onMerged: () => Promise<void>;
@@ -53,6 +56,7 @@ const StoresCleanup = ({
   categoryMap,
   onOpen,
   onArchive,
+  onDelete,
   onSetCategory,
   ensureCategory,
   onMerged
@@ -62,7 +66,8 @@ const StoresCleanup = ({
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [dialog, setDialog] = useState<'merge' | 'category' | null>(null);
   const [categoryTargets, setCategoryTargets] = useState<CleanupItem[]>([]);
-  const [transferStore, setTransferStore] = useState<string | null>(null);
+  const [transferStoreIds, setTransferStoreIds] = useState<string[] | null>(null);
+  const [membersMerge, setMembersMerge] = useState<CleanupItem | null>(null);
 
   // Sklep, który wypadł z listy (np. dostał kategorię), wypada też z zaznaczenia
   useEffect(() => {
@@ -85,6 +90,9 @@ const StoresCleanup = ({
   );
   const visible = filtered.slice(0, limit);
   const selectedItems = items.filter((item) => selected.has(item.store.id));
+  // Bez statystyk nie wiadomo, które grupy są puste, więc usuwanie czeka na ich wczytanie
+  const isEmpty = (item: CleanupItem) => Boolean(stats) && item.group.count === 0;
+  const selectedEmpty = selectedItems.filter(isEmpty);
   const allSelected = filtered.length > 0 && filtered.every((item) => selected.has(item.store.id));
 
   const toggleOne = (id: string) =>
@@ -106,12 +114,14 @@ const StoresCleanup = ({
     setDialog('category');
   };
 
-  // Celem jest sklep z największą liczbą transakcji, żeby przenieść jak najmniej.
-  const mergeOrder = selectedItems
-    .slice()
-    .sort((a, b) => (stats?.get(b.store.id)?.count ?? 0) - (stats?.get(a.store.id)?.count ?? 0));
+  // Celem jest główny sklep grupy z największą liczbą transakcji, żeby przenieść jak najmniej.
+  // Pozostałe nazwy z banku tej grupy i całe pozostałe grupy idą do niego.
+  const mergeOrder = selectedItems.slice().sort((a, b) => b.group.count - a.group.count);
   const mergeTarget = mergeOrder[0]?.store;
-  const mergeCategoryId = mergeOrder.find((item) => item.store.automatic_category_id)?.store.automatic_category_id;
+  const mergeSourceIds = mergeOrder
+    .flatMap((item) => item.group.members.map((member) => member.id))
+    .filter((id) => id !== mergeTarget?.id);
+  const mergeCategoryId = mergeOrder.find((item) => item.group.categoryId)?.group.categoryId;
 
   return (
     <div className="stores-cleanup">
@@ -148,6 +158,11 @@ const StoresCleanup = ({
           <button type="button" className="stores-bulk__action" onClick={() => openCategory(selectedItems)}>
             {labels.setCategory}
           </button>
+          {selectedEmpty.length > 0 && (
+            <button type="button" className="stores-bulk__action" onClick={() => onDelete(selectedEmpty)}>
+              {labels.deleteEmpty(selectedEmpty.length)}
+            </button>
+          )}
           <button type="button" className="stores-bulk__clear" onClick={() => setSelected(new Set())}>
             {labels.clearSelection}
           </button>
@@ -179,7 +194,15 @@ const StoresCleanup = ({
             </thead>
             <tbody>
               {visible.map((item) => {
-                const name = maskAccountNumbers(item.store.name);
+                const name = maskAccountNumbers(item.group.name);
+                const members = item.group.members;
+                // Pod nazwą grupy: nazwa z banku, gdy jest inna, albo liczba nazw z banku
+                const bankName =
+                  members.length > 1
+                    ? labels.bankNames(members.length)
+                    : members[0].name !== item.group.name
+                      ? maskAccountNumbers(members[0].name)
+                      : '';
                 const isSelected = selected.has(item.store.id);
                 return (
                   <tr key={item.store.id} className={`stores-table__row${isSelected ? ' is-selected' : ''}`}>
@@ -193,9 +216,16 @@ const StoresCleanup = ({
                       />
                     </td>
                     <td>
-                      <button type="button" className="accounts-name__link" onClick={() => onOpen(item.store.id)}>
-                        <TruncatedText text={name} />
-                      </button>
+                      <div className="accounts-name__copy">
+                        <button type="button" className="accounts-name__link" onClick={() => onOpen(item.store.id)}>
+                          <TruncatedText text={name} />
+                        </button>
+                        {bankName && (
+                          <span className="accounts-name__meta">
+                            <TruncatedText text={bankName} />
+                          </span>
+                        )}
+                      </div>
                       <span className={`stores-badge stores-badge--${item.reason} stores-badge--inline`}>
                         {labels.reasons[item.reason]}
                       </span>
@@ -206,7 +236,7 @@ const StoresCleanup = ({
                     <td className="stores-table__hint">
                       <TruncatedText text={describeHint(item, stats)} />
                     </td>
-                    <td className="stores-table__count">{stats ? stats.get(item.store.id)?.count ?? 0 : '…'}</td>
+                    <td className="stores-table__count">{stats ? item.group.count : '…'}</td>
                     <td className="accounts-table__menu">
                       <DropdownMenu.Root>
                         <DropdownMenu.Trigger className="accounts-menu-trigger stores-menu-visible" aria-label={labels.actions(name)}>
@@ -217,15 +247,25 @@ const StoresCleanup = ({
                             <DropdownMenu.Item className="menu__item" onSelect={() => onOpen(item.store.id)}>
                               {labels.open}
                             </DropdownMenu.Item>
+                            {members.length > 1 && (
+                              <DropdownMenu.Item className="menu__item" onSelect={() => setMembersMerge(item)}>
+                                {labels.mergeMembers}
+                              </DropdownMenu.Item>
+                            )}
                             <DropdownMenu.Item className="menu__item" onSelect={() => openCategory([item])}>
                               {labels.setCategory}
                             </DropdownMenu.Item>
-                            <DropdownMenu.Item className="menu__item" onSelect={() => setTransferStore(item.store.id)}>
+                            <DropdownMenu.Item className="menu__item" onSelect={() => setTransferStoreIds(members.map((member) => member.id))}>
                               {labels.transfers.menu}
                             </DropdownMenu.Item>
                             <DropdownMenu.Item className="menu__item" onSelect={() => onArchive(item)}>
                               {labels.archive}
                             </DropdownMenu.Item>
+                            {isEmpty(item) && (
+                              <DropdownMenu.Item className="menu__item" onSelect={() => onDelete([item])}>
+                                {labels.deleteStore}
+                              </DropdownMenu.Item>
+                            )}
                           </DropdownMenu.Content>
                         </DropdownMenu.Portal>
                       </DropdownMenu.Root>
@@ -248,10 +288,10 @@ const StoresCleanup = ({
 
       {dialog === 'merge' && mergeTarget && (
         <MergeDialog
-          sourceIds={mergeOrder.slice(1).map((item) => item.store.id)}
+          sourceIds={mergeSourceIds}
           targetId={mergeTarget.id}
-          defaultName={getGroupLabel(mergeTarget)}
-          names={mergeOrder.map((item) => item.store.name)}
+          defaultName={mergeOrder[0].group.name}
+          names={mergeOrder.map((item) => item.group.name)}
           categories={categories}
           categoryPath={(mergeCategoryId && categoryMap.get(mergeCategoryId)?.path) || ''}
           ensureCategory={ensureCategory}
@@ -263,8 +303,25 @@ const StoresCleanup = ({
           onUndone={onMerged}
         />
       )}
-      {transferStore && (
-        <SelfTransferDialog storeIds={[transferStore]} onClose={() => setTransferStore(null)} onChanged={onMerged} />
+      {membersMerge && (
+        <MergeDialog
+          sourceIds={membersMerge.group.members.map((member) => member.id).filter((id) => id !== membersMerge.store.id)}
+          targetId={membersMerge.store.id}
+          defaultName={membersMerge.group.name}
+          names={membersMerge.group.members.map((member) => member.name)}
+          categories={categories}
+          categoryPath={(membersMerge.group.categoryId && categoryMap.get(membersMerge.group.categoryId)?.path) || ''}
+          ensureCategory={ensureCategory}
+          onClose={() => setMembersMerge(null)}
+          onMerged={async () => {
+            setMembersMerge(null);
+            await onMerged();
+          }}
+          onUndone={onMerged}
+        />
+      )}
+      {transferStoreIds && (
+        <SelfTransferDialog storeIds={transferStoreIds} onClose={() => setTransferStoreIds(null)} onChanged={onMerged} />
       )}
       {dialog === 'category' && (
         <CategoryDialog

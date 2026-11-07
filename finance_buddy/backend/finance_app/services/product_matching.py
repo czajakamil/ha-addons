@@ -5,7 +5,8 @@ więc mapujemy je na produkty kaskadą:
 
 1. alias dokładny w tym sklepie   → pewne trafienie (auto),
 2. alias globalny / nazwa produktu → pewne trafienie (auto),
-3. fuzzy (rapidfuzz, próg 85)      → top-3 propozycje do potwierdzenia,
+3. fuzzy (rapidfuzz, próg 85) po nazwach i aliasach z innych sklepów
+                                   → top-3 propozycje do potwierdzenia,
 4. brak dopasowania               → sygnał "nowy produkt" z prefillem nazwy.
 
 Każde potwierdzenie użytkownika zapisuje alias (`save_alias`) — system uczy się
@@ -117,7 +118,12 @@ class _MatchIndex:
         ).all()
         self.alias_by_store: dict[tuple[str, str], str] = {}
         self.alias_global: dict[str, str] = {}
+        # Wszystkie znane nazwy z paragonów per produkt — do fuzzy. Paragon z innego
+        # sklepu rzadko przypomina nazwę produktu („Zupka chińska”), ale często
+        # przypomina to, co ten produkt nazywał już inny sklep („VIFON KURCZAK 70G”).
+        self.aliases_by_product: dict[str, list[str]] = {}
         for alias, store_id, product_id in alias_rows:
+            self.aliases_by_product.setdefault(product_id, []).append(alias)
             if store_id:
                 self.alias_by_store[(store_id, alias)] = product_id
             else:
@@ -138,12 +144,19 @@ class _MatchIndex:
 
 
 def _fuzzy_candidates(raw_norm: str, index: _MatchIndex) -> list[ProductCandidate]:
-    """Top-N produktów powyżej progu podobieństwa (po najlepszej z nazw produktu)."""
+    """Top-N produktów powyżej progu podobieństwa.
+
+    Wynik produktu to najlepszy z jego nazw i aliasów (z dowolnego sklepu).
+    """
     scored: list[ProductCandidate] = []
     for product in index.products:
         best = 0.0
-        for candidate in (product.name, product.name_simplified):
-            norm = normalize_alias(candidate)
+        names = [
+            normalize_alias(product.name),
+            normalize_alias(product.name_simplified),
+            *index.aliases_by_product.get(product.id, ()),
+        ]
+        for norm in names:
             if not norm:
                 continue
             best = max(best, fuzz.WRatio(raw_norm, norm))

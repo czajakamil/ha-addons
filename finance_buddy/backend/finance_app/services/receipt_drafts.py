@@ -24,7 +24,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, status
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import receipt_checks
@@ -314,6 +314,19 @@ def list_drafts(
     return visible, counts
 
 
+def count_todo(db: Session, user_id: str) -> int:
+    """Liczba szkiców czekających na przejrzenie — do licznika w nawigacji."""
+    return (
+        db.scalar(
+            select(func.count(ReceiptDraft.id)).where(
+                ReceiptDraft.user_id == user_id,
+                ReceiptDraft.status == ReceiptDraft.STATUS_TODO,
+            )
+        )
+        or 0
+    )
+
+
 def get_draft(db: Session, draft_id: str, user_id: str) -> ReceiptDraft:
     return _get_owned_or_404(db, ReceiptDraft, draft_id, user_id, "Receipt draft")
 
@@ -462,6 +475,7 @@ def _resolve_items(
                 unit_price_cents=abs(unit_price),
                 quantity=quantity,
                 unit=row.unit,
+                raw_name=row.raw_name.strip() or None,
             )
         )
         if row.learn_alias and row.raw_name.strip():

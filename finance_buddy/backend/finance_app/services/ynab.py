@@ -351,9 +351,13 @@ def import_budget(
             categories_resp = categories_api.get_categories(payload.budget_id)
             groups = categories_resp.data.category_groups
 
+            # Transakcje przed sklepami: sklep powstaje tylko dla payee, który ich używa
+            rows, server_knowledge = ynab_import.flatten_transactions(client, payload.budget_id)
+            used_payee_ids = {row.store_id for row in rows if row.store_id}
+
             acc_map = ynab_import.import_accounts(db, budget_detail, current_user.id)
             store_map = ynab_import.import_payees_as_stores(
-                db, payload.budget_id, client, current_user.id
+                db, payload.budget_id, client, current_user.id, used_payee_ids
             )
             cat_map = ynab_import.import_categories_tree(
                 db, payload.budget_id, client, current_user.id, groups=groups
@@ -378,7 +382,6 @@ def import_budget(
             # wierszy zaniżyło saldo Revolut (PLN) o 105 700 zł. Pełna lista to
             # kilka tysięcy transakcji w jednym zapytaniu, a przy okazji łapie
             # zmiany w starych transakcjach, których okno dat by nie objęło.
-            rows, server_knowledge = ynab_import.flatten_transactions(client, payload.budget_id)
             tx_inserted, tx_skipped = ynab_import.import_transactions(
                 db, rows, acc_map, store_map, cat_map, current_user.id
             )

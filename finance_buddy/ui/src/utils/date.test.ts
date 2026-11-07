@@ -45,6 +45,15 @@ describe('wpisywanie daty i godziny', () => {
     expect(parseTypedTime('9:15')).toBe('09:15');
     expect(parseTypedTime('14.30')).toBe('14:30');
     expect(parseTypedTime('24:00')).toBeNull();
+    expect(parseTypedTime('9:75')).toBeNull();
+    expect(parseTypedTime('abc')).toBeNull();
     expect(parseTypedTime('')).toBe('');
+  });
+
+  it('przyjmuje skróty bez dwukropka', () => {
+    expect(parseTypedTime('1430')).toBe('14:30');
+    expect(parseTypedTime('930')).toBe('09:30');
+    expect(parseTypedTime('9')).toBe('09:00');
+    expect(parseTypedTime('2400')).toBeNull();
   });
 });

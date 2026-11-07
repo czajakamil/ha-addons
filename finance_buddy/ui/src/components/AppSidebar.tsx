@@ -24,6 +24,7 @@ import {
 import type { AuthUser } from '../api';
 import { copy } from '../copy/pl';
 import type { ThemeMode } from '../hooks/useTheme';
+import ReceiptsNavBadge from './ReceiptsNavBadge';
 import UntaggedNavBadge from './UntaggedNavBadge';
 
 export const navGroups: { label: string; links: { to: string; label: string; icon: LucideIcon }[] }[] = [
@@ -120,6 +121,7 @@ const AppSidebar = ({
                 <span className="sidebar__text">{label}</span>
                 {/* Licznik „do otagowania" przy Transakcjach — kolejka jest ich podstroną. */}
                 {to === '/transactions' ? <UntaggedNavBadge /> : null}
+                {to === '/receipts' ? <ReceiptsNavBadge /> : null}
               </NavLink>
             ))}
           </div>

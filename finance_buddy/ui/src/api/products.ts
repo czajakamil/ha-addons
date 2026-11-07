@@ -72,6 +72,43 @@ export const updateItem = (id: string, payload: ItemUpdate) =>
 export const deleteItem = (id: string) =>
   request<void>(`/items/${id}`, { method: 'DELETE' });
 
+export interface ItemUsage {
+  item_id: string;
+  transaction_items: number;
+  aliases: number;
+}
+
+export const getItemUsage = () => request<ItemUsage[]>('/items/usage');
+
+export interface ItemMergeResult {
+  target_id: string;
+  merged_count: number;
+  items_moved: number;
+  aliases_moved: number;
+  aliases_added: number;
+  dry_run: boolean;
+}
+
+/** Scala `sourceIds` w `targetId`; z `dryRun` tylko liczy skutki. */
+export const mergeItems = (sourceIds: string[], targetId: string, dryRun = false) =>
+  request<ItemMergeResult>('/items/merge', {
+    method: 'POST',
+    body: JSON.stringify({ source_ids: sourceIds, target_id: targetId, dry_run: dryRun })
+  });
+
+/** Nazwa z paragonu rozpoznawana jako ten produkt; bez sklepu = we wszystkich sklepach. */
+export interface ItemAlias {
+  id: string;
+  alias: string;
+  store_id?: string | null;
+  store_name?: string | null;
+}
+
+export const getItemAliases = (itemId: string) => request<ItemAlias[]>(`/items/${itemId}/aliases`);
+
+export const deleteItemAlias = (itemId: string, aliasId: string) =>
+  request<void>(`/items/${itemId}/aliases/${aliasId}`, { method: 'DELETE' });
+
 // --- Dopasowanie pozycji paragonu do produktów (Etap 3 pipeline'u OCR) ---
 
 export type ProductMatchType = 'alias_store' | 'alias_global' | 'name' | 'fuzzy' | 'none';

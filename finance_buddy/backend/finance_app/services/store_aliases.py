@@ -149,6 +149,29 @@ def register_store_name(db: Session, store: Store, source: str = "store_name") -
     _resolve_ambiguity(db, store.user_id, normalized)
 
 
+def find_store_by_name(db: Session, user_id: str | None, name: str) -> Store | None:
+    """Aktywny sklep, który ma już tę nazwę jako dokładny alias (po normalizacji).
+
+    Gdy nazwę ma kilka sklepów, wygrywa właściciel aliasu, a bez niego najstarszy alias.
+    """
+    normalized = normalize_alias(name)
+    if not normalized:
+        return None
+    return db.scalars(
+        select(Store)
+        .join(StoreAlias, StoreAlias.store_id == Store.id)
+        .where(
+            StoreAlias.user_id == user_id,
+            StoreAlias.normalized == normalized,
+            StoreAlias.match_type == EXACT,
+            Store.is_deleted.is_(False),
+            Store.merged_into_id.is_(None),
+        )
+        .order_by(StoreAlias.is_ambiguous, StoreAlias.created_at)
+        .limit(1)
+    ).first()
+
+
 def exact_names_of(db: Session, store: Store) -> list[str]:
     return list(
         db.scalars(

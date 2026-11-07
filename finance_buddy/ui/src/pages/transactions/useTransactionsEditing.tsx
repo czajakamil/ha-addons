@@ -4,7 +4,7 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { type CellKeyboardEvent } from 'react-data-grid';
-import { Account, Category, Store, Transaction, updateTransaction } from '../../api';
+import { Account, Category, Item, Store, Transaction, updateItem, updateTransaction } from '../../api';
 import LookupAutocompleteInput from '../../components/transactions/LookupAutocompleteInput';
 import {
   buildStoreOptions,
@@ -18,12 +18,14 @@ import { ArrowLeftRight } from 'lucide-react';
 import Money from '../../components/ui/Money';
 import TruncatedText from '../../components/ui/TruncatedText';
 import { parseAmountToCents } from '../../utils/format';
+import { formatRecordedTime, parseTypedTime, toRecordedAt } from '../../utils/date';
 import { BALANCE_ADJUSTMENT_LABEL, isBalanceAdjustment, userComment } from '../../utils/transactionLabels';
 import { getNextStatusPayload, type EditableAmountField, type EditableLookupField } from './model';
 
 type UseTransactionsEditingParams = {
   transactions: Transaction[];
   setTransactions: Dispatch<SetStateAction<Transaction[]>>;
+  setProducts: Dispatch<SetStateAction<Item[]>>;
   activeAccounts: Account[];
   stores: Store[];
   categories: Category[];
@@ -47,6 +49,7 @@ type TransactionCellArgs = {
 export const useTransactionsEditing = ({
   transactions,
   setTransactions,
+  setProducts,
   activeAccounts,
   stores,
   categories,
@@ -72,6 +75,16 @@ export const useTransactionsEditing = ({
     value: string;
   } | null>(null);
   const [savingAmountId, setSavingAmountId] = useState<string | null>(null);
+  const [editingTime, setEditingTime] = useState<{ transactionId: string; value: string } | null>(null);
+  const [savingTimeId, setSavingTimeId] = useState<string | null>(null);
+  // Tag pozycji mieszka na produkcie, więc edycja zmienia go we wszystkich jego pozycjach.
+  // Klucz to id wiersza pozycji — ten sam produkt może stać w kilku wierszach.
+  const [editingItemCategory, setEditingItemCategory] = useState<{
+    rowId: string;
+    productId: string;
+    inputValue: string;
+  } | null>(null);
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
 
   const handleTransactionFieldChange = async (
     transaction: Transaction,
@@ -266,6 +279,83 @@ export const useTransactionsEditing = ({
     }
   };
 
+  const startEditingTime = useCallback((transaction: Transaction) => {
+    setEditingTime({ transactionId: transaction.id, value: formatRecordedTime(transaction.recorded_at) ?? '' });
+  }, []);
+
+  // Pusta godzina zapisuje północ, czyli „bez godziny" — tak samo jak w formularzu.
+  const commitTimeEdit = async () => {
+    if (!editingTime) return;
+    if (savingTimeId) return;
+
+    const tx = transactions.find((t) => t.id === editingTime.transactionId);
+    if (!tx) {
+      setEditingTime(null);
+      return;
+    }
+
+    const time = parseTypedTime(editingTime.value);
+    if (time === null) {
+      setInlineError('Podaj godzinę, np. 14:30.');
+      return;
+    }
+
+    if (time === (formatRecordedTime(tx.recorded_at) ?? '')) {
+      setEditingTime(null);
+      return;
+    }
+
+    const date = tx.date ?? tx.recorded_at?.slice(0, 10);
+    if (!date) {
+      setInlineError('Transakcja nie ma daty, więc nie można ustawić godziny.');
+      setEditingTime(null);
+      return;
+    }
+
+    setSavingTimeId(tx.id);
+    try {
+      const updated = await updateTransaction(tx.id, { recorded_at: toRecordedAt(date, time) });
+      setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setInlineError(null);
+      setEditingTime(null);
+    } catch (err) {
+      console.error(err);
+      setInlineError('Nie udało się zaktualizować godziny transakcji.');
+    } finally {
+      setSavingTimeId(null);
+    }
+  };
+
+  const startEditingItemCategory = useCallback(
+    (rowId: string, productId: string, category: Category | null) => {
+      setEditingItemCategory({ rowId, productId, inputValue: category?.name ?? '' });
+    },
+    []
+  );
+
+  const commitItemCategoryEdit = async (option: LookupOption | null, currentCategoryId: string | null) => {
+    if (!editingItemCategory) return;
+    const { productId } = editingItemCategory;
+    const nextCategoryId = option?.id ?? null;
+    if (nextCategoryId === currentCategoryId) {
+      setEditingItemCategory(null);
+      return;
+    }
+
+    setSavingProductId(productId);
+    try {
+      const updated = await updateItem(productId, { category_id: nextCategoryId });
+      setProducts((prev) => prev.map((product) => (product.id === updated.id ? updated : product)));
+      setInlineError(null);
+    } catch (err) {
+      console.error(err);
+      setInlineError('Nie udało się zmienić tagu produktu.');
+    } finally {
+      setSavingProductId(null);
+      setEditingItemCategory(null);
+    }
+  };
+
   const cycleTransactionStatus = useCallback(
     async (transaction: Transaction) => {
       const payload = getNextStatusPayload(transaction);
@@ -419,6 +509,53 @@ export const useTransactionsEditing = ({
     return cents > 0 ? <Money cents={cents} currency={transaction.currency} /> : null;
   };
 
+  const renderItemCategoryCell = (rowId: string, category: Category | null) => {
+    if (editingItemCategory?.rowId === rowId) {
+      const isSaving = savingProductId === editingItemCategory.productId;
+      return (
+        <div className="editable-cell align-middle is-editing">
+          <LookupAutocompleteInput
+            inputValue={editingItemCategory.inputValue}
+            disabled={isSaving}
+            options={categories.map((c) => ({ id: c.id, label: c.name, kind: 'entry' }))}
+            onInputChange={(value) =>
+              setEditingItemCategory((prev) => (prev ? { ...prev, inputValue: value } : prev))
+            }
+            onCommit={(option) => {
+              void commitItemCategoryEdit(option, category?.id ?? null);
+            }}
+            onCancel={() => setEditingItemCategory(null)}
+          />
+          {isSaving && <div className="editable-cell__meta">Zapisywanie…</div>}
+        </div>
+      );
+    }
+    return category ? <TagChip category={category} byId={categoryMap} /> : null;
+  };
+
+  const renderTimeCell = (transaction: Transaction) => {
+    if (editingTime?.transactionId === transaction.id) {
+      const isSaving = savingTimeId === transaction.id;
+      return (
+        <div className="editable-cell align-middle is-editing">
+          <AmountEditCell
+            value={editingTime.value}
+            disabled={isSaving}
+            isSaving={isSaving}
+            inputMode="numeric"
+            align="start"
+            placeholder="gg:mm"
+            ariaLabel="Godzina transakcji"
+            onChange={(value) => setEditingTime((prev) => (prev ? { ...prev, value } : prev))}
+            onCommit={commitTimeEdit}
+            onCancel={() => setEditingTime(null)}
+          />
+        </div>
+      );
+    }
+    return formatRecordedTime(transaction.recorded_at);
+  };
+
   const handleGridDoubleClick = useCallback(
     (args: TransactionCellArgs) => {
       const { column, row } = args;
@@ -443,6 +580,12 @@ export const useTransactionsEditing = ({
         return;
       }
 
+      if (column.key === 'time') {
+        if (savingTimeId === row.id) return;
+        startEditingTime(row);
+        return;
+      }
+
       if (column.key === 'open') {
         openTransactionDetails(row.id);
       }
@@ -454,7 +597,9 @@ export const useTransactionsEditing = ({
       openTransactionDetails,
       startEditingComment,
       startEditingLookup,
-      startEditingAmount
+      startEditingAmount,
+      startEditingTime,
+      savingTimeId
     ]
   );
 
@@ -484,6 +629,10 @@ export const useTransactionsEditing = ({
     renderCommentCell,
     renderLookupCell,
     renderAmountCell,
+    renderTimeCell,
+    renderItemCategoryCell,
+    startEditingItemCategory,
+    savingProductId,
     handleGridDoubleClick,
     handleGridCellKeyDown
   };

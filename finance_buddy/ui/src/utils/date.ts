@@ -78,11 +78,15 @@ export const formatTypedDate = (iso: string) => {
   return year && month && day ? `${day}.${month}.${year}` : iso;
 };
 
-/** „9:15" albo „09.15" → „09:15"; null, gdy to nie jest godzina, pusty tekst → ''. */
+/**
+ * „9:15", „09.15", „915" albo „9" → „09:15" / „09:00"; null, gdy to nie jest godzina,
+ * pusty tekst → ''. Skróty bez dwukropka przyspieszają wpisywanie z klawiatury.
+ */
 export const parseTypedTime = (text: string) => {
   const value = text.trim();
   if (!value) return '';
-  const match = /^(\d{1,2})[:.](\d{2})$/.exec(value);
-  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
-  return `${match[1].padStart(2, '0')}:${match[2]}`;
+  const match = /^(\d{1,2})(?:[:.]?(\d{2}))?$/.exec(value);
+  const minutes = match?.[2] ?? '00';
+  if (!match || Number(match[1]) > 23 || Number(minutes) > 59) return null;
+  return `${match[1].padStart(2, '0')}:${minutes}`;
 };

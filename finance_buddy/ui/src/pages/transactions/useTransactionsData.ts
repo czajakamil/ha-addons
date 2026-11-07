@@ -204,6 +204,7 @@ export const useTransactionsData = (scopedAccountId?: string) => {
     stores,
     categories,
     products,
+    setProducts,
     transactions,
     setTransactions,
     totalCount,

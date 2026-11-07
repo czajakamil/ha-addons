@@ -7,6 +7,8 @@ export interface TransactionItem {
   quantity: number;
   unit?: string | null;
   comment?: string | null;
+  /** Nazwa tak, jak wydrukował ją paragon; pozycje dodane ręcznie jej nie mają. */
+  raw_name?: string | null;
 }
 
 export interface TransactionItemCreate {
@@ -15,6 +17,7 @@ export interface TransactionItemCreate {
   quantity: number;
   unit?: string | null;
   comment?: string | null;
+  raw_name?: string | null;
 }
 
 export interface Transaction {

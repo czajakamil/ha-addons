@@ -6,7 +6,8 @@ import {
   Item,
   ensureCategoryPath,
   getAllCategories,
-  getAllItems
+  getAllItems,
+  getItemUsage
 } from '../api';
 import DataTable from '../components/DataTable';
 import Button from '../components/Button';
@@ -48,6 +49,23 @@ const ItemsPage = () => {
   const [sortOption, setSortOption] = useState<SortOption>('name_asc');
   const [showNewItemModal, setShowNewItemModal] = useState(false);
   const [detailsItemId, setDetailsItemId] = useState<string | null>(null);
+  const [usageById, setUsageById] = useState<Map<string, number>>(new Map());
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Liczniki są tylko podpowiedzią przy scalaniu — bez nich strona działa.
+  const fetchUsage = useCallback(
+    () =>
+      getItemUsage()
+        .then((usage) => setUsageById(new Map(usage.map((entry) => [entry.item_id, entry.transaction_items]))))
+        .catch((err: unknown) => console.error(err)),
+    []
+  );
+
+  useEffect(() => {
+    getItemUsage()
+      .then((usage) => setUsageById(new Map(usage.map((entry) => [entry.item_id, entry.transaction_items]))))
+      .catch((err: unknown) => console.error(err));
+  }, []);
 
   const categoryPathById = useMemo(
     () => new Map(categories.map((category) => [category.id, category.path])),
@@ -131,6 +149,18 @@ const ItemsPage = () => {
       setDetailsItemId(null);
     },
     [setItems]
+  );
+
+  const handleItemMerged = useCallback(
+    (sourceId: string, targetId: string) => {
+      const source = items.find((entry) => entry.id === sourceId);
+      const target = items.find((entry) => entry.id === targetId);
+      setDetailsItemId(null);
+      setNotice(source && target ? `Scalono „${getItemLabel(source)}” z „${target.name}”.` : 'Scalono przedmioty.');
+      void fetchItems();
+      void fetchUsage();
+    },
+    [items, fetchItems, fetchUsage]
   );
 
   const detailsItem = detailsItemId ? items.find((entry) => entry.id === detailsItemId) ?? null : null;
@@ -277,6 +307,20 @@ const ItemsPage = () => {
               />
             </div>
 
+            {notice && (
+              <div className="accounts-section-card__alert">
+                <div className="alert alert-success d-flex align-items-center justify-content-between gap-2 mb-0" role="status">
+                  <div>{notice}</div>
+                  <button
+                    type="button"
+                    className="btn-close is-focusable"
+                    aria-label="Zamknij"
+                    onClick={() => setNotice(null)}
+                  />
+                </div>
+              </div>
+            )}
+
             {inlineError && (
               <div className="accounts-section-card__alert">
                 <div className="alert alert-danger alert-important d-flex align-items-center gap-2 mb-0" role="alert">
@@ -348,11 +392,14 @@ const ItemsPage = () => {
         <ManageItemModal
           key={detailsItem.id}
           item={detailsItem}
+          items={items}
+          usageById={usageById}
           categories={categories}
           ensureCategory={ensureItemCategory}
           onClose={() => setDetailsItemId(null)}
           onSaved={handleItemSaved}
           onDeleted={handleItemDeleted}
+          onMerged={handleItemMerged}
         />
       )}
       <datalist id={GROUP_NAME_DATALIST_ID}>

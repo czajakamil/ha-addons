@@ -25,7 +25,7 @@ from ..finance_app.models import (
     YnabBudgetSnapshot,
 )
 from ..finance_app.services.categories import READY_TO_ASSIGN_TAG_NAME
-from ..finance_app.services.store_aliases import register_store_name
+from ..finance_app.services.store_aliases import find_store_by_name, register_store_name
 from ..finance_app.services.store_merges import resolve_merged_store
 
 setup_logging(
@@ -287,10 +287,18 @@ def import_accounts(s: Session, budget_detail, user_id: str) -> dict[str, str]:
 
 
 def import_payees_as_stores(
-    s: Session, budget_id: str, api_client: ynab.ApiClient, user_id: str
+    s: Session,
+    budget_id: str,
+    api_client: ynab.ApiClient,
+    user_id: str,
+    used_payee_ids: set[str] | None = None,
 ) -> dict[str, str]:
     """Payees → Stores.
 
+    Payee o nazwie, którą ma już aktywny sklep, trafia do tego sklepu.
+    Z `used_payee_ids` nowy sklep powstaje tylko dla payee z transakcjami: YNAB
+    trzyma wszystkich dawnych payee, a puste sklepy wracałyby po każdym imporcie,
+    także po usunięciu.
     Zwraca mapę: ynab_payee_id -> store_id.
     """
     payees_api = ynab.PayeesApi(api_client)
@@ -312,6 +320,15 @@ def import_payees_as_stores(
             mapping[pid] = resolve_merged_store(s, store).id
             continue
         if not store:
+            # Ta sama nazwa (np. sklep z importu z banku albo drugi payee YNAB-a o tej
+            # samej nazwie) to ten sam sklep. Osobny sklep dałby dwie identyczne nazwy
+            # z banku, a importer nie używa niejednoznacznych aliasów.
+            existing = find_store_by_name(s, user_id, p.name or "")
+            if existing is not None:
+                mapping[pid] = existing.id
+                continue
+            if used_payee_ids is not None and pid not in used_payee_ids:
+                continue
             store = Store(
                 id=pid,
                 user_id=user_id,

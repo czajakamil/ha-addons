@@ -694,6 +694,9 @@ class TransactionItem(Base):
     quantity: Mapped[float] = mapped_column(Float, nullable=False)  # 0.35 kg etc.
     unit: Mapped[str | None] = mapped_column(String(16))
     comment: Mapped[str | None] = mapped_column(Text)
+    # Nazwa z paragonu, tak jak ją wydrukowano. Produkt to nazwa użytkownika
+    # („Zupka chińska”), a tu zostaje, co sklep naprawdę sprzedał („ZUP.VIFON KURCZ 70G”).
+    raw_name: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
         CheckConstraint("unit_price_cents >= 0", name="chk_item_price_nonneg"),

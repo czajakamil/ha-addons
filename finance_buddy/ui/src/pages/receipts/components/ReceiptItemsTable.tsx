@@ -237,7 +237,7 @@ const ReceiptItemsTable = ({
                     {isNew ? (
                       <div className="receipt-items__new-product">
                         <small className="receipt-items__new-product-hint">
-                          Zostanie utworzony nowy produkt o tej nazwie
+                          Nowy produkt. Masz go już pod inną nazwą? Wyszukaj go wyżej, a paragon zapamięta tę nazwę.
                         </small>
                         <TagPathInput
                           value={row.categoryPath}
@@ -247,6 +247,8 @@ const ReceiptItemsTable = ({
                           onChange={(value) => onChange(index, { categoryPath: value })}
                         />
                       </div>
+                    ) : row.matchType === 'fuzzy' && row.productId === row.candidateIds[0] ? (
+                      <small className="receipt-items__match-hint">Podobna nazwa, sprawdź</small>
                     ) : null}
                   </td>
                   <td>

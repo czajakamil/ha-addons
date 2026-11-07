@@ -13,6 +13,11 @@ type AmountEditCellProps = {
   onChange: (value: string) => void;
   onCommit: () => void | Promise<void>;
   onCancel: () => void;
+  // Ten sam edytor służy też do godziny: inna klawiatura na telefonie i wyrównanie
+  inputMode?: 'decimal' | 'numeric' | 'text';
+  align?: 'start' | 'end';
+  placeholder?: string;
+  ariaLabel?: string;
 };
 
 const AmountEditCell = ({
@@ -21,7 +26,11 @@ const AmountEditCell = ({
   isSaving,
   onChange,
   onCommit,
-  onCancel
+  onCancel,
+  inputMode = 'decimal',
+  align = 'end',
+  placeholder,
+  ariaLabel
 }: AmountEditCellProps) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -81,8 +90,10 @@ const AmountEditCell = ({
     <input
       ref={inputRef}
       type="text"
-      inputMode="decimal"
-      className="form-control form-control-sm text-end"
+      inputMode={inputMode}
+      className={`form-control form-control-sm text-${align}`}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
       autoFocus
       value={value}
       disabled={disabled || isSaving}

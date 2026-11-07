@@ -250,6 +250,64 @@ def test_ynab_resolves_merged_payee(db: Session, monkeypatch: pytest.MonkeyPatch
     assert load_matcher(db, USER).match("Nowy").id == fresh.id
 
 
+def test_ynab_reuses_store_with_same_name(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    existing = store(db, "Nowy Targdis Sikorskie")
+    payees = [
+        SimpleNamespace(
+            id="22222222-2222-4222-8222-222222222222",
+            name="NOWY TARGDIS  Sikorskie",
+            deleted=False,
+            transfer_account_id=None,
+        ),
+        SimpleNamespace(
+            id="33333333-3333-4333-8333-333333333333",
+            name="Inny sklep",
+            deleted=False,
+            transfer_account_id=None,
+        ),
+        SimpleNamespace(
+            id="44444444-4444-4444-8444-444444444444",
+            name="Inny sklep",
+            deleted=False,
+            transfer_account_id=None,
+        ),
+    ]
+    data = SimpleNamespace(data=SimpleNamespace(payees=payees))
+    monkeypatch.setattr(
+        import_ynab_data.ynab, "PayeesApi", lambda _: SimpleNamespace(get_payees=lambda _: data)
+    )
+
+    mapping = import_ynab_data.import_payees_as_stores(db, "b", None, USER)
+
+    assert mapping[payees[0].id] == existing.id
+    assert db.get(Store, payees[0].id) is None
+    # Dwa payee YNAB-a o tej samej nazwie to jeden sklep, a nazwa zostaje jednoznaczna
+    assert mapping[payees[1].id] == mapping[payees[2].id] == payees[1].id
+    assert load_matcher(db, USER).match("Inny sklep").id == payees[1].id
+    assert load_matcher(db, USER).match("Nowy Targdis Sikorskie").id == existing.id
+
+
+def test_ynab_skips_new_payees_without_transactions(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kept = store(db, "Stary sklep")
+    used, unused = "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666"
+    payees = [
+        SimpleNamespace(id=used, name="Z transakcją", deleted=False, transfer_account_id=None),
+        SimpleNamespace(id=unused, name="Bez transakcji", deleted=False, transfer_account_id=None),
+        SimpleNamespace(id=kept.id, name="Stary sklep", deleted=False, transfer_account_id=None),
+    ]
+    data = SimpleNamespace(data=SimpleNamespace(payees=payees))
+    monkeypatch.setattr(
+        import_ynab_data.ynab, "PayeesApi", lambda _: SimpleNamespace(get_payees=lambda _: data)
+    )
+
+    mapping = import_ynab_data.import_payees_as_stores(db, "b", None, USER, {used})
+
+    assert mapping == {used: used, kept.id: kept.id}
+    assert db.get(Store, unused) is None
+
+
 def test_migration_keeps_data_and_downgrade_keeps_relations(tmp_path: Path) -> None:
     def run(code: str) -> None:
         env = {

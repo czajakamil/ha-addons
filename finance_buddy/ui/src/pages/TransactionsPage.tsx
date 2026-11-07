@@ -10,7 +10,6 @@ import {
 } from 'react-data-grid';
 import { ChevronDown, ChevronRight, ListFilter, PanelRightOpen, Plus, Receipt, Tags } from 'lucide-react';
 import { Store, Transaction, deleteTransaction, updateTransaction } from '../api';
-import { TagChip } from '../components/tags/TagChip';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUntaggedCount } from '../hooks/useUntaggedCount';
 import Button from '../components/Button';
@@ -96,6 +95,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const {
     stores,
     categories,
+    setProducts,
     transactions,
     setTransactions,
     totalCount,
@@ -150,11 +150,16 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     renderCommentCell,
     renderLookupCell,
     renderAmountCell,
+    renderTimeCell,
+    renderItemCategoryCell,
+    startEditingItemCategory,
+    savingProductId,
     handleGridDoubleClick,
     handleGridCellKeyDown: handleEditingCellKeyDown
   } = useTransactionsEditing({
     transactions,
     setTransactions: setEditedTransactions,
+    setProducts,
     activeAccounts,
     stores,
     categories,
@@ -463,8 +468,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
       width: DEFAULT_COLUMN_WIDTHS.time,
       resizable: false,
       cellClass: 'transactions-grid__cell transactions-grid__cell--time',
-      renderCell: ({ row }) =>
-        row.kind === 'transaction' ? formatRecordedTime(row.transaction.recorded_at) : null
+      renderCell: ({ row }) => (row.kind === 'transaction' ? renderTimeCell(row.transaction) : null)
     },
     {
       key: 'store',
@@ -496,9 +500,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
       width: DEFAULT_COLUMN_WIDTHS.category,
       renderCell: ({ row }) => {
         if (row.kind === 'day') return null;
-        if (row.kind === 'item') {
-          return row.category ? <TagChip category={row.category} byId={categoryMap} /> : null;
-        }
+        if (row.kind === 'item') return renderItemCategoryCell(row.id, row.category);
         return (
           <div className="transactions-split__cell">
             {renderSplitToggle(row.transaction)}
@@ -690,10 +692,17 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
 
   const handleGridDoubleClickRow = useCallback(
     (args: CellClickArgs<TransactionGridRow>) => {
-      if (args.row.kind !== 'transaction') return;
-      handleGridDoubleClick({ column: args.column, row: args.row.transaction });
+      const { row } = args;
+      if (row.kind === 'item') {
+        if (args.column.key === 'category' && savingProductId !== row.item.product_id) {
+          startEditingItemCategory(row.id, row.item.product_id, row.category);
+        }
+        return;
+      }
+      if (row.kind !== 'transaction') return;
+      handleGridDoubleClick({ column: args.column, row: row.transaction });
     },
-    [handleGridDoubleClick]
+    [handleGridDoubleClick, startEditingItemCategory, savingProductId]
   );
 
   const hasMore = totalCount === null || transactions.length < totalCount;

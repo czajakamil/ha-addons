@@ -31,6 +31,7 @@ const StoreMergeCard = ({ group, otherGroups, categories, categoryMap, ensureCat
   const merges = useApi(() => getStoreMerges(ids));
   const [picking, setPicking] = useState(false);
   const [targetKey, setTargetKey] = useState<string | null>(null);
+  const [mergingMembers, setMergingMembers] = useState(false);
   const target = otherGroups.find((entry) => entry.key === targetKey);
   const categoryId = target?.categoryId ?? group.categoryId;
 
@@ -47,6 +48,17 @@ const StoreMergeCard = ({ group, otherGroups, categories, categoryMap, ensureCat
 
   return (
     <section className="stores-merge-card" aria-label={text.mergeTitle}>
+      {group.members.length > 1 && (
+        <div className="stores-merge-card__row">
+          <div className="stores-merge-card__copy">
+            <strong>{text.membersTitle}</strong>
+            <p className="account-hint">{text.membersHint(group.members.length)}</p>
+          </div>
+          <button type="button" className="account-button" onClick={() => setMergingMembers(true)}>
+            {text.membersButton}
+          </button>
+        </div>
+      )}
       <div className="stores-merge-card__row">
         <div className="stores-merge-card__copy">
           <strong>{text.mergeTitle}</strong>
@@ -97,6 +109,23 @@ const StoreMergeCard = ({ group, otherGroups, categories, categoryMap, ensureCat
             ))}
           </ul>
         </div>
+      )}
+      {mergingMembers && (
+        <MergeDialog
+          sourceIds={ids.filter((id) => id !== group.id)}
+          targetId={group.id}
+          defaultName={group.name}
+          names={group.members.map((store) => store.name)}
+          categories={categories}
+          categoryPath={(group.categoryId && categoryMap.get(group.categoryId)?.path) || ''}
+          ensureCategory={ensureCategory}
+          onClose={() => setMergingMembers(false)}
+          onMerged={async () => {
+            setMergingMembers(false);
+            await Promise.all([merges.refetch(), onChanged()]);
+          }}
+          onUndone={onChanged}
+        />
       )}
       {target && (
         <MergeDialog

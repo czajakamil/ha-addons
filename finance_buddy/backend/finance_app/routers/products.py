@@ -12,8 +12,17 @@ from ..dependencies import (
     apply_pagination,
     get_current_user,
 )
-from ..models import Category, Product, TransactionItem, User
-from ..schemas import ItemCreate, ItemRead, ItemUpdate
+from ..models import Category, Product, ProductAlias, Store, TransactionItem, User
+from ..schemas import (
+    ItemAliasRead,
+    ItemCreate,
+    ItemMergeRequest,
+    ItemMergeResult,
+    ItemRead,
+    ItemUpdate,
+    ItemUsageRead,
+)
+from ..services import product_merges
 
 router = APIRouter()
 
@@ -45,6 +54,90 @@ def list_items(
         )
     stmt = apply_pagination(stmt, offset, limit)
     return db.scalars(stmt).all()
+
+
+@router.get("/items/usage", response_model=list[ItemUsageRead])
+def list_item_usage(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Ile pozycji transakcji i aliasów ma każdy produkt — do listy i wyboru celu scalenia."""
+    item_counts = dict(
+        db.execute(
+            select(TransactionItem.product_id, func.count())
+            .join(Product, Product.id == TransactionItem.product_id)
+            .where(Product.user_id == current_user.id)
+            .group_by(TransactionItem.product_id)
+        ).all()
+    )
+    alias_counts = dict(
+        db.execute(
+            select(ProductAlias.product_id, func.count())
+            .join(Product, Product.id == ProductAlias.product_id)
+            .where(Product.user_id == current_user.id)
+            .group_by(ProductAlias.product_id)
+        ).all()
+    )
+    ids = db.scalars(select(Product.id).where(Product.user_id == current_user.id))
+    return [
+        ItemUsageRead(
+            item_id=item_id,
+            transaction_items=item_counts.get(item_id, 0),
+            aliases=alias_counts.get(item_id, 0),
+        )
+        for item_id in ids
+    ]
+
+
+@router.post("/items/merge", response_model=ItemMergeResult)
+def merge_items(
+    payload: ItemMergeRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Scala produkty w jeden: pozycje i aliasy przechodzą do celu, źródła znikają."""
+    outcome = product_merges.merge_products(
+        db, current_user.id, payload.source_ids, payload.target_id, preview=payload.dry_run
+    )
+    if not payload.dry_run:
+        db.commit()
+    return ItemMergeResult(**vars(outcome), dry_run=payload.dry_run)
+
+
+@router.get("/items/{item_id}/aliases", response_model=list[ItemAliasRead])
+def list_item_aliases(
+    item_id: str,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Nazwy z paragonów, które rozpoznajemy jako ten produkt."""
+    _get_owned_or_404(db, Product, item_id, current_user.id, "Item")
+    rows = db.execute(
+        select(ProductAlias, Store.name)
+        .outerjoin(Store, Store.id == ProductAlias.store_id)
+        .where(ProductAlias.product_id == item_id)
+        .order_by(Store.name.is_not(None), Store.name, ProductAlias.alias)
+    ).all()
+    return [
+        ItemAliasRead(id=alias.id, alias=alias.alias, store_id=alias.store_id, store_name=name)
+        for alias, name in rows
+    ]
+
+
+@router.delete("/items/{item_id}/aliases/{alias_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item_alias(
+    item_id: str,
+    alias_id: str,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Odpina nazwę z paragonu od produktu. Zapisane pozycje transakcji się nie zmieniają."""
+    _get_owned_or_404(db, Product, item_id, current_user.id, "Item")
+    alias = db.get(ProductAlias, alias_id)
+    if alias is None or alias.product_id != item_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alias not found.")
+    db.delete(alias)
+    db.commit()
 
 
 @router.post("/items", response_model=ItemRead, status_code=status.HTTP_201_CREATED)
