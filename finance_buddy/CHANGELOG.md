@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.13
+
+- Sklepy: „Do uporządkowania” ma przycisk „Usuń sklepy bez transakcji”, który jednym potwierdzeniem usuwa
+  wszystkie aktywne sklepy bez żadnej transakcji, także te już uporządkowane.
+- Sklepy: surową nazwę z banku, która jest jednak poprawna, można oznaczyć jako zweryfikowaną, pojedynczo
+  albo dla zaznaczonych. Potwierdzenie dotyczy tej konkretnej nazwy, więc po zmianie nazwy grupy na inną
+  podejrzaną reguła znów działa.
+
 ## 0.1.12
 
 - Sklepy: „Do uporządkowania” podpowiada domyślną kategorię sklepu z historii jego transakcji, gdy jedna
