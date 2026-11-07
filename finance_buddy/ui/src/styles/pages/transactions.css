@@ -334,3 +334,32 @@
     }
   }
 }
+
+@layer components {
+  /* Przycisk menu kont wygląda jak sąsiednie selecty paska filtrów */
+  .transactions-filters__menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-8);
+    max-width: 220px;
+    height: var(--row-height-compact);
+    padding: 0 var(--s-8) 0 var(--s-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .transactions-filters__menu-trigger:hover {
+    border-color: var(--text-faint);
+  }
+
+  .transactions-filters__menu-trigger[aria-expanded='true'] {
+    border-color: var(--accent);
+  }
+}

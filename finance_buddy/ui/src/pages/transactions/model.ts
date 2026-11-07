@@ -5,7 +5,8 @@ import { toIsoDate } from '../../utils/date';
 export type FilterState = {
   startDate: string;
   endDate: string;
-  accountId: string;
+  // Puste = wszystkie konta
+  accountIds: string[];
   categoryId: string;
   // Strona sklepu prowadzi tu z gotowym filtrem (?stores=)
   storeIds?: string[];

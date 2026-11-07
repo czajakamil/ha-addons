@@ -17,7 +17,7 @@ import {
 import { type EditableLookupField, type FilterState } from './model';
 import { SEARCH_DEBOUNCE_MS, appendTransactionsPage, fetchTransactionsPage } from './listQuery';
 
-const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountId: '', categoryId: '' };
+const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountIds: [], categoryId: '' };
 
 // `scopedAccountId`: lista na stronie konta, stale zawężona do tego konta (także zarchiwizowanego).
 export const useTransactionsData = (scopedAccountId?: string) => {
@@ -36,7 +36,7 @@ export const useTransactionsData = (scopedAccountId?: string) => {
     const storeIds = scopedAccountId ? [] : (params.get('stores') ?? '').split(',').filter(Boolean);
     return {
       ...EMPTY_FILTERS,
-      accountId: scopedAccountId ?? params.get('account') ?? '',
+      accountIds: [scopedAccountId ?? params.get('account')].filter((id): id is string => Boolean(id)),
       ...(storeIds.length ? { storeIds } : {})
     };
   });
@@ -158,15 +158,16 @@ export const useTransactionsData = (scopedAccountId?: string) => {
   const categoryMap = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
   const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
 
-  // Konto wybrane w filtrze mogło zostać zamknięte — traktujemy je wtedy jak brak
-  // filtra (wyliczenie zamiast synchronizowania stanu w efekcie).
+  // Konta wybrane w filtrze mogły zostać zamknięte — pomijamy je (wyliczenie zamiast
+  // synchronizowania stanu w efekcie).
   const effectiveFilters = useMemo(() => {
-    if (!filters.accountId || scopedAccountId) {
+    if (!filters.accountIds.length || scopedAccountId || !accounts.length) {
       return filters;
     }
-    const isActive = activeAccounts.some((account) => account.id === filters.accountId);
-    return isActive ? filters : { ...filters, accountId: '' };
-  }, [filters, activeAccounts, scopedAccountId]);
+    const activeIds = new Set(activeAccounts.map((account) => account.id));
+    const accountIds = filters.accountIds.filter((id) => activeIds.has(id));
+    return accountIds.length === filters.accountIds.length ? filters : { ...filters, accountIds };
+  }, [filters, accounts.length, activeAccounts, scopedAccountId]);
 
   const formatTransferLabel = useCallback(
     (tx: Transaction) => {

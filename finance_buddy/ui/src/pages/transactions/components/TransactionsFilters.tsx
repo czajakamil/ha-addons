@@ -1,7 +1,8 @@
 // Pasek filtrów: szukaj, zakres dat, konto, kategoria. Zmiany działają od razu; aktywne filtry to chipy.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { Account, Category } from '../../../api';
+import CheckboxFilterMenu from '../../../components/CheckboxFilterMenu';
 import { DateInput } from '../../../components/ui/DateTimeInput';
 import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
@@ -9,7 +10,7 @@ import { datePresetRange, type DatePreset, type FilterState } from '../model';
 
 const labels = copy.transactions;
 const PRESETS = Object.keys(labels.presets) as DatePreset[];
-const NO_FILTERS: FilterState = { startDate: '', endDate: '', accountId: '', categoryId: '' };
+const NO_FILTERS: FilterState = { startDate: '', endDate: '', accountIds: [], categoryId: '' };
 
 type TransactionsFiltersProps = {
   filters: FilterState;
@@ -34,6 +35,42 @@ const TransactionsFilters = ({
   accountLocked = false
 }: TransactionsFiltersProps) => {
   const [preset, setPreset] = useState<DatePreset>('all');
+  // Menu kont: wybór roboczy, który trafia do filtrów dopiero po „Zatwierdź"
+  const [accountsMenuOpen, setAccountsMenuOpen] = useState(false);
+  const [pendingAccountIds, setPendingAccountIds] = useState<string[]>([]);
+  const [accountSearch, setAccountSearch] = useState('');
+
+  const accountOptions = useMemo(() => {
+    const query = accountSearch.trim().toLowerCase();
+    return activeAccounts
+      .filter((account) => !query || account.name.toLowerCase().includes(query))
+      .map((account) => ({ id: account.id, label: account.name }));
+  }, [accountSearch, activeAccounts]);
+
+  const handleAccountsMenuOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setPendingAccountIds(filters.accountIds);
+      setAccountSearch('');
+    }
+    setAccountsMenuOpen(nextOpen);
+  };
+
+  const applyAccounts = () => {
+    // Wszystkie zaznaczone = bez filtra
+    const accountIds = pendingAccountIds.length === activeAccounts.length ? [] : pendingAccountIds;
+    setAccountsMenuOpen(false);
+    onChange({ ...filters, accountIds });
+  };
+
+  const accountNames = filters.accountIds
+    .map((id) => activeAccounts.find((account) => account.id === id)?.name)
+    .filter((name): name is string => Boolean(name));
+  const accountsLabel =
+    accountNames.length === 0
+      ? labels.allAccounts
+      : accountNames.length === 1
+        ? accountNames[0]
+        : labels.selectedAccounts(accountNames.length);
 
   const handlePresetChange = (next: DatePreset) => {
     setPreset(next);
@@ -60,12 +97,8 @@ const TransactionsFilters = ({
       ? { key: 'store', label: storeLabel ?? labels.storeFilter, onRemove: () => onChange({ ...filters, storeIds: undefined }) }
       : null,
     hasDates ? { key: 'dates', label: dateChip, onRemove: clearDates } : null,
-    filters.accountId && !accountLocked
-      ? {
-          key: 'account',
-          label: activeAccounts.find((account) => account.id === filters.accountId)?.name ?? labels.account,
-          onRemove: () => onChange({ ...filters, accountId: '' })
-        }
+    accountNames.length && !accountLocked
+      ? { key: 'account', label: accountsLabel, onRemove: () => onChange({ ...filters, accountIds: [] }) }
       : null,
     filters.categoryId
       ? {
@@ -119,19 +152,27 @@ const TransactionsFilters = ({
           </>
         )}
         {!accountLocked && (
-          <select
-            className="form-select"
-            aria-label={labels.account}
-            value={filters.accountId}
-            onChange={(event) => onChange({ ...filters, accountId: event.target.value })}
-          >
-            <option value="">{labels.allAccounts}</option>
-            {activeAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </select>
+          <CheckboxFilterMenu
+            id="transactions-accounts-filter"
+            label={labels.account}
+            triggerClassName="transactions-filters__menu-trigger"
+            triggerLabel={accountsLabel}
+            searchPlaceholder={labels.searchAccounts}
+            emptyText={labels.noAccountsFound}
+            options={accountOptions}
+            search={accountSearch}
+            onSearchChange={setAccountSearch}
+            pendingIds={pendingAccountIds}
+            onToggle={(id) =>
+              setPendingAccountIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+            }
+            onSelectAll={() => setPendingAccountIds(activeAccounts.map((account) => account.id))}
+            onClearAll={() => setPendingAccountIds([])}
+            onCancel={() => setAccountsMenuOpen(false)}
+            onApply={applyAccounts}
+            isOpen={accountsMenuOpen}
+            onOpenChange={handleAccountsMenuOpenChange}
+          />
         )}
         <select
           className="form-select"
@@ -167,7 +208,7 @@ const TransactionsFilters = ({
             className="text-button"
             onClick={() => {
               setPreset('all');
-              onChange(accountLocked ? { ...NO_FILTERS, accountId: filters.accountId } : NO_FILTERS);
+              onChange(accountLocked ? { ...NO_FILTERS, accountIds: filters.accountIds } : NO_FILTERS);
             }}
           >
             {labels.clearFilters}

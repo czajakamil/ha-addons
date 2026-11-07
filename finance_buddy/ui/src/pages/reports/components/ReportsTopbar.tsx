@@ -1,6 +1,6 @@
 import { CSSProperties, useCallback, useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal } from 'lucide-react';
-import Button from '../../../components/Button';
+import CheckboxFilterMenu, { type CheckboxFilterOption } from '../../../components/CheckboxFilterMenu';
 import PopoverFilter from '../../../components/PopoverFilter';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
@@ -190,191 +190,74 @@ const ReportsTopbar = ({ controller }: ReportsTopbarProps) => {
     [categories]
   );
 
+  const accountOptions = useMemo<CheckboxFilterOption[]>(
+    () => filteredAccounts.map((account) => ({ id: account.id, label: account.name })),
+    [filteredAccounts]
+  );
+
+  const categoryOptions = useMemo<CheckboxFilterOption[]>(
+    () =>
+      categoryMenuEntries.map((entry) => {
+        if (entry.type === 'uncategorized') {
+          return { id: UNCATEGORIZED_CATEGORY_ID, label: UNCATEGORIZED_CATEGORY_NAME };
+        }
+        if (entry.type === 'parent') {
+          return { id: entry.category.id, label: entry.category.name };
+        }
+        return {
+          id: entry.category.id,
+          label: stripParentPrefix(entry.category.name, resolveCategoryLabel(entry.parentId)),
+          nested: true
+        };
+      }),
+    [categoryMenuEntries, resolveCategoryLabel]
+  );
+
   // Konta i kategorie: w belce na desktopie, w panelu od dołu na telefonie
   const extraFilters = (
     <>
-              <PopoverFilter
-                id="reports-accounts-filter"
-                label="Filtr kont"
-                className="reports-tag-input"
-                panelClassName="reports-tag-input__menu reports-tag-input__menu--wide category-menu"
-                isOpen={accountsMenuOpen}
-                onOpenChange={handleAccountsMenuOpenChange}
-                trigger={({ ref, panelId, isOpen, onToggle }) => (
-                  <button
-                    ref={ref}
-                    type="button"
-                    className="reports-tag-input__control is-focusable"
-                    aria-label="Wybierz konta"
-                    aria-haspopup="dialog"
-                    aria-expanded={isOpen}
-                    aria-controls={panelId}
-                    onClick={onToggle}
-                  >
-                    <div className="reports-tag-input__value">
-                      {selectedAccountIds.length === 0 ||
-                      selectedAccountIds.length === accounts.length ? (
-                        <span className="reports-tag-input__placeholder">Wszystkie konta</span>
-                      ) : (
-                        <span className="reports-tag-input__placeholder">
-                          Wybrane konta: {selectedAccountIds.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown className="reports-tag-input__chevron" size={14} aria-hidden="true" />
-                  </button>
-                )}
-              >
-                <div className="category-menu__search">
-                  <input
-                    type="search"
-                    placeholder="Szukaj kont"
-                    value={accountSearch}
-                    onChange={(event) => setAccountSearch(event.target.value)}
-                  />
-                </div>
-                <div className="category-menu__list" aria-label="Wybierz konta">
-                  {filteredAccounts.map((account) => (
-                    <label key={account.id} className="category-menu__item">
-                      <input
-                        type="checkbox"
-                        checked={pendingAccountIds.includes(account.id)}
-                        onChange={() => togglePendingAccount(account.id)}
-                      />
-                      <span className="category-menu__name">{account.name}</span>
-                    </label>
-                  ))}
-                  {filteredAccounts.length === 0 && (
-                    <p className="reports-tag-input__empty">Brak kont pasujących do wyszukiwania.</p>
-                  )}
-                </div>
-                <div className="category-menu__footer">
-                  <button type="button" className="category-menu__action" onClick={handleSelectAllAccounts}>
-                    Wybierz wszystko
-                  </button>
-                  <button type="button" className="category-menu__action" onClick={handleClearAllAccounts}>
-                    Odznacz wszystko
-                  </button>
-                  <div className="category-menu__footer-actions">
-                    <Button variant="outline-secondary" size="sm" onClick={handleAccountMenuCancel}>
-                      Anuluj
-                    </Button>
-                    <Button variant="primary" size="sm" onClick={handleAccountMenuApply}>
-                      Zatwierdź
-                    </Button>
-                  </div>
-                </div>
-              </PopoverFilter>
-
-              <PopoverFilter
-                id="reports-categories-filter"
-                label="Filtr kategorii wydatków"
-                className="reports-tag-input"
-                panelClassName="reports-tag-input__menu reports-tag-input__menu--wide category-menu"
-                isOpen={categoriesMenuOpen}
-                onOpenChange={handleCategoriesMenuOpenChange}
-                trigger={({ ref, panelId, isOpen, onToggle }) => (
-                  <button
-                    ref={ref}
-                    type="button"
-                    className="reports-tag-input__control is-focusable"
-                    aria-label="Wybierz kategorie wydatków"
-                    aria-haspopup="dialog"
-                    aria-expanded={isOpen}
-                    aria-controls={panelId}
-                    onClick={onToggle}
-                  >
-                    <div className="reports-tag-input__value">
-                      {(selectedCategoryIds.length === 0 ||
-                        selectedCategoryIds.length === allCategoryOptionIds.length) && (
-                        <span className="reports-tag-input__placeholder">Wszystkie kategorie</span>
-                      )}
-                      {selectedCategoryIds.length > 0 &&
-                        selectedCategoryIds.length !== allCategoryOptionIds.length && (
-                          <span className="reports-tag-input__placeholder">
-                            Wybrane kategorie: {selectedCategoryIds.length}
-                          </span>
-                        )}
-                    </div>
-                    <ChevronDown className="reports-tag-input__chevron" size={14} aria-hidden="true" />
-                  </button>
-                )}
-              >
-                <div className="category-menu__search">
-                  <input
-                    type="search"
-                    placeholder="Szukaj kategorii"
-                    value={categorySearch}
-                    onChange={(event) => setCategorySearch(event.target.value)}
-                  />
-                </div>
-                <div className="category-menu__list" aria-label="Wybierz kategorie">
-                  {categoryMenuEntries.map((entry) => {
-                    if (entry.type === 'uncategorized') {
-                      return (
-                        <label key="uncategorized" className="category-menu__item">
-                          <input
-                            type="checkbox"
-                            checked={pendingCategoryIds.includes(UNCATEGORIZED_CATEGORY_ID)}
-                            onChange={() => togglePendingCategory(UNCATEGORIZED_CATEGORY_ID)}
-                          />
-                          <span className="category-menu__name">{UNCATEGORIZED_CATEGORY_NAME}</span>
-                        </label>
-                      );
-                    }
-
-                    if (entry.type === 'parent') {
-                      const checked = pendingCategoryIds.includes(entry.category.id);
-                      return (
-                        <label key={entry.category.id} className="category-menu__item">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => togglePendingCategory(entry.category.id)}
-                          />
-                          <span className="category-menu__name">{entry.category.name}</span>
-                        </label>
-                      );
-                    }
-
-                    return (
-                      <label
-                        key={`${entry.parentId}-${entry.category.id}`}
-                        className="category-menu__item category-menu__item--child"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={pendingCategoryIds.includes(entry.category.id)}
-                          onChange={() => togglePendingCategory(entry.category.id)}
-                        />
-                        <span className="category-menu__name">
-                          {stripParentPrefix(entry.category.name, resolveCategoryLabel(entry.parentId))}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {categoryMenuEntries.length === 0 && (
-                    <p className="reports-tag-input__empty">Brak kategorii pasujących do wyszukiwania.</p>
-                  )}
-                </div>
-
-                <div className="category-menu__footer">
-                  <button type="button" className="category-menu__action" onClick={handleSelectAllCategories}>
-                    Wybierz wszystko
-                  </button>
-                  <button type="button" className="category-menu__action" onClick={handleClearAllCategories}>
-                    Odznacz wszystko
-                  </button>
-                  <div className="category-menu__footer-actions">
-                    <Button variant="outline-secondary" size="sm" onClick={handleCategoryMenuCancel}>
-                      Anuluj
-                    </Button>
-                    <Button variant="primary" size="sm" onClick={handleCategoryMenuApply}>
-                      Zatwierdź
-                    </Button>
-                  </div>
-                </div>
-              </PopoverFilter>
+      <CheckboxFilterMenu
+        id="reports-accounts-filter"
+        label="Wybierz konta"
+        className="reports-tag-input"
+        triggerClassName="reports-tag-input__control"
+        triggerLabel={hasAccountFilter ? `Wybrane konta: ${selectedAccountIds.length}` : 'Wszystkie konta'}
+        searchPlaceholder="Szukaj kont"
+        emptyText="Brak kont pasujących do wyszukiwania."
+        options={accountOptions}
+        search={accountSearch}
+        onSearchChange={setAccountSearch}
+        pendingIds={pendingAccountIds}
+        onToggle={togglePendingAccount}
+        onSelectAll={handleSelectAllAccounts}
+        onClearAll={handleClearAllAccounts}
+        onCancel={handleAccountMenuCancel}
+        onApply={handleAccountMenuApply}
+        isOpen={accountsMenuOpen}
+        onOpenChange={handleAccountsMenuOpenChange}
+      />
+      <CheckboxFilterMenu
+        id="reports-categories-filter"
+        label="Wybierz kategorie wydatków"
+        className="reports-tag-input"
+        triggerClassName="reports-tag-input__control"
+        triggerLabel={
+          hasCategoryFilter ? `Wybrane kategorie: ${selectedCategoryIds.length}` : 'Wszystkie kategorie'
+        }
+        searchPlaceholder="Szukaj kategorii"
+        emptyText="Brak kategorii pasujących do wyszukiwania."
+        options={categoryOptions}
+        search={categorySearch}
+        onSearchChange={setCategorySearch}
+        pendingIds={pendingCategoryIds}
+        onToggle={togglePendingCategory}
+        onSelectAll={handleSelectAllCategories}
+        onClearAll={handleClearAllCategories}
+        onCancel={handleCategoryMenuCancel}
+        onApply={handleCategoryMenuApply}
+        isOpen={categoriesMenuOpen}
+        onOpenChange={handleCategoriesMenuOpenChange}
+      />
     </>
   );
 

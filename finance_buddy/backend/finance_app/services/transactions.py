@@ -504,6 +504,7 @@ def _filtered_transactions(
     search: str | None,
     exclude_internal: bool,
     store_ids: Sequence[str] | None = None,
+    account_ids: Sequence[str] | None = None,
 ) -> Select[tuple[Transaction]]:
     stmt = (
         select(Transaction)
@@ -521,6 +522,9 @@ def _filtered_transactions(
     if account_id is not None:
         _get_owned_or_404(db, Account, account_id, user_id, "Account")
         stmt = stmt.where(Transaction.account_id == account_id)
+    if account_ids:
+        # Bez sprawdzania właściciela: wyżej zawężamy do transakcji użytkownika.
+        stmt = stmt.where(Transaction.account_id.in_(account_ids))
     if store_id is not None:
         _get_owned_or_404(db, Store, store_id, user_id, "Store")
         stmt = stmt.where(Transaction.store_id == store_id)
@@ -561,6 +565,7 @@ def list_transactions(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     account_id: str | None = None,
+    account_ids: Sequence[str] | None = None,
     store_id: str | None = None,
     store_ids: Sequence[str] | None = None,
     category_id: str | None = None,
@@ -575,6 +580,7 @@ def list_transactions(
         start_date=start_date,
         end_date=end_date,
         account_id=account_id,
+        account_ids=account_ids,
         store_id=store_id,
         store_ids=store_ids,
         category_id=category_id,
@@ -591,6 +597,7 @@ def list_transactions_page(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     account_id: str | None = None,
+    account_ids: Sequence[str] | None = None,
     store_ids: Sequence[str] | None = None,
     search: str | None = None,
     offset: int = 0,
@@ -603,6 +610,7 @@ def list_transactions_page(
         start_date=start_date,
         end_date=end_date,
         account_id=account_id,
+        account_ids=account_ids,
         store_id=None,
         store_ids=store_ids,
         category_id=None,

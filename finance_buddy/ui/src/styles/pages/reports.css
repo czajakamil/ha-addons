@@ -323,223 +323,6 @@
     color: var(--text);
   }
 
-  .reports-tag-input__menu {
-    position: absolute;
-    inset: calc(100% + var(--s-8)) 0 auto auto;
-    min-width: 100%;
-    overflow-y: auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-card);
-    padding: var(--s-12);
-    display: grid;
-    gap: var(--s-8);
-    z-index: var(--z-menu);
-  }
-
-  .reports-tag-input__menu--wide {
-    min-width: 280px;
-  }
-
-  .category-menu {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-12);
-    overflow: hidden;
-  }
-
-  .category-menu__search input {
-    width: 100%;
-    padding: 0.55rem 0.6rem;
-    border-radius: var(--radius-control);
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .category-menu__search input:focus {
-    outline: 2px solid color-mix(in srgb, var(--text) 35%, transparent);
-    border-color: color-mix(in srgb, var(--text) 40%, var(--border));
-  }
-
-  .category-menu__list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    max-height: 220px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .category-menu__item {
-    display: flex;
-    align-items: center;
-    gap: var(--s-8);
-    padding: 0.01rem;
-    border-radius: var(--radius-control);
-    color: var(--text);
-    cursor: pointer;
-  }
-
-  .category-menu__item:hover {
-    background: var(--surface-2);
-  }
-
-  .category-menu__item input[type='checkbox'] {
-    accent-color: var(--text);
-  }
-
-  .category-menu__item--child {
-    padding-left: 1.6rem;
-  }
-
-  .category-menu__name {
-    padding-left: 0.2rem;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .category-menu__footer {
-    display: flex;
-    align-items: center;
-    gap: var(--s-8);
-    justify-content: space-between;
-    flex-wrap: wrap;
-    padding-top: var(--s-8);
-    border-top: 1px solid var(--border);
-  }
-
-  .category-menu__action {
-    border: none;
-    background: transparent;
-    color: var(--text);
-    font-weight: 600;
-    cursor: pointer;
-    padding: 0 0 0 0.35rem;
-  }
-
-  .category-menu__action:hover {
-    text-decoration: underline;
-  }
-
-  .category-menu__footer-actions {
-    display: flex;
-    gap: var(--s-8);
-    margin-left: auto;
-  }
-
-  .category-menu__secondary,
-  .category-menu__primary {
-    border-radius: var(--radius-control);
-    font-weight: 600;
-    padding: 0.45rem 0.9rem;
-    border: 1px solid transparent;
-    cursor: pointer;
-  }
-
-  .category-menu__secondary {
-    background: var(--surface-2);
-    border-color: var(--border);
-    color: var(--text);
-  }
-
-  .category-menu__secondary:hover {
-    background: color-mix(in srgb, var(--text) 10%, var(--surface-2));
-  }
-
-  .category-menu__primary {
-    background: var(--text);
-    color: var(--bg);
-    border-color: var(--text);
-  }
-
-  .category-menu__primary:hover {
-    filter: brightness(0.95);
-  }
-
-  .reports-tag-input__option {
-    display: flex;
-    align-items: center;
-    gap: var(--s-8);
-    font-weight: 600;
-    color: var(--text);
-    padding: 0.35rem 0.4rem;
-    border: none;
-    background: transparent;
-    border-radius: var(--radius-control);
-    transition: background 150ms ease-out;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .reports-tag-input__option:hover {
-    background: var(--surface-2);
-  }
-
-  .reports-tag-input__option.is-selected {
-    background: color-mix(in srgb, var(--text) 10%, transparent);
-  }
-
-  .reports-tag-input__empty {
-    margin: 0;
-    color: var(--text-muted);
-    font-weight: 600;
-  }
-
-  .reports-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.2rem 0.5rem;
-    background: var(--surface-2);
-    border: 1px solid color-mix(in srgb, var(--text) 15%, var(--border));
-    border-radius: var(--radius-control);
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.2;
-  }
-
-  .reports-topbar .reports-tag {
-    background: color-mix(in srgb, var(--text) 12%, transparent);
-    border-color: color-mix(in srgb, var(--text) 20%, transparent);
-    color: var(--bg);
-  }
-
-  .reports-tag__remove {
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-weight: 600;
-    padding: 0 0.15rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .reports-tag__remove:hover {
-    color: var(--text);
-  }
-
-  .reports-topbar .reports-tag__remove {
-    color: var(--text-muted);
-  }
-
-  .reports-tag-input__menu::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .reports-tag-input__menu::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--text-muted) 35%, transparent);
-    border-radius: 999px;
-  }
-
-  .reports-tag-input__menu::-webkit-scrollbar-track {
-    background: color-mix(in srgb, var(--surface-2) 70%, transparent);
-  }
-
   .reports-layout {
     display: flex;
     flex-direction: column;
@@ -780,49 +563,33 @@
     text-align: left;
   }
 
-  .reports-filters-sheet .category-menu__item {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--s-12);
-    min-height: 44px;
-    text-align: left;
+  .reports-filters-sheet .filter-menu-anchor {
+    display: block;
   }
 
-  .reports-filters-sheet .category-menu__item input {
-    flex: 0 0 auto;
+  .reports-filters-sheet .filter-menu {
+    position: static;
+    width: auto;
+    max-width: none;
+    margin-block-start: var(--s-8);
+    box-shadow: none;
+  }
+
+  .reports-filters-sheet .filter-menu__search {
+    min-width: 0;
+  }
+
+  .reports-filters-sheet .filter-menu__item {
+    gap: var(--s-12);
+    min-height: 36px;
+  }
+
+  .reports-filters-sheet .filter-menu__item input {
     width: 20px;
     height: 20px;
-    margin: 0;
   }
 
-  .reports-filters-sheet .category-menu__name {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-weight: 400;
-  }
-
-  .reports-filters-sheet .category-menu__footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-8) var(--s-16);
-  }
-
-  .reports-filters-sheet .category-menu__footer-actions {
-    display: flex;
-    gap: var(--s-8);
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .reports-filters-sheet .reports-tag-input__menu {
-    position: static;
-    min-width: 0;
-    margin-block-start: var(--s-8);
-  }
-
-  .reports-filters-sheet .category-menu__list {
+  .reports-filters-sheet .filter-menu__list {
     max-height: 32dvh;
   }
 

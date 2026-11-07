@@ -35,7 +35,7 @@ export const buildTransactionsPageQuery = (
   return {
     start_date: filters.startDate || undefined,
     end_date: filters.endDate || undefined,
-    account_id: filters.accountId || undefined,
+    account_ids: filters.accountIds.length ? filters.accountIds : undefined,
     store_ids: filters.storeIds?.length ? filters.storeIds : undefined,
     search: needle || undefined,
     offset,

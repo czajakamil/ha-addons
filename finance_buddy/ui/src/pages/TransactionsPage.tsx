@@ -719,7 +719,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const noResults = !loading && !error && transactions.length === 0;
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
-    Boolean(filters.startDate || filters.endDate || filters.categoryId || filters.storeIds?.length || (filters.accountId && !scope));
+    Boolean(filters.startDate || filters.endDate || filters.categoryId || filters.storeIds?.length || (filters.accountIds.length > 0 && !scope));
 
   // Kolejne strony doładowują się same, zanim użytkownik dojedzie do końca listy
   const handleGridScroll = (event: React.UIEvent<HTMLDivElement>) => {
