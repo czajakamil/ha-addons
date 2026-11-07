@@ -505,6 +505,7 @@ def _filtered_transactions(
     exclude_internal: bool,
     store_ids: Sequence[str] | None = None,
     account_ids: Sequence[str] | None = None,
+    category_ids: Sequence[str] | None = None,
 ) -> Select[tuple[Transaction]]:
     stmt = (
         select(Transaction)
@@ -531,6 +532,9 @@ def _filtered_transactions(
     if store_ids:
         # Bez sprawdzania właściciela: wyżej zawężamy do transakcji użytkownika.
         stmt = stmt.where(Transaction.store_id.in_(store_ids))
+    if category_ids:
+        # Bez sprawdzania właściciela: wyżej zawężamy do transakcji użytkownika.
+        stmt = stmt.where(Transaction.category_id.in_(category_ids))
     if category_id is not None:
         if category_id == "__uncategorized__":
             stmt = stmt.where(Transaction.category_id.is_(None))
@@ -599,6 +603,7 @@ def list_transactions_page(
     account_id: str | None = None,
     account_ids: Sequence[str] | None = None,
     store_ids: Sequence[str] | None = None,
+    category_ids: Sequence[str] | None = None,
     search: str | None = None,
     offset: int = 0,
     limit: int = 50,
@@ -614,6 +619,7 @@ def list_transactions_page(
         store_id=None,
         store_ids=store_ids,
         category_id=None,
+        category_ids=category_ids,
         search=search,
         exclude_internal=False,
     )

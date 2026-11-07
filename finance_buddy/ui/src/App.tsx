@@ -34,7 +34,8 @@ const StoreDetailsPage = lazy(() => import('./pages/stores/StoreDetailsPage'));
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage'));
 const TransactionDetailsPage = lazy(() => import('./pages/TransactionDetailsPage'));
 const ItemsPage = lazy(() => import('./pages/ItemsPage'));
-const TagsPage = lazy(() => import('./pages/TagsPage'));
+const CategoriesPage = lazy(() => import('./pages/categories/CategoriesPage'));
+const CategoryDetailsPage = lazy(() => import('./pages/categories/CategoryDetailsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ReceiptInboxPage = lazy(() => import('./pages/receipts/ReceiptInboxPage'));
 const ReceiptDraftEditorPage = lazy(() => import('./pages/receipts/ReceiptDraftEditorPage'));
@@ -367,7 +368,8 @@ const App = () => {
                   {/* Stary adres importu — skrzynka go zastąpiła. */}
                   <Route path="/receipt-import" element={<Navigate to="/receipts" replace />} />
                   <Route path="/items" element={<ItemsPage />} />
-                  <Route path="/categories" element={<TagsPage />} />
+                  <Route path="/categories" element={<CategoriesPage />} />
+                  <Route path="/categories/:categoryId" element={<CategoryDetailsPage />} />
                   <Route path="/tags" element={<Navigate to="/categories" replace />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/panel" element={<UsersPage />} />

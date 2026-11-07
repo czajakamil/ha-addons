@@ -98,6 +98,17 @@ def find_child(db: Session, user_id: str, parent_id: str | None, name: str) -> C
     return db.scalar(stmt)
 
 
+def next_sort_order(db: Session, user_id: str, parent_id: str | None) -> int:
+    """Pozycja za ostatnim dzieckiem rodzica: nowa albo przeniesiona kategoria trafia na koniec."""
+    current = db.scalar(
+        select(func.max(Category.sort_order)).where(
+            Category.user_id == user_id,
+            Category.parent_id == parent_id if parent_id else Category.parent_id.is_(None),
+        )
+    )
+    return 0 if current is None else current + 1
+
+
 def ensure_path(
     db: Session,
     user_id: str,
@@ -129,6 +140,7 @@ def ensure_path(
                 parent_id=parent_id,
                 is_for_accounts=is_for_accounts,
                 user_id=user_id,
+                sort_order=next_sort_order(db, user_id, parent_id),
             )
             db.add(node)
             db.flush()

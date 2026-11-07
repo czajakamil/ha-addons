@@ -9,6 +9,8 @@ export interface Category {
   color?: string | null;
   /** Znormalizowana ścieżka tagu, np. "dom/remont/lazienka" (wyliczana przez backend). */
   path: string;
+  /** Pozycja wśród rodzeństwa; lista z API jest nią już posortowana. */
+  sort_order?: number;
 }
 
 export interface CategoryCreate {
@@ -101,6 +103,36 @@ export interface CategoryDeletePreview {
 export const getCategoryDeletePreview = (id: string) =>
   request<CategoryDeletePreview>(`/categories/${id}/delete-preview`);
 
-/** Usuwa tag wraz z całym pod-drzewem; produkty/transakcje tracą przypisanie. */
+/** Usuwa pustą kategorię z pod-drzewem (409, gdy ma transakcje); przedmioty tracą przypisanie. */
 export const deleteCategory = (id: string) =>
   request<void>(`/categories/${id}`, { method: 'DELETE' });
+
+/** Własne transakcje kategorii (bez podkategorii); sumy gałęzi składa UI. */
+export interface CategoryStatsRow {
+  category_id: string;
+  count: number;
+  spent_cents_12m: number;
+  last_date?: string | null;
+  /** 12 miesięcy od najstarszego, bieżący na końcu. */
+  monthly_cents: number[];
+}
+
+export const getCategoryStats = () => request<CategoryStatsRow[]>('/categories/stats');
+
+export interface CategoryTopStore {
+  name: string;
+  store_id: string;
+  count: number;
+  spent_cents_12m: number;
+}
+
+/** Sklepy z największymi wydatkami w kategorii razem z podkategoriami (12 mies.). */
+export const getCategoryTopStores = (id: string) =>
+  request<CategoryTopStore[]>(`/categories/${id}/top-stores`);
+
+/** Ustawia kolejność dzieci rodzica; kategorie spod innego rodzica przenosi pod niego. */
+export const reorderCategories = (parentId: string | null, categoryIds: readonly string[]) =>
+  request<Category[]>('/categories/order', {
+    method: 'PUT',
+    body: JSON.stringify({ parent_id: parentId, category_ids: categoryIds })
+  });

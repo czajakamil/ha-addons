@@ -91,6 +91,7 @@ export interface TransactionQueryParams {
   account_ids?: readonly string[];
   store_id?: string;
   store_ids?: readonly string[];
+  category_ids?: readonly string[];
   search?: string;
   exclude_internal?: boolean;
   offset?: number;
@@ -106,6 +107,7 @@ const toSearchParams = (params: TransactionQueryParams) => {
   params.account_ids?.forEach((id) => searchParams.append('account_ids', id));
   if (params.store_id) searchParams.set('store_id', params.store_id);
   params.store_ids?.forEach((id) => searchParams.append('store_ids', id));
+  params.category_ids?.forEach((id) => searchParams.append('category_ids', id));
   if (params.search) searchParams.set('search', params.search);
   if (typeof params.exclude_internal === 'boolean') {
     searchParams.set('exclude_internal', params.exclude_internal ? 'true' : 'false');
@@ -129,7 +131,7 @@ export interface TransactionPage {
 
 export type TransactionPageParams = Pick<
   TransactionQueryParams,
-  'start_date' | 'end_date' | 'account_id' | 'account_ids' | 'store_ids' | 'search' | 'offset' | 'limit'
+  'start_date' | 'end_date' | 'account_id' | 'account_ids' | 'store_ids' | 'category_ids' | 'search' | 'offset' | 'limit'
 >;
 
 export const getTransactionsPage = (params: TransactionPageParams = {}) =>

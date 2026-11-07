@@ -386,6 +386,97 @@ export const copy = {
       deleteFailed: 'Nie udało się usunąć sklepu.'
     }
   },
+  categories: {
+    title: 'Kategorie',
+    newCategory: 'Nowa kategoria',
+    scopeLabel: 'Zakres kategorii',
+    scopeSpending: 'Wydatki',
+    scopeAccounts: 'Konta',
+    search: 'Szukaj kategorii…',
+    searchLabel: 'Szukaj kategorii',
+    expandAll: 'Rozwiń wszystko',
+    collapseAll: 'Zwiń wszystko',
+    newPlaceholder: 'Nazwa albo ścieżka, np. Dom/Remont',
+    newLabel: 'Nowa kategoria',
+    add: 'Dodaj',
+    cancel: 'Anuluj',
+    loadFailed: 'Nie udało się wczytać kategorii.',
+    statsFailed: 'Nie udało się wczytać statystyk kategorii.',
+    empty: 'Nie masz jeszcze kategorii. Dodaj pierwszą przyciskiem „Nowa kategoria”.',
+    noMatches: 'Żadna kategoria nie pasuje do wyszukiwania.',
+    columns: {
+      category: 'Kategoria',
+      count: 'Transakcje',
+      spent: 'Wydano (12 mies.)',
+      last: 'Ostatnio',
+      trend: 'Trend'
+    },
+    expand: (name: string) => `Rozwiń ${name}`,
+    collapse: (name: string) => `Zwiń ${name}`,
+    dragHandle: (name: string) => `Przeciągnij, aby przenieść: ${name}`,
+    actions: (name: string) => `Akcje: ${name}`,
+    menu: {
+      open: 'Otwórz',
+      rename: 'Zmień nazwę',
+      addChild: 'Dodaj podkategorię',
+      move: 'Przenieś do…',
+      moveUp: 'Przesuń wyżej',
+      moveDown: 'Przesuń niżej',
+      transactions: 'Pokaż transakcje',
+      delete: 'Usuń',
+      deleteOnlyEmpty: 'Usunąć można tylko pustą kategorię.'
+    },
+    showUnused: (count: number) => `Pokaż nieużywane (${count}) — bez transakcji od 12 miesięcy`,
+    hideUnused: 'Ukryj nieużywane',
+    footnote:
+      'Kwoty kategorii nadrzędnej obejmują jej własne transakcje i wszystkie podkategorie. Przeciągnij wiersz, aby zmienić kolejność albo przenieść go pod inną kategorię.',
+    rename: (name: string) => `Zmień nazwę kategorii: ${name}`,
+    nameTooShort: 'Nazwa kategorii nie może być pusta.',
+    created: (name: string) => `Dodano kategorię „${name}”`,
+    createFailed: 'Nie udało się dodać kategorii — sprawdź, czy taka już nie istnieje.',
+    saveFailed: 'Nie udało się zapisać zmiany — sprawdź, czy na tym poziomie nie ma już takiej nazwy.',
+    moved: (name: string) => `Przeniesiono „${name}”`,
+    moveFailed: 'Nie udało się przenieść kategorii.',
+    deleted: (name: string) => `Usunięto kategorię „${name}”`,
+    deleteFailed: 'Nie udało się usunąć kategorii.',
+    deleteConfirm: (name: string, children: number) =>
+      children
+        ? `Usunąć kategorię „${name}” razem z ${children} ${pluralPL(children, 'podkategorią', 'podkategoriami', 'podkategoriami')}?`
+        : `Usunąć kategorię „${name}”?`,
+    moveDialog: {
+      title: (name: string) => `Przenieś „${name}”`,
+      label: 'Nowa kategoria nadrzędna',
+      root: 'Brak — kategoria główna',
+      confirm: 'Przenieś'
+    },
+    transactionsCount: (count: number) =>
+      `${count} ${pluralPL(count, 'transakcja', 'transakcje', 'transakcji')}`,
+    details: {
+      back: 'Kategorie',
+      notFound: 'Nie ma takiej kategorii.',
+      subtitle: (count: number, last: string | null) =>
+        `${count} ${pluralPL(count, 'transakcja', 'transakcje', 'transakcji')}${last ? ` · ostatnia ${last}` : ''}`,
+      average: 'Średnio miesięcznie',
+      spent: 'Wydano w 12 mies.',
+      chartTitle: 'Wydatki miesięcznie',
+      tabs: { label: 'Sekcje kategorii', transactions: 'Transakcje', settings: 'Ustawienia' },
+      columns: { date: 'Data', store: 'Sklep', category: 'Kategoria', account: 'Konto', amount: 'Kwota' },
+      noTransactions: 'Ta kategoria nie ma jeszcze transakcji.',
+      allTransactions: 'Wszystkie transakcje kategorii w Transakcjach →',
+      topStores: 'Najczęstsze sklepy',
+      noStores: 'Brak wydatków w sklepach w ostatnich 12 miesiącach.',
+      transactionsFailed: 'Nie udało się wczytać transakcji kategorii.',
+      parent: 'Kategoria nadrzędna',
+      parentHint: 'Dowolny poziom drzewa. Zmiana przenosi kategorię razem z podkategoriami; historia zostaje.',
+      color: 'Kolor',
+      colorHint: 'Bez własnego koloru kategoria dziedziczy go po najbliższej kategorii nadrzędnej.',
+      dangerTitle: 'Strefa niebezpieczna',
+      deleteTitle: 'Usuń kategorię',
+      deleteEmptyHint: 'Kategoria nie ma transakcji, więc można ją usunąć. Przedmioty z tą kategorią ją stracą.',
+      deleteBlockedHint: (count: number) =>
+        `Tylko dla pustej kategorii. Ta ma ${count} ${pluralPL(count, 'transakcję', 'transakcje', 'transakcji')} — przenieś je akcją zbiorczą w Transakcjach.`
+    }
+  },
   accounts: {
     title: 'Konta',
     newAccount: 'Nowe konto',

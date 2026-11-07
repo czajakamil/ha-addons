@@ -18,13 +18,24 @@ from ..dependencies import (
     get_current_user,
 )
 from ..models import Category, Product, Transaction, User
-from ..schemas import CategoryCreate, CategoryDeletePreview, CategoryRead, CategoryUpdate
+from ..schemas import (
+    CategoryCreate,
+    CategoryDeletePreview,
+    CategoryRead,
+    CategoryReorder,
+    CategoryStats,
+    CategoryTopStore,
+    CategoryUpdate,
+)
+from ..services import category_stats as stats_service
 from ..services.categories import (
     build_path_map,
     descendant_ids,
     ensure_path,
     find_child,
     is_descendant_or_self,
+    next_sort_order,
+    normalize_segment,
     sanitize_segment,
 )
 
@@ -39,6 +50,7 @@ def _to_read(category: Category, paths: dict[str, str]) -> CategoryRead:
         is_for_accounts=category.is_for_accounts,
         color=category.color,
         path=paths.get(category.id, category.name),
+        sort_order=category.sort_order,
     )
 
 
@@ -54,7 +66,11 @@ def list_categories(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(Category).where(Category.user_id == current_user.id).order_by(Category.name)
+    stmt = (
+        select(Category)
+        .where(Category.user_id == current_user.id)
+        .order_by(Category.sort_order, Category.name, Category.id)
+    )
     if parent_id is not None:
         stmt = stmt.where(Category.parent_id == parent_id)
     if for_accounts is not None:
@@ -110,12 +126,102 @@ def create_category(
             is_for_accounts=payload.is_for_accounts,
             color=payload.color,
             user_id=current_user.id,
+            sort_order=next_sort_order(db, current_user.id, payload.parent_id),
         )
         db.add(category)
 
     db.commit()
     db.refresh(category)
     return _to_read(category, build_path_map(db, current_user.id))
+
+
+@router.get("/categories/stats", response_model=list[CategoryStats])
+def get_category_stats(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return stats_service.category_stats(db, current_user.id)
+
+
+@router.put("/categories/order", response_model=list[CategoryRead])
+def reorder_categories(
+    payload: CategoryReorder,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Ustawia kolejność dzieci rodzica; kategorie spod innego rodzica przenosi pod niego.
+
+    Przeciąganie wysyła całą listę rodzeństwa po upuszczeniu, więc pozycje to po prostu
+    indeksy. Rodzeństwo pominięte w liście trafia za podane, w dotychczasowej kolejności.
+    """
+    ids = payload.category_ids
+    if len(set(ids)) != len(ids):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Lista ma powtórzenia.")
+    parent_id = payload.parent_id
+    parent = (
+        _get_owned_or_404(db, Category, parent_id, current_user.id, "Category")
+        if parent_id
+        else None
+    )
+    moved = db.scalars(
+        select(Category).where(Category.user_id == current_user.id, Category.id.in_(ids))
+    ).all()
+    by_id = {category.id: category for category in moved}
+    if len(by_id) != len(ids):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    siblings = db.scalars(
+        select(Category)
+        .where(
+            Category.user_id == current_user.id,
+            Category.parent_id == parent_id if parent_id else Category.parent_id.is_(None),
+        )
+        .order_by(Category.sort_order, Category.name, Category.id)
+    ).all()
+    names = {normalize_segment(c.name): c.id for c in siblings}
+    for category in (by_id[category_id] for category_id in ids):
+        if category.parent_id == parent_id:
+            continue
+        user_id = current_user.id
+        if parent is not None and is_descendant_or_self(db, user_id, parent.id, category.id):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="Nie można przenieść kategorii do jej własnego pod-drzewa.",
+            )
+        if parent is not None and parent.is_for_accounts != category.is_for_accounts:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="Kategorii wydatków i kont nie można mieszać w jednej gałęzi.",
+            )
+        key = normalize_segment(category.name)
+        if key in names:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="Kategoria o tej nazwie już istnieje na tym poziomie.",
+            )
+        names[key] = category.id
+        category.parent_id = parent_id
+
+    rest = [category for category in siblings if category.id not in by_id]
+    for position, category in enumerate([*(by_id[i] for i in ids), *rest]):
+        category.sort_order = position
+
+    db.commit()
+    paths = build_path_map(db, current_user.id)
+    ordered = [*(by_id[i] for i in ids), *rest]
+    return [_to_read(category, paths) for category in ordered]
+
+
+@router.get("/categories/{category_id}/top-stores", response_model=list[CategoryTopStore])
+def get_category_top_stores(
+    category_id: str,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Najczęstsze sklepy kategorii razem z podkategoriami (12 mies.)."""
+    _get_owned_or_404(db, Category, category_id, current_user.id, "Category")
+    ids = [category_id, *descendant_ids(db, current_user.id, category_id)]
+    return stats_service.category_top_stores(db, current_user.id, ids)
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryRead)
@@ -152,6 +258,9 @@ def update_category(
             status.HTTP_409_CONFLICT, detail="Kategoria o tej nazwie już istnieje na tym poziomie."
         )
 
+    if new_parent_id != category.parent_id:
+        # Przeniesiona kategoria ląduje na końcu nowego rodzeństwa
+        category.sort_order = next_sort_order(db, current_user.id, new_parent_id)
     category.name = new_name
     category.parent_id = new_parent_id
     if payload.is_for_accounts is not None:
@@ -197,7 +306,17 @@ def delete_category(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
-    """Usuwa tag z całym pod-drzewem; produkty/transakcje tracą kategorię (SET NULL)."""
+    """Usuwa pustą kategorię z pod-drzewem; przedmioty tracą kategorię (SET NULL).
+
+    Kategorii z transakcjami (także w podkategoriach) nie usuwamy: transakcje straciłyby
+    kategorię bez śladu. Najpierw trzeba je przenieść akcją zbiorczą w Transakcjach.
+    """
     category = _get_owned_or_404(db, Category, category_id, current_user.id, "Category")
+    ids = [category_id, *descendant_ids(db, current_user.id, category_id)]
+    if stats_service.subtree_transaction_count(db, current_user.id, ids):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Usunąć można tylko kategorię bez transakcji.",
+        )
     db.delete(category)
     db.commit()

@@ -180,6 +180,15 @@ Decyzje, których nie rozstrzyga brief redesignu. Przy wątpliwościach wybieram
 - **W całym interfejsie jest „Kategoria”, nie „Tag”:** ekran „Kategorie” (`/categories`), kolejka „Bez kategorii” (`/transactions/uncategorized`), konta, raporty, przedmioty, paragony i komunikaty API. Stare adresy `/tags` i `/transactions/untagged` przekierowują na nowe. Nazwy w kodzie (`Tag*`, `tagging`, endpoint `/transactions/untagged`) zostają; nowy kod piszemy już jako `category`, a stare nazwy zmieniamy przy okazji.
 - **Zakupy przedmiotu liczymy jak statystyki sklepu:** liczba transakcji z przedmiotem i ostatni zakup z całej historii, wydatki (cena × ilość) z 12 miesięcy, tylko PLN, bez przelewów i korekt, a pozycja na transakcji-wpływie (zwrot) pomniejsza sumę. Ilości nie sumujemy, bo ten sam przedmiot bywa w kg i w sztukach. Wykres miesięczny jest w oknie przedmiotu, nad nazwami z paragonów.
 
+## Kategorie
+
+- **Ekran Kategorie według makiety, bez zakładki „Do uporządkowania”.** Zamiast niej przełącznik „Wydatki | Konta”, bo kategorie kont nie mają innego miejsca do edycji. Makieta pokazywała też ukrywanie, emoji i stały budżet miesięczny; tych pól na razie nie dodaliśmy, więc nie ma ich w menu ani w Ustawieniach.
+- **Statystyki kategorii liczymy jak statystyki sklepów:** liczba i ostatnia transakcja z całej historii, wydatki z 12 miesięcy, tylko PLN, bez przelewów i korekt. API zwraca własne transakcje każdej kategorii, a sumy gałęzi (rodzic + podkategorie) składa UI z drzewa.
+- **Kolejność to `sort_order` wśród rodzeństwa.** Przeciągnięcie wysyła całą nową listę dzieci jednego rodzica (`PUT /categories/order`), a kategoria spod innego rodzica zostaje przy tym przeniesiona. Górna i dolna ćwiartka wiersza wstawiają obok, środek — do środka. Dla klawiatury menu ma „Przesuń wyżej/niżej” i „Przenieś do…”. Nowa i przeniesiona kategoria trafia na koniec rodzeństwa.
+- **Usunąć można tylko kategorię bez transakcji, także w podkategoriach** (API zwraca 409). Wcześniej usunięcie po cichu odpinało transakcje.
+- **Nieużywane gałęzie (bez transakcji od 12 miesięcy) są domyślnie schowane** za „Pokaż nieużywane”. Świeżo dodana kategoria zostaje widoczna do odświeżenia strony, a wyszukiwarka pokazuje wszystko.
+- **Wykres na stronie kategorii nie ma linii budżetu,** bo kategoria nie ma stałego celu. „Pokaż transakcje” otwiera Transakcje z filtrem tej jednej kategorii, bez podkategorii (tak działa istniejący filtr).
+
 ## Testy
 
 - **Pierwsze testy jednostkowe** (`bulkUpdate.test.ts`, `flows.test.ts`) obejmują logikę, której błąd zmieniałby dane lub liczby: podział wyników akcji zbiorczej i węzły Przepływów.

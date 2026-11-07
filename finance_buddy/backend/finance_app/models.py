@@ -456,6 +456,8 @@ class Category(Base):
     # Klucz koloru z palety motywu (np. "teal"), analogicznie do Account.color.
     # NULL = dziedzicz kolor po najbliższym przodku z ustawionym kolorem.
     color: Mapped[str | None] = mapped_column(String(24))
+    # Pozycja wśród rodzeństwa (ten sam parent_id), ustawiana przeciąganiem na ekranie Kategorie.
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     parent: Mapped[Category | None] = relationship(remote_side=[id])
     children: Mapped[list[Category]] = relationship(

@@ -420,8 +420,35 @@ class CategoryRead(BaseModel):
     color: str | None = None
     # Znormalizowana ścieżka tagu, np. "dom/remont/lazienka" (wyliczana z drzewa).
     path: str
+    # Pozycja wśród rodzeństwa; lista jest już nią posortowana.
+    sort_order: int = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryReorder(BaseModel):
+    """Nowa kolejność dzieci jednego rodzica; kategorie spod innego rodzica zostają przeniesione."""
+
+    parent_id: str | None = None
+    category_ids: list[str] = Field(min_length=1, max_length=500)
+
+
+class CategoryStats(BaseModel):
+    """Własne transakcje kategorii (bez podkategorii) — sumy gałęzi składa UI."""
+
+    category_id: str
+    count: int
+    spent_cents_12m: int
+    last_date: dt.date | None = None
+    # 12 miesięcy od najstarszego, bieżący na końcu.
+    monthly_cents: list[int]
+
+
+class CategoryTopStore(BaseModel):
+    name: str
+    store_id: str
+    count: int
+    spent_cents_12m: int
 
 
 class CategoryDeletePreview(BaseModel):
