@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.12
+
+- Sklepy: „Do uporządkowania” podpowiada domyślną kategorię sklepu z historii jego transakcji, gdy jedna
+  kategoria ma co najmniej 60% z nich. Podpowiedzi stosuje się jednym przyciskiem dla wszystkich, dla
+  zaznaczonych albo pojedynczo z menu, z możliwością cofnięcia.
+- Sklepy: „Scal wszystkie duplikaty” scala każdy duplikat osobno, do sklepu z największą liczbą transakcji,
+  zamiast łączyć wszystko w jeden sklep. Przed scaleniem widać listę scaleń, a te z konfliktem są pomijane.
+  Każde da się cofnąć na stronie sklepu.
+- Import z YNAB: pierwszy import budżetu sam ustawia sklepom bez kategorii kategorię podpowiedzianą
+  z historii transakcji. Kolejne importy niczego nie nadpisują. Podsumowanie importu pokazuje,
+  ile sklepów ją dostało.
+
 ## 0.1.11
 
 - Przedmioty: duplikaty można scalić. W oknie przedmiotu wskazujesz właściwy, a pozycje transakcji
