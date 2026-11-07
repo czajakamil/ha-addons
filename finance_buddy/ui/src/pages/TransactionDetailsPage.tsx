@@ -1,23 +1,24 @@
+// Szczegóły transakcji. Dwa układy: z pozycjami (podział na kategorie, tabela, zdjęcia)
+// i bez pozycji (pasek „dodaj”, historia ze sklepem). Pola po prawej zapisują się same.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, CheckIcon, CircleAlertIcon, FlagIcon, ImageIcon, ImagePlusIcon, LinkIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowUpRightIcon, CheckIcon, ChevronLeftIcon, CircleAlertIcon, EllipsisIcon, PlusIcon } from 'lucide-react';
 import Button from '../components/Button';
+import CategoryPickerMenu from '../components/CategoryPickerMenu';
+import PopoverFilter from '../components/PopoverFilter';
 import TagPathInput from '../components/tags/TagPathInput';
-import { TagChip } from '../components/tags/TagChip';
-import { buildCategoryMap } from '../components/tags/tagColors';
-import EntityAutocomplete, {
-  type EntityOption
-} from '../components/transactions/EntityAutocomplete';
+import EntityAutocomplete, { type EntityOption } from '../components/transactions/EntityAutocomplete';
 import { selectableAccounts } from '../components/transactions/lookupOptions';
 import {
   Account,
   Category,
   Item,
   Store,
-  TransactionAttachment,
   TransactionDetail,
   type TransactionItemCreate,
+  type TransactionUpdate,
   createItem,
+  deleteTransaction,
   deleteTransactionAttachment,
   ensureCategoryPath,
   getAccounts,
@@ -31,20 +32,25 @@ import {
 } from '../api';
 import Money from '../components/ui/Money';
 import SkeletonRows from '../components/ui/SkeletonRows';
-import { formatDayHeading, formatRecordedTime, toRecordedAt } from '../utils/date';
-import { useAuthorizedObjectUrl } from '../hooks/useAuthorizedObjectUrl';
-import { formatMoney, parseAmountToCents } from '../utils/format';
 import { DateInput, TimeInput } from '../components/ui/DateTimeInput';
-import ResizableTable from '../components/ui/ResizableTable';
-import { formatCategoryPath } from '../utils/categoryPath';
+import { formatDayHeading, formatRecordedTime, formatShortDate, toRecordedAt } from '../utils/date';
+import { formatMoney, parseAmountToCents } from '../utils/format';
+import { buildFilterTree, categoryFilterOptions } from './transactions/categoryFilter';
+import { CategoryDot, CategoryLabel, PhotosSection, StoreHistory } from './transactionDetails/components';
+import {
+  UNCATEGORIZED_COLOR,
+  UNCATEGORIZED_KEY,
+  buildCategorySplit,
+  itemCategoryId,
+  itemTotalCents,
+  itemsMatchTotal
+} from './transactionDetails/model';
 
 type RouteParams = {
   transactionId?: string;
 };
 
-type TransactionStatusState = 'pending' | 'cleared' | 'reconciled';
-
-type EditableTransactionFields = {
+type EditableFields = {
   account_id: string;
   store_id: string;
   comment: string;
@@ -61,109 +67,34 @@ type NewItemForm = {
   comment: string;
 };
 
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
 const EMPTY_ITEM_FORM: NewItemForm = {
   product_id: '',
   product_name: '',
   tag_path: '',
-  quantity: '',
+  quantity: '1',
   unit_price: '',
   comment: ''
 };
 
-const STATUS_PRESENTATION: Record<
-  TransactionStatusState,
-  { label: string; description: string; tone: 'neutral' | 'success' | 'info' }
-> = {
-  pending: { label: 'Przetwarzana', description: 'Oczekuje na potwierdzenie', tone: 'info' },
-  cleared: { label: 'Zatwierdzona', description: 'Zaksięgowana w banku', tone: 'neutral' },
-  reconciled: { label: 'Uzgodniona', description: 'Sprawdzona i uzgodniona', tone: 'success' }
+const fieldsFrom = (transaction: TransactionDetail): EditableFields => ({
+  account_id: transaction.account_id ?? '',
+  store_id: transaction.store_id ?? '',
+  comment: transaction.comment ?? '',
+  date: transaction.date ?? '',
+  time: formatRecordedTime(transaction.recorded_at) ?? ''
+});
+
+/** „Uzgodniona 2 lis” — status z banku bez osobnej plakietki. */
+const statusLabel = (transaction: TransactionDetail) => {
+  if (transaction.reconciled) return 'Uzgodniona';
+  if (transaction.cleared) return 'Zatwierdzona';
+  return 'Przetwarzana';
 };
 
-const getStatusState = (transaction: TransactionDetail | null): TransactionStatusState => {
-  if (!transaction) return 'pending';
-  if (transaction.reconciled) return 'reconciled';
-  if (transaction.cleared) return 'cleared';
-  return 'pending';
-};
-
-const formatDateTime = (value?: string | null) =>
-  value ? new Date(value).toLocaleString('pl-PL', { hour12: false }) : '—';
-
-const formatFileSize = (bytes: number) => {
-  if (!bytes || bytes < 0) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-type AttachmentCardProps = {
-  attachment: TransactionAttachment;
-  onDelete: (attachmentId: string) => void;
-  deleting: boolean;
-};
-
-/**
- * Kafelek załącznika. Plik pobiera przez `useAuthorizedObjectUrl`, bo endpoint
- * `/transactions/{id}/attachments/{id}` wymaga tokenu — surowy adres API w `src`/`href`
- * zwróciłby 401 (zepsuta miniatura, martwy przycisk „Otwórz").
- */
-const AttachmentCard = ({ attachment, onDelete, deleting }: AttachmentCardProps) => {
-  const isImage = (attachment.content_type ?? '').startsWith('image/');
-  const { url, loading, error } = useAuthorizedObjectUrl(attachment.download_url, {
-    errorMessage: 'Nie udało się wczytać załącznika.'
-  });
-
-  return (
-    <div className="attachment-card">
-      <div className="attachment-card__preview">
-        {isImage && url ? (
-          <a href={url} target="_blank" rel="noreferrer">
-            <img src={url} alt={attachment.original_name} />
-          </a>
-        ) : (
-          <div className="attachment-card__placeholder" title={error ?? undefined}>
-            {loading ? (
-              <span
-                className="spinner-border spinner-border-sm"
-                role="status"
-                aria-label="Wczytywanie załącznika"
-              />
-            ) : error ? (
-              <CircleAlertIcon size={20} aria-hidden="true" />
-            ) : (
-              <ImageIcon size={20} aria-hidden="true" />
-            )}
-          </div>
-        )}
-      </div>
-      <div className="attachment-card__body">
-        <div className="attachment-card__title" title={attachment.original_name}>
-          {attachment.original_name}
-        </div>
-        <div className="tx-page__muted">
-          {formatFileSize(attachment.size_bytes)} · {formatDateTime(attachment.created_at)}
-        </div>
-      </div>
-      <div className="attachment-card__actions">
-        {url ? (
-          <a className="icon-button" href={url} target="_blank" rel="noreferrer" title="Otwórz" aria-label={`Otwórz ${attachment.original_name}`}>
-            <LinkIcon size={14} aria-hidden="true" />
-          </a>
-        ) : null}
-        <button
-          type="button"
-          className="icon-button"
-          title="Usuń"
-          aria-label={`Usuń ${attachment.original_name}`}
-          onClick={() => onDelete(attachment.id)}
-          disabled={deleting}
-        >
-          <Trash2Icon size={14} aria-hidden="true" />
-        </button>
-      </div>
-    </div>
-  );
-};
+const formatQuantity = (quantity: number, unit?: string | null) =>
+  `${String(quantity).replace('.', ',')} ${unit || 'szt'}`;
 
 const TransactionDetailsPage = () => {
   const { transactionId } = useParams<RouteParams>();
@@ -180,58 +111,14 @@ const TransactionDetailsPage = () => {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [removingAttachmentId, setRemovingAttachmentId] = useState<string | null>(null);
-  const [savingForm, setSavingForm] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [editFields, setEditFields] = useState<EditableTransactionFields>({
-    account_id: '',
-    store_id: '',
-    comment: '',
-    date: '',
-    time: ''
-  });
+  const [fields, setFields] = useState<EditableFields>({ account_id: '', store_id: '', comment: '', date: '', time: '' });
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [newItemForm, setNewItemForm] = useState<NewItemForm>(EMPTY_ITEM_FORM);
   const [showItemForm, setShowItemForm] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [itemError, setItemError] = useState<string | null>(null);
-  const [categoryPath, setCategoryPath] = useState('');
-
-  const sortedAttachments = useMemo(() => {
-    if (!transaction) return [];
-    return [...transaction.attachments].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [transaction]);
-
-  const lastPriceByProduct = useMemo(() => {
-    const map = new Map<string, string>();
-    transaction?.items.forEach((item) => {
-      map.set(item.product_id, (item.unit_price_cents / 100).toFixed(2));
-    });
-    return map;
-  }, [transaction]);
-
-  const accountOptions = useMemo<EntityOption[]>(
-    () =>
-      selectableAccounts(accounts, transaction?.account_id).map((account) => ({
-        id: account.id,
-        label: account.name,
-        hint: account.currency ?? undefined
-      })),
-    [accounts, transaction?.account_id]
-  );
-  const storeOptions = useMemo<EntityOption[]>(
-    () => stores.map((store) => ({ id: store.id, label: store.group_name?.trim() || store.name })),
-    [stores]
-  );
-  const productOptions = useMemo<EntityOption[]>(
-    () => products.map((product) => ({ id: product.id, label: product.name })),
-    [products]
-  );
-  const categoryPathById = useMemo(() => {
-    const map = new Map<string, string>();
-    categories.forEach((category) => map.set(category.id, category.path));
-    return map;
-  }, [categories]);
+  const [itemsBusy, setItemsBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const loadTransaction = useCallback(async () => {
     if (!transactionId) {
@@ -243,6 +130,7 @@ const TransactionDetailsPage = () => {
       setLoading(true);
       const data = await getTransaction(transactionId);
       setTransaction(data);
+      setFields(fieldsFrom(data));
       setError(null);
     } catch (err) {
       console.error(err);
@@ -271,61 +159,147 @@ const TransactionDetailsPage = () => {
 
   useEffect(() => {
     void loadTransaction();
-    void loadReferences();
-  }, [loadTransaction, loadReferences]);
+  }, [loadTransaction]);
 
   useEffect(() => {
-    if (!transaction) return;
-    setEditFields({
-      account_id: transaction.account_id ?? '',
-      store_id: transaction.store_id ?? '',
-      comment: transaction.comment ?? '',
-      date: transaction.date ?? '',
-      time: formatRecordedTime(transaction.recorded_at) ?? ''
-    });
-    const currentCategory = categories.find((cat) => cat.id === (transaction.category_id ?? ''));
-    setCategoryPath(currentCategory?.path ?? '');
-  }, [transaction, categories]);
+    void loadReferences();
+  }, [loadReferences]);
 
-  const categoryMap = useMemo(() => buildCategoryMap(categories), [categories]);
-  // Podgląd koloru dla aktualnie wpisanej ścieżki tagu (dopasowanie bez wielkości liter).
-  const matchedTagCategory = useMemo(() => {
-    const trimmed = categoryPath.trim().toLowerCase();
-    if (!trimmed) return undefined;
-    return categories.find(
-      (cat) => !(cat.is_for_accounts ?? false) && cat.path.toLowerCase() === trimmed
-    );
-  }, [categoryPath, categories]);
+  const categoriesById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
+  const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+  const categoryTree = useMemo(() => buildFilterTree(categories), [categories]);
+  const pickerOptions = useCallback(
+    (search: string) => categoryFilterOptions(categoryTree, search, [], null),
+    [categoryTree]
+  );
 
-  const openFilePicker = () => {
-    fileInputRef.current?.click();
+  const accountOptions = useMemo<EntityOption[]>(
+    () =>
+      selectableAccounts(accounts, transaction?.account_id).map((account) => ({
+        id: account.id,
+        label: account.name,
+        hint: account.currency ?? undefined
+      })),
+    [accounts, transaction?.account_id]
+  );
+  const storeOptions = useMemo<EntityOption[]>(
+    () => stores.map((store) => ({ id: store.id, label: store.group_name?.trim() || store.name })),
+    [stores]
+  );
+  const productOptions = useMemo<EntityOption[]>(
+    () => products.map((product) => ({ id: product.id, label: product.name })),
+    [products]
+  );
+  const lastPriceByProduct = useMemo(() => {
+    const map = new Map<string, string>();
+    transaction?.items.forEach((item) => map.set(item.product_id, (item.unit_price_cents / 100).toFixed(2)));
+    return map;
+  }, [transaction]);
+
+  const sortedAttachments = useMemo(
+    () =>
+      transaction
+        ? [...transaction.attachments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        : [],
+    [transaction]
+  );
+
+  const split = useMemo(
+    () => (transaction ? buildCategorySplit(transaction.items, productsById, categoriesById) : []),
+    [transaction, productsById, categoriesById]
+  );
+  const splitColor = useMemo(() => new Map(split.map((entry) => [entry.key, entry.color])), [split]);
+
+  // --- Zapis pól (autozapis) ----------------------------------------------
+
+  const save = async (payload: TransactionUpdate) => {
+    if (!transactionId || !Object.keys(payload).length) return;
+    setSaveState('saving');
+    try {
+      const updated = await updateTransaction(transactionId, payload);
+      // PATCH zwraca transakcję bez nazw i załączników, więc dokładamy ją do szczegółów
+      setTransaction((prev) => (prev ? { ...prev, ...updated, items: prev.items, attachments: prev.attachments } : prev));
+      setSaveState('saved');
+    } catch (err) {
+      console.error(err);
+      setSaveState('error');
+      // Pola wracają do stanu z serwera, żeby nie udawać zapisanej zmiany
+      if (transaction) setFields(fieldsFrom(transaction));
+    }
   };
+
+  const commitDateTime = () => {
+    if (!transaction || !fields.date) return;
+    const payload: TransactionUpdate = {};
+    if (fields.date !== (transaction.date ?? '')) payload.date = fields.date;
+    // Sama zmiana daty zachowuje godzinę po stronie backendu
+    if (fields.time !== (formatRecordedTime(transaction.recorded_at) ?? '')) {
+      payload.recorded_at = toRecordedAt(fields.date, fields.time);
+    }
+    void save(payload);
+  };
+
+  const commitComment = () => {
+    if (!transaction || fields.comment === (transaction.comment ?? '')) return;
+    void save({ comment: fields.comment || null });
+  };
+
+  const selectAccount = (id: string) => {
+    setFields((prev) => ({ ...prev, account_id: id }));
+    if (transaction && id && id !== transaction.account_id) void save({ account_id: id });
+  };
+
+  const selectStore = (id: string) => {
+    setFields((prev) => ({ ...prev, store_id: id }));
+    if (transaction && id !== (transaction.store_id ?? '')) void save({ store_id: id || null });
+  };
+
+  const selectCategory = (id: string) => {
+    if (transaction && id !== (transaction.category_id ?? '')) void save({ category_id: id || null });
+  };
+
+  // --- Kategorie pozycji ----------------------------------------------------
+
+  // Kategoria należy do produktu, więc zmiana obowiązuje też przy kolejnych zakupach
+  const setProductsCategory = async (productIds: string[], categoryId: string) => {
+    const changed = [...new Set(productIds)].filter((id) => (productsById.get(id)?.category_id ?? null) !== categoryId);
+    if (!changed.length) return;
+    setItemsBusy(true);
+    setItemError(null);
+    try {
+      const updated = await Promise.all(changed.map((id) => updateItem(id, { category_id: categoryId })));
+      const byId = new Map(updated.map((product) => [product.id, product]));
+      setProducts((prev) => prev.map((product) => byId.get(product.id) ?? product));
+    } catch (err) {
+      console.error(err);
+      setItemError('Nie udało się zmienić kategorii.');
+      void loadReferences();
+    } finally {
+      setItemsBusy(false);
+    }
+  };
+
+  // --- Załączniki -----------------------------------------------------------
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || !transactionId) return;
-
     setAttachmentError(null);
     setUploading(true);
-
     try {
       const attachment = await uploadTransactionAttachment(transactionId, file);
-      setTransaction((prev) =>
-        prev ? { ...prev, attachments: [attachment, ...prev.attachments] } : prev
-      );
+      setTransaction((prev) => (prev ? { ...prev, attachments: [...prev.attachments, attachment] } : prev));
     } catch (err) {
       console.error(err);
-      setAttachmentError('Nie udało się dodać załącznika.');
+      setAttachmentError('Nie udało się dodać zdjęcia.');
     } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!transactionId) return;
-    if (!window.confirm('Usunąć ten załącznik?')) return;
-
+    if (!transactionId || !window.confirm('Usunąć to zdjęcie?')) return;
     setAttachmentError(null);
     setRemovingAttachmentId(attachmentId);
     try {
@@ -335,74 +309,35 @@ const TransactionDetailsPage = () => {
       );
     } catch (err) {
       console.error(err);
-      setAttachmentError('Nie udało się usunąć pliku.');
+      setAttachmentError('Nie udało się usunąć zdjęcia.');
     } finally {
       setRemovingAttachmentId(null);
     }
   };
 
-  const handleFieldChange = (field: keyof EditableTransactionFields, value: string) => {
-    setEditFields((prev) => ({ ...prev, [field]: value }));
-    setFormError(null);
-  };
-
-  const handleSaveFields = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!transaction || !transactionId) return;
-
-    let resolvedCategoryId: string | null = null;
-    if (categoryPath.trim()) {
-      try {
-        resolvedCategoryId = await ensureCategoryPath(categoryPath, categories, false);
-      } catch (err) {
-        console.error(err);
-        setFormError('Nie udało się zapisać kategorii.');
-        return;
-      }
-    }
-
-    const payload: Record<string, string | null> = {};
-    if (editFields.account_id !== (transaction.account_id ?? '')) payload.account_id = editFields.account_id || null;
-    if (editFields.store_id !== (transaction.store_id ?? '')) payload.store_id = editFields.store_id || null;
-    if (resolvedCategoryId !== (transaction.category_id ?? null)) payload.category_id = resolvedCategoryId;
-    if (editFields.comment !== (transaction.comment ?? '')) payload.comment = editFields.comment || null;
-    if (editFields.date !== (transaction.date ?? '')) payload.date = editFields.date || null;
-    // Sama zmiana daty zachowuje godzinę po stronie backendu
-    if (editFields.time !== (formatRecordedTime(transaction.recorded_at) ?? '')) {
-      payload.recorded_at = toRecordedAt(editFields.date, editFields.time);
-    }
-
-    if (!Object.keys(payload).length) {
-      setFormError('Brak zmian do zapisania.');
-      return;
-    }
-
-    setSavingForm(true);
+  const handleDeleteTransaction = async () => {
+    setMenuOpen(false);
+    if (!transactionId || !window.confirm('Usunąć tę transakcję? Tego nie da się cofnąć.')) return;
     try {
-      await updateTransaction(transactionId, payload);
-      await loadTransaction();
-      setFormError(null);
+      await deleteTransaction(transactionId);
+      navigate('/transactions');
     } catch (err) {
       console.error(err);
-      setFormError('Nie udało się zapisać zmian.');
-    } finally {
-      setSavingForm(false);
+      setError('Nie udało się usunąć transakcji.');
     }
   };
 
-  const handleNewItemChange = (
-    field: 'quantity' | 'unit_price' | 'comment' | 'tag_path',
-    value: string
-  ) => {
+  // --- Nowa pozycja ---------------------------------------------------------
+
+  const handleNewItemChange = (field: 'quantity' | 'unit_price' | 'comment' | 'tag_path', value: string) => {
     setNewItemForm((prev) => ({ ...prev, [field]: value }));
     setItemError(null);
   };
 
-  // Wybór istniejącego produktu: uzupełnia nazwę, ostatnią cenę oraz tag
-  // przypisany do produktu (jeśli ma kategorię).
+  // Wybór istniejącego produktu: uzupełnia nazwę, ostatnią cenę i kategorię produktu
   const handleSelectProduct = (productId: string) => {
-    const product = products.find((prod) => prod.id === productId);
-    const tagPath = product?.category_id ? categoryPathById.get(product.category_id) ?? '' : '';
+    const product = productsById.get(productId);
+    const tagPath = product?.category_id ? categoriesById.get(product.category_id)?.path ?? '' : '';
     setNewItemForm((prev) => ({
       ...prev,
       product_id: productId,
@@ -413,7 +348,6 @@ const TransactionDetailsPage = () => {
     setItemError(null);
   };
 
-  // Wpisanie nowej nazwy: produkt zostanie utworzony przy dodawaniu pozycji.
   const handleCreateProduct = (name: string) => {
     setNewItemForm((prev) => ({ ...prev, product_id: '', product_name: name }));
     setItemError(null);
@@ -441,23 +375,22 @@ const TransactionDetailsPage = () => {
 
     setSavingItem(true);
     try {
-      // Tag produktu (opcjonalny) — tworzy brakującą ścieżkę i zwraca id.
       const tagPath = newItemForm.tag_path.trim();
       const productCategoryId = tagPath ? await ensureCategoryPath(tagPath, categories, false) : null;
 
-      // Nowy produkt tworzymy w locie; przy istniejącym aktualizujemy tag, gdy się zmienił.
+      // Nowy produkt tworzymy w locie; przy istniejącym aktualizujemy kategorię, gdy się zmieniła
       let productId = newItemForm.product_id;
       if (!productId) {
         const created = await createItem({ name: productName, category_id: productCategoryId });
         productId = created.id;
       } else if (tagPath) {
-        const existing = products.find((prod) => prod.id === productId);
+        const existing = productsById.get(productId);
         if (existing && (existing.category_id ?? null) !== productCategoryId) {
           await updateItem(productId, { category_id: productCategoryId });
         }
       }
 
-      const currentItemsPayload: TransactionItemCreate[] = transaction.items.map((item) => ({
+      const items: TransactionItemCreate[] = transaction.items.map((item) => ({
         product_id: item.product_id,
         unit_price_cents: item.unit_price_cents,
         quantity: item.quantity,
@@ -465,16 +398,14 @@ const TransactionDetailsPage = () => {
         comment: item.comment ?? undefined,
         raw_name: item.raw_name ?? undefined
       }));
-
-      currentItemsPayload.push({
+      items.push({
         product_id: productId,
         unit_price_cents: unitPriceCents,
         quantity,
-        unit: undefined,
         comment: newItemForm.comment.trim() || undefined
       });
 
-      await updateTransaction(transactionId, { items: currentItemsPayload });
+      await updateTransaction(transactionId, { items });
       await Promise.all([loadTransaction(), loadReferences()]);
       setNewItemForm(EMPTY_ITEM_FORM);
       setShowItemForm(false);
@@ -487,20 +418,107 @@ const TransactionDetailsPage = () => {
     }
   };
 
-  const statusState = getStatusState(transaction);
-  const statusPresentation = STATUS_PRESENTATION[statusState];
+  // --- Widok ----------------------------------------------------------------
 
   const store = stores.find((entry) => entry.id === transaction?.store_id);
+  const storeLabel = store?.group_name?.trim() || store?.name || '';
   const accountName = accounts.find((entry) => entry.id === transaction?.account_id)?.name;
-  const heading =
-    store?.group_name?.trim() || store?.name || transaction?.comment || (transaction ? 'Transakcja' : '');
+  const heading = storeLabel || transaction?.comment || transaction?.bank_description || (transaction ? 'Transakcja' : '');
+  const time = formatRecordedTime(transaction?.recorded_at);
+  const hasItems = Boolean(transaction?.items.length);
+  const hasPhotos = sortedAttachments.length > 0;
+  const showItemsSection = hasItems || showItemForm;
+  const itemsSumCents = transaction ? transaction.items.reduce((sum, item) => sum + itemTotalCents(item), 0) : 0;
+  const itemsMatch = transaction ? itemsMatchTotal(transaction.items, transaction.total_cents) : true;
+  const transactionCategoryPath = transaction?.category_id ? categoriesById.get(transaction.category_id)?.path ?? '' : '';
+
+  const openItemForm = () => {
+    setShowItemForm(true);
+    setItemError(null);
+  };
+
+  const itemForm = showItemForm && (
+    <form className="tx-item-form" onSubmit={handleAddItem}>
+      <div className="tx-item-form__wide">
+        <label className="form-label">Produkt</label>
+        <EntityAutocomplete
+          value={newItemForm.product_id}
+          options={productOptions}
+          fallbackLabel={newItemForm.product_name}
+          onSelect={handleSelectProduct}
+          onCreate={handleCreateProduct}
+          placeholder="Wpisz, aby wyszukać lub utworzyć"
+        />
+      </div>
+      <div>
+        <label className="form-label" htmlFor="tx-item-quantity">Ilość</label>
+        <input
+          id="tx-item-quantity"
+          type="number"
+          step="0.001"
+          min="0"
+          className="form-control"
+          value={newItemForm.quantity}
+          onChange={(e) => handleNewItemChange('quantity', e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <label className="form-label" htmlFor="tx-item-price">Cena jedn.</label>
+        <input
+          id="tx-item-price"
+          type="text"
+          inputMode="decimal"
+          className="form-control"
+          value={newItemForm.unit_price}
+          onChange={(e) => handleNewItemChange('unit_price', e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <label className="form-label">Kategoria produktu</label>
+        <TagPathInput
+          value={newItemForm.tag_path}
+          categories={categories}
+          forAccounts={false}
+          placeholder="np. spożywcze/nabiał"
+          onChange={(value) => handleNewItemChange('tag_path', value)}
+        />
+      </div>
+      <div>
+        <label className="form-label" htmlFor="tx-item-comment">Komentarz</label>
+        <input
+          id="tx-item-comment"
+          type="text"
+          className="form-control"
+          value={newItemForm.comment}
+          onChange={(e) => handleNewItemChange('comment', e.target.value)}
+        />
+      </div>
+      <div className="tx-item-form__actions">
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => {
+            setShowItemForm(false);
+            setItemError(null);
+          }}
+        >
+          Anuluj
+        </button>
+        <Button type="submit" disabled={savingItem}>
+          {savingItem ? 'Dodawanie…' : 'Dodaj pozycję'}
+        </Button>
+      </div>
+    </form>
+  );
 
   return (
-    <div className="page-shell page-stack-layout tx-page">
-      <button type="button" className="text-button tx-page__back" onClick={() => navigate('/transactions')}>
-        <ArrowLeftIcon size={14} aria-hidden="true" />
+    <div className="page-shell page-stack-layout tx-detail">
+      <Link to="/transactions" className="tx-detail__back">
+        <ChevronLeftIcon size={14} aria-hidden="true" />
         Transakcje
-      </button>
+      </Link>
 
       {error && (
         <p className="transactions-error" role="alert">
@@ -508,281 +526,364 @@ const TransactionDetailsPage = () => {
         </p>
       )}
 
-      {loading && <SkeletonRows rows={6} />}
+      {loading && !transaction && <SkeletonRows rows={6} />}
 
-      {!loading && transaction && (
+      {transaction && (
         <>
-          <header className="tx-page__header">
-            <div className="tx-page__title">
-              <h1>{heading}</h1>
-              <p>
-                {transaction.date ? formatDayHeading(transaction.date) : '—'}
-                {formatRecordedTime(transaction.recorded_at) ? `, ${formatRecordedTime(transaction.recorded_at)}` : ''}
-                {accountName ? ` · ${accountName}` : ''}
-              </p>
-            </div>
-            <div className="tx-page__total">
-              <Money cents={transaction.total_cents} currency={transaction.currency} />
-              <span className={`tx-badge tx-badge--${statusPresentation.tone}`} title={statusPresentation.description}>
-                {statusState === 'reconciled' ? (
-                  <CheckIcon size={14} aria-hidden="true" />
-                ) : (
-                  <FlagIcon size={14} aria-hidden="true" />
-                )}
-                {statusPresentation.label}
+          <header className="tx-detail__header">
+            <div className="tx-detail__identity">
+              <span className="tx-detail__avatar" aria-hidden="true">
+                {(heading.trim()[0] ?? '?').toUpperCase()}
               </span>
+              <div className="tx-detail__title">
+                {transaction.store_id ? (
+                  <Link to={`/transactions?stores=${encodeURIComponent(transaction.store_id)}`} className="tx-detail__name">
+                    <h1>{heading}</h1>
+                    <ArrowUpRightIcon size={14} aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <h1 className="tx-detail__name">{heading}</h1>
+                )}
+                <p className="tx-detail__muted">
+                  {transaction.date ? formatDayHeading(transaction.date) : '—'}
+                  {time ? `, ${time}` : ''}
+                  {accountName ? ` · ${accountName}` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="tx-detail__amount">
+              <div className="tx-detail__total">
+                <Money cents={transaction.total_cents} currency={transaction.currency} />
+                <span className="tx-detail__muted tx-detail__status">
+                  {statusLabel(transaction)}
+                  {transaction.date ? ` ${formatShortDate(transaction.date)}` : ''}
+                </span>
+              </div>
+              <PopoverFilter
+                id="tx-detail-actions"
+                label="Akcje transakcji"
+                className="filter-menu-anchor tx-detail__menu"
+                panelClassName="filter-menu tx-detail__menu-panel"
+                isOpen={menuOpen}
+                onOpenChange={setMenuOpen}
+                trigger={({ ref, panelId, isOpen, onToggle }) => (
+                  <button
+                    ref={ref}
+                    type="button"
+                    className="icon-button"
+                    aria-label="Więcej akcji"
+                    aria-haspopup="dialog"
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    onClick={onToggle}
+                  >
+                    <EllipsisIcon size={16} aria-hidden="true" />
+                  </button>
+                )}
+              >
+                <button type="button" className="filter-menu__item filter-menu__item--pick tx-detail__danger" onClick={() => void handleDeleteTransaction()}>
+                  Usuń transakcję
+                </button>
+              </PopoverFilter>
             </div>
           </header>
 
-          <div className="tx-page__layout">
-            <div className="tx-page__main">
-              <section className="tx-section">
-                <header className="tx-section__header">
-                  <h2>Pozycje</h2>
-                  {!showItemForm && (
-                    <button type="button" className="text-button" onClick={() => setShowItemForm(true)}>
-                      <PlusIcon size={14} aria-hidden="true" />
-                      Dodaj pozycję
-                    </button>
-                  )}
-                </header>
-                {transaction.items.length ? (
-                  <div className="table-responsive">
-                    <ResizableTable tableId="transaction-items" className="tx-items">
-                      <thead>
-                        <tr>
-                          <th>Produkt</th>
-                          <th className="tx-items__number">Ilość</th>
-                          <th className="tx-items__number">Cena</th>
-                          <th className="tx-items__number">Suma</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transaction.items.map((item) => (
-                          <tr key={item.id}>
-                            <td>
-                              {item.product_name ?? 'Produkt'}
-                              {item.raw_name && item.raw_name !== item.product_name && (
-                                <div className="tx-page__muted" title="Nazwa z paragonu">
-                                  {item.raw_name}
-                                </div>
-                              )}
-                              {item.comment && <div className="tx-page__muted">{item.comment}</div>}
-                            </td>
-                            <td className="tx-items__number">
-                              {item.quantity} {item.unit ?? ''}
-                            </td>
-                            <td className="tx-items__number">{formatMoney(item.unit_price_cents, transaction.currency)}</td>
-                            <td className="tx-items__number">
-                              {formatMoney(Math.round(item.unit_price_cents * item.quantity), transaction.currency)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </ResizableTable>
+          <div className="tx-detail__layout">
+            <div className="tx-detail__main">
+              {hasItems && (
+                <section className="tx-card tx-split" aria-label="Podział na kategorie">
+                  <div className="tx-card__row">
+                    <h2 className="tx-card__title">
+                      Podział na kategorie{' '}
+                      <span className="tx-detail__muted tx-card__count">· z {transaction.items.length} pozycji</span>
+                    </h2>
+                    <CategoryPickerMenu
+                      id="tx-detail-all-items-category"
+                      label="Jedna kategoria dla wszystkich pozycji"
+                      triggerClassName="tx-detail__link-button"
+                      triggerLabel="Jedna kategoria dla wszystkich…"
+                      searchPlaceholder="Szukaj kategorii…"
+                      emptyText="Brak pasujących kategorii"
+                      disabled={itemsBusy}
+                      options={pickerOptions}
+                      onSelect={(categoryId) =>
+                        void setProductsCategory(transaction.items.map((item) => item.product_id), categoryId)
+                      }
+                    />
                   </div>
-                ) : (
-                  !showItemForm && <p className="tx-section__empty">Ta transakcja nie ma pozycji.</p>
-                )}
-                {showItemForm && (
-                  <form className="tx-item-form" onSubmit={handleAddItem}>
-                    {itemError && (
-                      <p className="transactions-error tx-item-form__wide" role="alert">
-                        {itemError}
-                      </p>
-                    )}
-                    <div className="tx-item-form__wide">
-                      <label className="form-label">Produkt</label>
-                      <EntityAutocomplete
-                        value={newItemForm.product_id}
-                        options={productOptions}
-                        fallbackLabel={newItemForm.product_name}
-                        onSelect={handleSelectProduct}
-                        onCreate={handleCreateProduct}
-                        placeholder="Wpisz, aby wyszukać lub utworzyć"
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" htmlFor="tx-item-quantity">Ilość</label>
-                      <input
-                        id="tx-item-quantity"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="form-control"
-                        value={newItemForm.quantity}
-                        onChange={(e) => handleNewItemChange('quantity', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" htmlFor="tx-item-price">Cena jedn.</label>
-                      <input
-                        id="tx-item-price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="form-control"
-                        value={newItemForm.unit_price}
-                        onChange={(e) => handleNewItemChange('unit_price', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label">Kategoria produktu</label>
-                      <TagPathInput
-                        value={newItemForm.tag_path}
-                        categories={categories}
-                        forAccounts={false}
-                        placeholder="np. spożywcze/nabiał"
-                        onChange={(value) => handleNewItemChange('tag_path', value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" htmlFor="tx-item-comment">Komentarz</label>
-                      <input
-                        id="tx-item-comment"
-                        type="text"
-                        className="form-control"
-                        value={newItemForm.comment}
-                        onChange={(e) => handleNewItemChange('comment', e.target.value)}
-                      />
-                    </div>
-                    <div className="tx-item-form__actions">
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => {
-                          setShowItemForm(false);
-                          setItemError(null);
-                        }}
-                      >
-                        Anuluj
-                      </button>
-                      <Button type="submit" disabled={savingItem}>
-                        {savingItem ? 'Dodawanie…' : 'Dodaj pozycję'}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-
-              <section className="tx-section">
-                <header className="tx-section__header">
-                  <h2>Załączniki</h2>
-                  <button type="button" className="text-button" onClick={openFilePicker} disabled={uploading}>
-                    <ImagePlusIcon size={14} aria-hidden="true" />
-                    {uploading ? 'Ładowanie…' : 'Dodaj zdjęcie'}
-                  </button>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    className="d-none"
-                    aria-label="Zdjęcie załącznika"
-                    onChange={(event) => void handleFileChange(event)}
-                  />
-                </header>
-                {attachmentError && (
-                  <p className="transactions-error tx-section__empty" role="alert">
-                    {attachmentError}
-                  </p>
-                )}
-                {sortedAttachments.length ? (
-                  <div className="transaction-attachments-grid">
-                    {sortedAttachments.map((attachment) => (
-                      <AttachmentCard
-                        key={attachment.id}
-                        attachment={attachment}
-                        onDelete={(attachmentId) => void handleDeleteAttachment(attachmentId)}
-                        deleting={removingAttachmentId === attachment.id}
-                      />
+                  <div className="tx-split__bar" aria-hidden="true">
+                    {split.map((entry) => (
+                      <span key={entry.key} style={{ flexGrow: Math.max(entry.share, 0.005), background: entry.color }} />
                     ))}
                   </div>
-                ) : (
-                  <p className="tx-section__empty">Brak załączników.</p>
-                )}
-              </section>
+                  <ul className="tx-split__legend">
+                    {split.map((entry) => (
+                      <li key={entry.key}>
+                        <CategoryDot color={entry.color} />
+                        <CategoryLabel path={entry.path} />
+                        <Money cents={entry.cents} currency={transaction.currency} tone="neutral" className="tx-split__amount" />
+                        <span className="tx-detail__muted tx-split__share">{Math.round(entry.share * 100)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {showItemsSection && (
+                <section className="tx-card tx-items-card" aria-label="Pozycje">
+                  <header className="tx-card__header">
+                    <h2 className="tx-card__title">
+                      Pozycje <span className="tx-detail__muted tx-card__count">{transaction.items.length}</span>
+                    </h2>
+                    {!showItemForm && (
+                      <button type="button" className="text-button" onClick={openItemForm}>
+                        <PlusIcon size={14} aria-hidden="true" />
+                        Dodaj pozycję
+                      </button>
+                    )}
+                  </header>
+                  {itemError && (
+                    <p className="transactions-error tx-card__error" role="alert">
+                      {itemError}
+                    </p>
+                  )}
+                  {hasItems && (
+                    <div className="tx-items-grid" role="table" aria-label="Pozycje transakcji">
+                      <div className="tx-items-grid__row tx-items-grid__head" role="row">
+                        <span role="columnheader">Produkt</span>
+                        <span role="columnheader">Kategoria</span>
+                        <span role="columnheader" className="tx-items-grid__num">Ilość</span>
+                        <span role="columnheader" className="tx-items-grid__num">Cena</span>
+                        <span role="columnheader" className="tx-items-grid__num">Suma</span>
+                      </div>
+                      {transaction.items.map((item) => {
+                        const categoryId = itemCategoryId(item, productsById);
+                        const path = categoryId ? categoriesById.get(categoryId)?.path ?? '' : '';
+                        const color = splitColor.get(path ? categoryId! : UNCATEGORIZED_KEY) ?? UNCATEGORIZED_COLOR;
+                        const name = item.product_name ?? 'Produkt';
+                        return (
+                          <div key={item.id} className="tx-items-grid__row" role="row">
+                            <span role="cell" className="tx-items-grid__product">
+                              <span className="tx-items-grid__name">{name}</span>
+                              {item.raw_name && item.raw_name !== item.product_name && (
+                                <span className="tx-detail__muted tx-items-grid__raw" title="Nazwa z paragonu">
+                                  {item.raw_name}
+                                </span>
+                              )}
+                              {item.comment && <span className="tx-detail__muted tx-items-grid__raw">{item.comment}</span>}
+                            </span>
+                            <span role="cell" className="tx-items-grid__category">
+                              <CategoryPickerMenu
+                                id={`tx-item-category-${item.id}`}
+                                label={`Kategoria produktu ${name}. Zmiana obowiązuje też przy kolejnych zakupach`}
+                                triggerClassName="tx-detail__inline-select"
+                                triggerLabel={
+                                  <>
+                                    <CategoryDot color={color} />
+                                    <CategoryLabel path={path} leafOnly />
+                                  </>
+                                }
+                                searchPlaceholder="Szukaj kategorii…"
+                                emptyText="Brak pasujących kategorii"
+                                disabled={itemsBusy}
+                                options={pickerOptions}
+                                onSelect={(id) => void setProductsCategory([item.product_id], id)}
+                              />
+                            </span>
+                            <span role="cell" className="tx-items-grid__num tx-detail__secondary">
+                              {formatQuantity(item.quantity, item.unit)}
+                            </span>
+                            <span role="cell" className="tx-items-grid__num tx-detail__secondary">
+                              {formatMoney(item.unit_price_cents, transaction.currency)}
+                            </span>
+                            <span role="cell" className="tx-items-grid__num tx-items-grid__total">
+                              {formatMoney(itemTotalCents(item), transaction.currency)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {itemForm}
+                  {hasItems && (
+                    <footer className="tx-items-card__footer">
+                      {itemsMatch ? (
+                        <span className="tx-items-card__check">
+                          <CheckIcon size={14} aria-hidden="true" />
+                          Suma pozycji zgadza się z kwotą transakcji
+                        </span>
+                      ) : (
+                        <span className="tx-items-card__check tx-items-card__check--warn">
+                          <CircleAlertIcon size={14} aria-hidden="true" />
+                          Różnica{' '}
+                          {formatMoney(Math.abs(transaction.total_cents) - Math.abs(itemsSumCents), transaction.currency)}{' '}
+                          względem kwoty transakcji
+                        </span>
+                      )}
+                      <span>
+                        <span className="tx-detail__muted tx-items-card__sum-label">Suma pozycji</span>
+                        <strong>{formatMoney(itemsSumCents, transaction.currency)}</strong>
+                      </span>
+                    </footer>
+                  )}
+                </section>
+              )}
+
+              {!showItemsSection && (
+                <div className="tx-detail__strip">
+                  <span>
+                    {hasPhotos
+                      ? 'Pozycje nie są jeszcze dodane — wpisz je, żeby rozbić wydatek na kategorie.'
+                      : 'Bez paragonu i pozycji'}
+                  </span>
+                  {!hasPhotos && (
+                    <button type="button" className="text-button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      <PlusIcon size={14} aria-hidden="true" />
+                      {uploading ? 'Ładowanie…' : 'Dodaj zdjęcie paragonu'}
+                    </button>
+                  )}
+                  <button type="button" className="text-button" onClick={openItemForm}>
+                    <PlusIcon size={14} aria-hidden="true" />
+                    Dodaj pozycje
+                  </button>
+                </div>
+              )}
+
+              {hasPhotos ? (
+                <PhotosSection
+                  attachments={sortedAttachments}
+                  uploading={uploading}
+                  removingId={removingAttachmentId}
+                  error={attachmentError}
+                  onAdd={() => fileInputRef.current?.click()}
+                  onDelete={(id) => void handleDeleteAttachment(id)}
+                />
+              ) : (
+                <>
+                  {showItemsSection && (
+                    <div className="tx-detail__strip">
+                      <span>{hasItems ? 'Bez zdjęć paragonu — pozycje dodane ręcznie' : 'Bez zdjęć paragonu'}</span>
+                      <button type="button" className="text-button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                        <PlusIcon size={14} aria-hidden="true" />
+                        {uploading ? 'Ładowanie…' : 'Dodaj zdjęcia'}
+                      </button>
+                    </div>
+                  )}
+                  {attachmentError && (
+                    <p className="transactions-error" role="alert">
+                      {attachmentError}
+                    </p>
+                  )}
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                ref={fileInputRef}
+                className="d-none"
+                aria-label="Zdjęcie paragonu"
+                onChange={(event) => void handleFileChange(event)}
+              />
+
+              {!hasItems && transaction.store_id && (
+                <StoreHistory
+                  transactionId={transaction.id}
+                  storeId={transaction.store_id}
+                  storeLabel={storeLabel || heading}
+                  categoriesById={categoriesById}
+                />
+              )}
             </div>
 
-            <form className="tx-section tx-page__form" onSubmit={handleSaveFields}>
-              <header className="tx-section__header">
-                <h2>Dane</h2>
-              </header>
-              <div className="tx-page__fields">
-                {formError && (
-                  <p className="transactions-error" role="alert">
-                    {formError}
-                  </p>
-                )}
-                <div>
-                  <label className="form-label" htmlFor="tx-date">Data księgowania</label>
+            <aside className="tx-card tx-detail__aside" aria-label="Szczegóły transakcji">
+              <h2 className="tx-card__title">Szczegóły</h2>
+              <div className="tx-detail__field">
+                <span className="form-label">Kwota</span>
+                <span className="tx-detail__readonly">
+                  <Money cents={transaction.total_cents} currency={transaction.currency} tone="neutral" />
+                </span>
+              </div>
+              <div
+                className="tx-detail__field tx-detail__datetime"
+                onBlur={(event) => {
+                  // Przejście między datą a godziną to jeszcze nie koniec edycji
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) commitDateTime();
+                }}
+              >
+                <label className="form-label" htmlFor="tx-date">Data i godzina</label>
+                <div className="tx-detail__datetime-inputs">
                   <DateInput
                     id="tx-date"
                     className="form-control"
-                    value={editFields.date}
-                    onChange={(value) => handleFieldChange('date', value)}
+                    value={fields.date}
+                    onChange={(value) => setFields((prev) => ({ ...prev, date: value }))}
                     required
                   />
-                </div>
-                <div>
-                  <label className="form-label" htmlFor="tx-time">Godzina (opcjonalnie)</label>
                   <TimeInput
                     id="tx-time"
+                    aria-label="Godzina (opcjonalnie)"
                     className="form-control"
-                    value={editFields.time}
-                    onChange={(value) => handleFieldChange('time', value)}
+                    value={fields.time}
+                    onChange={(value) => setFields((prev) => ({ ...prev, time: value }))}
                   />
                 </div>
-                <div>
-                  <label className="form-label">Konto</label>
-                  <EntityAutocomplete
-                    value={editFields.account_id}
-                    options={accountOptions}
-                    onSelect={(id) => handleFieldChange('account_id', id)}
-                    placeholder="Wpisz, aby wyszukać konto"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Sklep</label>
-                  <EntityAutocomplete
-                    value={editFields.store_id}
-                    options={storeOptions}
-                    onSelect={(id) => handleFieldChange('store_id', id)}
-                    emptyOptionLabel="Brak"
-                    placeholder="Wpisz, aby wyszukać sklep"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Kategoria</label>
-                  <TagPathInput
-                    value={categoryPath}
-                    categories={categories}
-                    forAccounts={false}
-                    placeholder="np. dom/remont"
-                    onChange={setCategoryPath}
-                  />
-                  {matchedTagCategory && (
-                    <div className="mt-1">
-                      <TagChip category={matchedTagCategory} byId={categoryMap} label={formatCategoryPath(matchedTagCategory.path)} />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="form-label" htmlFor="tx-comment">Komentarz</label>
-                  <textarea
-                    id="tx-comment"
-                    className="form-control"
-                    rows={2}
-                    value={editFields.comment}
-                    onChange={(e) => handleFieldChange('comment', e.target.value)}
-                  />
-                </div>
-                <Button type="submit" disabled={savingForm} fullWidth className="justify-content-center">
-                  {savingForm ? 'Zapisywanie…' : 'Zapisz zmiany'}
-                </Button>
               </div>
-            </form>
+              <div className="tx-detail__field">
+                <span className="form-label">Konto</span>
+                <EntityAutocomplete
+                  value={fields.account_id}
+                  options={accountOptions}
+                  onSelect={selectAccount}
+                  placeholder="Wpisz, aby wyszukać konto"
+                />
+              </div>
+              <div className="tx-detail__field">
+                <span className="form-label">Sklep</span>
+                <EntityAutocomplete
+                  value={fields.store_id}
+                  options={storeOptions}
+                  onSelect={selectStore}
+                  emptyOptionLabel="Brak"
+                  placeholder="Wpisz, aby wyszukać sklep"
+                />
+              </div>
+              {!hasItems && (
+                <div className="tx-detail__field">
+                  <span className="form-label">Kategoria</span>
+                  <CategoryPickerMenu
+                    id="tx-detail-category"
+                    label="Kategoria transakcji"
+                    triggerClassName="tx-detail__select"
+                    triggerLabel={<CategoryLabel path={transactionCategoryPath} empty="Wybierz kategorię" />}
+                    searchPlaceholder="Szukaj kategorii…"
+                    emptyText="Brak pasujących kategorii"
+                    options={pickerOptions}
+                    onSelect={selectCategory}
+                  />
+                </div>
+              )}
+              <div className="tx-detail__field">
+                <label className="form-label" htmlFor="tx-comment">Komentarz</label>
+                <textarea
+                  id="tx-comment"
+                  className="form-control"
+                  rows={3}
+                  placeholder="Dodaj komentarz…"
+                  value={fields.comment}
+                  onChange={(e) => setFields((prev) => ({ ...prev, comment: e.target.value }))}
+                  onBlur={commitComment}
+                />
+              </div>
+              <p className={`tx-detail__save tx-detail__save--${saveState}`} role="status">
+                {saveState === 'saving'
+                  ? 'Zapisywanie…'
+                  : saveState === 'saved'
+                    ? 'Zapisano.'
+                    : saveState === 'error'
+                      ? 'Nie udało się zapisać zmian.'
+                      : 'Zmiany zapisują się automatycznie.'}
+              </p>
+            </aside>
           </div>
         </>
       )}
