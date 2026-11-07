@@ -234,3 +234,13 @@ export const getSelfTransferConversions = (storeIds: readonly string[]) =>
 
 export const undoSelfTransferConversion = (id: string) =>
   request<{ restored: number; kept: number }>(`/stores/self-transfers/conversions/${id}/undo`, { method: 'POST' });
+
+export interface StoreCategorySuggestion {
+  store_id: string;
+  category_id: string;
+  count: number;
+  total: number;
+}
+
+/** Najczęstsza kategoria transakcji sklepu, gdy wyraźnie przeważa (serwer: co najmniej 60%). */
+export const getStoreCategorySuggestions = () => request<StoreCategorySuggestion[]>('/stores/category-suggestions');

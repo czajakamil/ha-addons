@@ -170,6 +170,13 @@ class StoreStats(BaseModel):
     last_date: dt.date | None = None
 
 
+class StoreCategorySuggestion(BaseModel):
+    store_id: str
+    category_id: str
+    count: int
+    total: int
+
+
 class StoreMonthlySpend(BaseModel):
     month: str
     cents: int
@@ -1014,6 +1021,8 @@ class YnabImportResponse(BaseModel):
     categories: int
     transactions_inserted: int
     transactions_skipped: int
+    # Sklepy, którym pierwszy import ustawił kategorię z historii transakcji
+    stores_categorized: int = 0
 
 
 class DemoLoadResponse(BaseModel):

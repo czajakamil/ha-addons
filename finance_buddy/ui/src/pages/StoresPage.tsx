@@ -3,7 +3,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Store as StoreIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { deleteStore, getAllStores, getAmbiguousStoreAliases, getSession, getStoreStats, type Store } from '../api';
+import {
+  deleteStore,
+  getAllStores,
+  getAmbiguousStoreAliases,
+  getSession,
+  getStoreCategorySuggestions,
+  getStoreStats,
+  type Store
+} from '../api';
 import Button from '../components/Button';
 import ColumnsMenu from '../components/ui/ColumnsMenu';
 import EmptyState from '../components/ui/EmptyState';
@@ -13,7 +21,7 @@ import SkeletonRows from '../components/ui/SkeletonRows';
 import { copy } from '../copy/pl';
 import { useApi } from '../hooks/useApi';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
-import { buildCleanupItems, type CleanupItem } from './stores/cleanup';
+import { buildCleanupItems, groupCategorySuggestions, type CleanupItem } from './stores/cleanup';
 import { GROUP_NAME_DATALIST_ID } from './stores/model';
 import NewStoreModal from './stores/components/NewStoreModal';
 import StoreGroupsTable, { type TableSort } from './stores/components/StoreGroupsTable';
@@ -55,6 +63,7 @@ const StoresPage = () => {
   const session = useApi(getSession);
   const ambiguous = useApi(getAmbiguousStoreAliases);
   const statsRequest = useApi(() => getStoreStats(), { errorMessage: labels.statsFailed });
+  const suggestionsRequest = useApi(getStoreCategorySuggestions);
   const { categories, categoryMap, ensureCategory } = useStoreCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<TableSort>({ key: 'name', direction: 'asc' });
@@ -75,6 +84,10 @@ const StoresPage = () => {
     [groups, ownerName, ambiguousIds]
   );
   const activeGroups = groups.filter((group) => !group.isArchived);
+  const suggestions = useMemo(
+    () => groupCategorySuggestions(groups, suggestionsRequest.data ?? []),
+    [groups, suggestionsRequest.data]
+  );
 
   const needle = searchQuery.trim().toLocaleLowerCase('pl-PL');
   const matches = (group: StoreGroup) =>
@@ -141,6 +154,14 @@ const StoresPage = () => {
       console.error(err);
       return false;
     }
+  };
+
+  const applySuggestions = (items: CleanupItem[]) => {
+    const changes = items.flatMap(({ group }) => {
+      const categoryId = suggestions.get(group.key)?.categoryId;
+      return categoryId ? group.members.map((store) => ({ store, payload: categoryPayload(store, categoryId) })) : [];
+    });
+    if (changes.length) void save(changes, labels.suggestionsApplied(items.length));
   };
 
   const deleteGroups = async (items: CleanupItem[]) => {
@@ -290,6 +311,8 @@ const StoresPage = () => {
           stats={stats}
           categories={categories}
           categoryMap={categoryMap}
+          suggestions={suggestions}
+          onApplySuggestions={applySuggestions}
           onOpen={(storeId) => navigate(`/payees/${storeId}`)}
           onArchive={({ group }) =>
             void save(group.members.map((store) => ({ store, payload: { is_deleted: true } })), labels.archived)
@@ -298,7 +321,7 @@ const StoresPage = () => {
           onSetCategory={setCategoryForItems}
           ensureCategory={ensureCategory}
           onMerged={async () => {
-            await Promise.all([refetch(), statsRequest.refetch(), ambiguous.refetch()]);
+            await Promise.all([refetch(), statsRequest.refetch(), ambiguous.refetch(), suggestionsRequest.refetch()]);
           }}
         />
       )}

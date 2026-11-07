@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Store } from '../../api';
-import { buildCleanupItems as buildFromGroups, maskAccountNumbers, normalizeStoreName } from './cleanup';
-import { buildStoreGroups } from './groups';
+import {
+  buildCleanupItems as buildFromGroups,
+  buildMergePlans,
+  groupCategorySuggestions,
+  maskAccountNumbers,
+  normalizeStoreName
+} from './cleanup';
+import { buildStoreGroups, toStatsMap } from './groups';
 
 let nextId = 0;
 const store = (name: string, extra: Partial<Store> = {}): Store => ({
@@ -123,5 +129,51 @@ describe('buildCleanupItems', () => {
 
   it('pomija zarchiwizowane', () => {
     expect(buildCleanupItems([store('Adwokat', { automatic_category_id: null, is_deleted: true })])).toEqual([]);
+  });
+});
+
+describe('buildMergePlans', () => {
+  it('każdy duplikat scala się osobno, do grupy z największą liczbą transakcji', () => {
+    const payu = store('PayU');
+    const payuSa = store('PayU S.A.', { automatic_category_id: 'fees' });
+    const targdisA = store('Nowy Targdis Sikorskie');
+    const targdisB = store('Nowy Targdis Sikorskie');
+    const stats = toStatsMap([
+      { store_id: payu.id, count: 0, spent_cents_12m: 0, last_date: null },
+      { store_id: payuSa.id, count: 3, spent_cents_12m: 0, last_date: null },
+      { store_id: targdisA.id, count: 60, spent_cents_12m: 0, last_date: null },
+      { store_id: targdisB.id, count: 18, spent_cents_12m: 0, last_date: null }
+    ]);
+    const groups = buildStoreGroups([payu, payuSa, targdisA, targdisB, store('Lidl')], stats);
+    // Dwie identyczne nazwy z banku: oba aliasy są niejednoznaczne
+    const items = buildFromGroups(groups, '', new Set([targdisA.id, targdisB.id]));
+
+    const plans = buildMergePlans(items);
+
+    expect(plans).toHaveLength(2);
+    expect(plans.find((plan) => plan.targetId === payuSa.id)).toMatchObject({
+      sourceIds: [payu.id],
+      name: 'PayU S.A.',
+      categoryId: 'fees'
+    });
+    expect(plans.find((plan) => plan.targetId === targdisA.id)).toMatchObject({ sourceIds: [targdisB.id] });
+  });
+
+  it('pomija samotny niejednoznaczny alias, bo nie ma czego scalić', () => {
+    const lone = store('Lidl');
+    expect(buildMergePlans(buildCleanupItems([lone], '', new Set([lone.id])))).toEqual([]);
+  });
+});
+
+describe('groupCategorySuggestions', () => {
+  it('w grupie wygrywa podpowiedź sklepu z największą liczbą transakcji', () => {
+    const a = store('LIDL 1', { group_name: 'Lidl' });
+    const b = store('LIDL 2', { group_name: 'Lidl' });
+    const groups = buildStoreGroups([a, b], new Map());
+    const result = groupCategorySuggestions(groups, [
+      { store_id: a.id, category_id: 'home', count: 2, total: 3 },
+      { store_id: b.id, category_id: 'food', count: 40, total: 50 }
+    ]);
+    expect(result.get(groups[0].key)).toEqual({ categoryId: 'food', count: 40, total: 50 });
   });
 });

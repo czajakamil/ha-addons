@@ -44,6 +44,7 @@ from ..schemas import (
     YnabSettingsRead,
     YnabSettingsUpdate,
 )
+from ..services.store_stats import apply_category_suggestions
 
 log = logging.getLogger("finance_app.api")
 
@@ -386,6 +387,13 @@ def import_budget(
                 db, rows, acc_map, store_map, cat_map, current_user.id
             )
 
+            # Pierwszy import budżetu: sklepy z YNAB-a nie mają domyślnych kategorii, ale ich
+            # transakcje mają. Kolejne importy nie ruszają tego, co użytkownik już ustawił.
+            stores_categorized = 0
+            if settings is None or settings.budget_id != payload.budget_id:
+                db.flush()
+                stores_categorized = apply_category_suggestions(db, current_user.id)
+
             now = dt.datetime.now(dt.UTC)
             if not settings:
                 settings = YnabSettings(user_id=current_user.id, created_at=now, updated_at=now)
@@ -441,4 +449,5 @@ def import_budget(
         categories=len(cat_map),
         transactions_inserted=tx_inserted,
         transactions_skipped=tx_skipped,
+        stores_categorized=stores_categorized,
     )

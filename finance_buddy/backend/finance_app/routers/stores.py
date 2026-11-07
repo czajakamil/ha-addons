@@ -26,6 +26,7 @@ from ..schemas import (
     StoreAliasPreview,
     StoreAliasPreviewRequest,
     StoreAliasRead,
+    StoreCategorySuggestion,
     StoreCreate,
     StoreMergePreview,
     StoreMergeRead,
@@ -81,6 +82,15 @@ def get_store_stats(
     current_user: User = Depends(get_current_user),
 ):
     return store_stats_service.store_stats(db, current_user.id, store_ids)
+
+
+@router.get("/stores/category-suggestions", response_model=list[StoreCategorySuggestion])
+def get_store_category_suggestions(
+    store_ids: Annotated[list[str] | None, Query()] = None,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+):
+    return store_stats_service.category_suggestions(db, current_user.id, store_ids)
 
 
 @router.get("/stores/stats/monthly", response_model=list[StoreMonthlySpend])

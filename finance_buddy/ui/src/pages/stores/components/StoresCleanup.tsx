@@ -6,8 +6,16 @@ import type { Category } from '../../../api';
 import EmptyState from '../../../components/ui/EmptyState';
 import TruncatedText from '../../../components/ui/TruncatedText';
 import { copy } from '../../../copy/pl';
-import { maskAccountNumbers, type CleanupItem, type CleanupReason } from '../cleanup';
+import {
+  buildMergePlans,
+  maskAccountNumbers,
+  type CategorySuggestion,
+  type CleanupItem,
+  type CleanupReason,
+  type MergePlan
+} from '../cleanup';
 import type { StoreStat } from '../groups';
+import BulkMergeDialog from './BulkMergeDialog';
 import CategoryDialog from './CategoryDialog';
 import MergeDialog from './MergeDialog';
 import SelfTransferDialog from './SelfTransferDialog';
@@ -16,7 +24,12 @@ const labels = copy.stores;
 const PAGE_SIZE = 100;
 const REASONS: CleanupReason[] = ['duplicate', 'raw', 'self', 'uncategorized'];
 
-const describeHint = (item: CleanupItem, stats: ReadonlyMap<string, StoreStat> | null) => {
+const describeHint = (
+  item: CleanupItem,
+  stats: ReadonlyMap<string, StoreStat> | null,
+  suggestionPath: (item: CleanupItem) => string | null,
+  suggestion: CategorySuggestion | undefined
+) => {
   switch (item.reason) {
     case 'duplicate': {
       const other = item.duplicateOf;
@@ -29,8 +42,12 @@ const describeHint = (item: CleanupItem, stats: ReadonlyMap<string, StoreStat> |
       return item.rawKind === 'account' ? labels.hints.account(item.proposedName) : labels.hints.address(item.proposedName);
     case 'self':
       return labels.hints.self;
-    default:
-      return labels.hints.uncategorized;
+    default: {
+      const path = suggestionPath(item);
+      return path && suggestion
+        ? labels.hints.suggested(path, suggestion.count, suggestion.total)
+        : labels.hints.uncategorized;
+    }
   }
 };
 
@@ -39,6 +56,9 @@ type StoresCleanupProps = {
   stats: ReadonlyMap<string, StoreStat> | null;
   categories: Category[];
   categoryMap: Map<string, Category>;
+  /** Podpowiedzi kategorii z historii transakcji, po kluczu grupy. */
+  suggestions: ReadonlyMap<string, CategorySuggestion>;
+  onApplySuggestions: (items: CleanupItem[]) => void;
   onOpen: (storeId: string) => void;
   /** Archiwizuje całą grupę: wszystkie jej nazwy z banku. */
   onArchive: (item: CleanupItem) => void;
@@ -54,6 +74,8 @@ const StoresCleanup = ({
   stats,
   categories,
   categoryMap,
+  suggestions,
+  onApplySuggestions,
   onOpen,
   onArchive,
   onDelete,
@@ -68,6 +90,7 @@ const StoresCleanup = ({
   const [categoryTargets, setCategoryTargets] = useState<CleanupItem[]>([]);
   const [transferStoreIds, setTransferStoreIds] = useState<string[] | null>(null);
   const [membersMerge, setMembersMerge] = useState<CleanupItem | null>(null);
+  const [bulkPlans, setBulkPlans] = useState<MergePlan[] | null>(null);
 
   // Sklep, który wypadł z listy (np. dostał kategorię), wypada też z zaznaczenia
   useEffect(() => {
@@ -93,6 +116,16 @@ const StoresCleanup = ({
   // Bez statystyk nie wiadomo, które grupy są puste, więc usuwanie czeka na ich wczytanie
   const isEmpty = (item: CleanupItem) => Boolean(stats) && item.group.count === 0;
   const selectedEmpty = selectedItems.filter(isEmpty);
+  // Podpowiedź liczy się tylko, gdy jej kategoria wciąż istnieje
+  const suggestionPath = (item: CleanupItem) => {
+    const suggestion = suggestions.get(item.group.key);
+    return (suggestion && categoryMap.get(suggestion.categoryId)?.path) || null;
+  };
+  const hasSuggestion = (item: CleanupItem) => item.reason === 'uncategorized' && Boolean(suggestionPath(item));
+  const withSuggestion = items.filter(hasSuggestion);
+  const selectedWithSuggestion = selectedItems.filter(hasSuggestion);
+  const allMergePlans = useMemo(() => buildMergePlans(items), [items]);
+  const selectedMergePlans = buildMergePlans(selectedItems);
   const allSelected = filtered.length > 0 && filtered.every((item) => selected.has(item.store.id));
 
   const toggleOne = (id: string) =>
@@ -143,6 +176,22 @@ const StoresCleanup = ({
         ))}
       </div>
 
+      {(withSuggestion.length > 0 || allMergePlans.length > 0) && (
+        <div className="stores-quick-actions">
+          {withSuggestion.length > 0 && (
+            <button type="button" className="account-button" onClick={() => onApplySuggestions(withSuggestion)}>
+              {labels.applySuggestions(withSuggestion.length)}
+            </button>
+          )}
+          {allMergePlans.length > 0 && (
+            <button type="button" className="account-button" onClick={() => setBulkPlans(allMergePlans)}>
+              <GitMerge size={14} aria-hidden="true" />
+              {labels.mergeAllDuplicates(allMergePlans.length)}
+            </button>
+          )}
+        </div>
+      )}
+
       {selectedItems.length > 0 && (
         <div className="stores-bulk" role="toolbar" aria-label={labels.selected(selectedItems.length)}>
           <span className="stores-bulk__count">{labels.selected(selectedItems.length)}</span>
@@ -158,6 +207,20 @@ const StoresCleanup = ({
           <button type="button" className="stores-bulk__action" onClick={() => openCategory(selectedItems)}>
             {labels.setCategory}
           </button>
+          {selectedMergePlans.length > 0 && (
+            <button type="button" className="stores-bulk__action" onClick={() => setBulkPlans(selectedMergePlans)}>
+              {labels.mergeSelectedDuplicates(selectedMergePlans.length)}
+            </button>
+          )}
+          {selectedWithSuggestion.length > 0 && (
+            <button
+              type="button"
+              className="stores-bulk__action"
+              onClick={() => onApplySuggestions(selectedWithSuggestion)}
+            >
+              {labels.applySuggestions(selectedWithSuggestion.length)}
+            </button>
+          )}
           {selectedEmpty.length > 0 && (
             <button type="button" className="stores-bulk__action" onClick={() => onDelete(selectedEmpty)}>
               {labels.deleteEmpty(selectedEmpty.length)}
@@ -234,7 +297,7 @@ const StoresCleanup = ({
                       <span className={`stores-badge stores-badge--${item.reason}`}>{labels.reasons[item.reason]}</span>
                     </td>
                     <td className="stores-table__hint">
-                      <TruncatedText text={describeHint(item, stats)} />
+                      <TruncatedText text={describeHint(item, stats, suggestionPath, suggestions.get(item.group.key))} />
                     </td>
                     <td className="stores-table__count">{stats ? item.group.count : '…'}</td>
                     <td className="accounts-table__menu">
@@ -247,6 +310,11 @@ const StoresCleanup = ({
                             <DropdownMenu.Item className="menu__item" onSelect={() => onOpen(item.store.id)}>
                               {labels.open}
                             </DropdownMenu.Item>
+                            {hasSuggestion(item) && (
+                              <DropdownMenu.Item className="menu__item" onSelect={() => onApplySuggestions([item])}>
+                                {labels.applySuggestion}
+                              </DropdownMenu.Item>
+                            )}
                             {members.length > 1 && (
                               <DropdownMenu.Item className="menu__item" onSelect={() => setMembersMerge(item)}>
                                 {labels.mergeMembers}
@@ -301,6 +369,16 @@ const StoresCleanup = ({
             await onMerged();
           }}
           onUndone={onMerged}
+        />
+      )}
+      {bulkPlans && (
+        <BulkMergeDialog
+          plans={bulkPlans}
+          onClose={() => setBulkPlans(null)}
+          onMerged={async () => {
+            setSelected(new Set());
+            await onMerged();
+          }}
         />
       )}
       {membersMerge && (

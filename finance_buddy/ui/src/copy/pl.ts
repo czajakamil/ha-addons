@@ -208,7 +208,28 @@ export const copy = {
       ambiguous: (name: string) => `Ta sama nazwa co „${name}” — import jej nie użyje`,
       sameNames: 'Nazwy z banku w tej grupie się powtarzają — scal je, żeby import ich używał',
       self: 'Wygląda na przelew między Twoimi kontami',
-      uncategorized: 'Bez domyślnej kategorii — podpowiedzi nie zadziałają'
+      uncategorized: 'Bez domyślnej kategorii — podpowiedzi nie zadziałają',
+      suggested: (path: string, count: number, total: number) => `Podpowiedź: ${path} (${count} z ${total} transakcji)`
+    },
+    applySuggestion: 'Zastosuj podpowiedź',
+    applySuggestions: (count: number) => `Zastosuj podpowiedzi kategorii (${count})`,
+    suggestionsApplied: (count: number) =>
+      `Ustawiono kategorię ${count} ${pluralPL(count, 'sklepowi', 'sklepom', 'sklepom')}`,
+    mergeAllDuplicates: (count: number) => `Scal wszystkie duplikaty (${count})`,
+    mergeSelectedDuplicates: (count: number) => `Scal duplikaty (${count})`,
+    bulkMerge: {
+      title: (count: number) => `Scal duplikaty: ${count} ${pluralPL(count, 'scalenie', 'scalenia', 'scaleń')}`,
+      hint: 'Każdy duplikat scali się osobno, do sklepu z największą liczbą transakcji. Scalenia z konfliktem zostaną pominięte. Każde możesz cofnąć przez 30 dni na stronie sklepu.',
+      into: (sources: string, target: string) => `${sources} → ${target}`,
+      sameNames: (name: string, count: number) => `${name}: ${count} ${pluralPL(count, 'nazwa', 'nazwy', 'nazw')} z banku w jeden sklep`,
+      checking: 'Sprawdzamy…',
+      blocked: 'Nie można scalić',
+      failed: 'Nie udało się scalić',
+      done: 'Scalono',
+      merging: 'Scalamy…',
+      confirm: (count: number) => `Scal ${count}`,
+      merged: (count: number) => `Scalono ${count} ${pluralPL(count, 'duplikat', 'duplikaty', 'duplikatów')}`,
+      partial: (failed: number, total: number) => `Nie udało się scalić ${failed} z ${total}.`
     },
     shown: (visible: number, total: number) => `Pokazano ${visible} z ${total}`,
     showMore: 'Pokaż więcej',

@@ -116,3 +116,70 @@ export const buildCleanupItems = (
     return group.categoryId ? [] : [{ store, group, reason: 'uncategorized' }];
   });
 };
+
+export type CategorySuggestion = { categoryId: string; count: number; total: number };
+
+/**
+ * Podpowiedź kategorii dla grupy: serwer liczy ją na sklep, a w grupie wygrywa sklep
+ * z największą liczbą transakcji, bo jego historia mówi najwięcej.
+ */
+export const groupCategorySuggestions = (
+  groups: readonly StoreGroup[],
+  rows: readonly { store_id: string; category_id: string; count: number; total: number }[]
+) => {
+  const byStore = new Map(rows.map((row) => [row.store_id, row]));
+  const result = new Map<string, CategorySuggestion>();
+  groups.forEach((group) => {
+    const best = group.members
+      .map((store) => byStore.get(store.id))
+      .filter((row) => row !== undefined)
+      .reduce<(typeof rows)[number] | undefined>((top, row) => (!top || row.total > top.total ? row : top), undefined);
+    if (best) result.set(group.key, { categoryId: best.category_id, count: best.count, total: best.total });
+  });
+  return result;
+};
+
+export type MergePlan = {
+  key: string;
+  targetId: string;
+  sourceIds: string[];
+  name: string;
+  categoryId: string | null;
+  /** Nazwy grup, które łączy to scalenie (w kolejności: cel pierwszy). */
+  groupNames: string[];
+  bankNames: number;
+};
+
+/**
+ * Plan „Scal wszystkie duplikaty”: każdy duplikat scala się osobno, a nie wszystkie w jeden sklep.
+ * Grupy o tej samej nazwie łączą się w tę z największą liczbą transakcji; grupa z powtórzonymi
+ * nazwami z banku łączy się sama w sobie. Plan bez czego scalać (samotny alias) odpada.
+ */
+export const buildMergePlans = (items: readonly CleanupItem[]): MergePlan[] => {
+  const clusters = new Map<string, Map<string, StoreGroup>>();
+  items
+    .filter((item) => item.reason === 'duplicate')
+    .forEach((item) => {
+      const clusterKey = normalizeStoreName(item.group.name);
+      const cluster = clusters.get(clusterKey) ?? new Map<string, StoreGroup>();
+      [item.group, item.duplicateOf].forEach((group) => group && cluster.set(group.key, group));
+      clusters.set(clusterKey, cluster);
+    });
+
+  return Array.from(clusters, ([key, cluster]) => {
+    const groups = Array.from(cluster.values()).sort(
+      (a, b) => b.count - a.count || b.members.length - a.members.length || a.name.localeCompare(b.name, 'pl')
+    );
+    const target = groups[0];
+    const sourceIds = groups.flatMap((group) => group.members.map((store) => store.id)).filter((id) => id !== target.id);
+    return {
+      key,
+      targetId: target.id,
+      sourceIds,
+      name: target.name,
+      categoryId: groups.find((group) => group.categoryId)?.categoryId ?? null,
+      groupNames: groups.map((group) => group.name),
+      bankNames: sourceIds.length + 1
+    };
+  }).filter((plan) => plan.sourceIds.length > 0);
+};

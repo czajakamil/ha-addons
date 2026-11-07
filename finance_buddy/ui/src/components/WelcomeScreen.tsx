@@ -493,7 +493,11 @@ const WelcomeScreen = ({ onStartFresh, onImportComplete, onLoadDemo }: WelcomeSc
                   <div className="welcome__stat">
                     <span>Sklepy</span>
                     <strong>{summary.stores}</strong>
-                    <small>z payees</small>
+                    <small>
+                      {summary.stores_categorized
+                        ? `${summary.stores_categorized} z kategorią z historii`
+                        : 'z payees'}
+                    </small>
                   </div>
                 </div>
 

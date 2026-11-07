@@ -70,6 +70,7 @@ export interface YnabImportResult {
   categories: number;
   transactions_inserted: number;
   transactions_skipped: number;
+  stores_categorized?: number;
 }
 
 export const getYnabSettings = () => request<YnabSettings>('/ynab/settings');

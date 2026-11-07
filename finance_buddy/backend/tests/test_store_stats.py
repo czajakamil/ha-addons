@@ -8,7 +8,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from backend.finance_app.models import Account, Base, Category, Store, Transaction
-from backend.finance_app.services.store_stats import spend_window, store_monthly_spend, store_stats
+from backend.finance_app.services.store_stats import (
+    apply_category_suggestions,
+    category_suggestions,
+    spend_window,
+    store_monthly_spend,
+    store_stats,
+)
 from backend.finance_app.services.transactions import list_transactions, list_transactions_page
 
 TODAY = dt.date(2026, 11, 15)
@@ -121,3 +127,47 @@ def test_store_ids_filters_lists_with_total(db: Session) -> None:
     page = list_transactions_page(db, USER, store_ids=["s1"], limit=10)
     assert page["total"] == 1
     assert len(list_transactions_page(db, USER, limit=10)["items"]) == 3
+
+
+def add_categories(db: Session) -> None:
+    db.add_all(
+        [
+            Category(id="food", user_id=USER, name="Jedzenie"),
+            Category(id="home", user_id=USER, name="Dom"),
+            Category(id="card", user_id=USER, name="Karta", is_for_accounts=True),
+        ]
+    )
+    db.flush()
+
+
+def test_suggestion_needs_clear_majority_of_all_transactions(db: Session) -> None:
+    add_categories(db)
+    day = dt.date(2026, 11, 1)
+    for category in ["food", "food", "food", "home", None]:
+        add_tx(db, "s1", day, -100, category_id=category)
+    # Po połowie: brak wyraźnej przewagi
+    for category in ["food", "home"]:
+        add_tx(db, "s2", day, -100, category_id=category)
+    add_tx(db, "other", day, -100, category_id="food", user_id="user-2")
+
+    assert category_suggestions(db, USER) == [
+        {"store_id": "s1", "category_id": "food", "count": 3, "total": 5}
+    ]
+
+
+def test_suggestion_skips_account_categories(db: Session) -> None:
+    add_categories(db)
+    add_tx(db, "s1", dt.date(2026, 11, 1), -100, category_id="card")
+    assert category_suggestions(db, USER) == []
+
+
+def test_apply_fills_only_stores_without_category(db: Session) -> None:
+    add_categories(db)
+    db.get(Store, "s2").automatic_category_id = "home"
+    for store in ["s1", "s2"]:
+        add_tx(db, store, dt.date(2026, 11, 1), -100, category_id="food")
+
+    assert apply_category_suggestions(db, USER) == 1
+    s1, s2 = db.get(Store, "s1"), db.get(Store, "s2")
+    assert (s1.automatic_category_id, s1.automatically_categorize_payee) == ("food", True)
+    assert s2.automatic_category_id == "home"

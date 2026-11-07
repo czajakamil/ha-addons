@@ -289,6 +289,9 @@ const YnabSection = () => {
                     Konta: {summary.accounts}, sklepy: {summary.stores}, kategorie: {summary.categories}.
                     Transakcje: dodano {summary.transactions_inserted}, pominięto{' '}
                     {summary.transactions_skipped}.
+                    {summary.stores_categorized
+                      ? ` Sklepy z kategorią z historii transakcji: ${summary.stores_categorized}.`
+                      : ''}
                   </p>
                 )}
               </div>

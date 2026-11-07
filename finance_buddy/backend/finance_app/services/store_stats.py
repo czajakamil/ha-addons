@@ -100,3 +100,75 @@ def store_monthly_spend(
         _month_start(today, back).strftime("%Y-%m") for back in range(MONTHS_IN_WINDOW - 1, -1, -1)
     ]
     return [{"month": entry, "cents": totals.get(entry, 0)} for entry in months]
+
+
+# Podpowiedź pada tylko przy wyraźnej przewadze: inaczej sklep zostaje do ręcznego wyboru.
+MIN_SUGGESTION_SHARE = 0.6
+
+
+def category_suggestions(
+    db: Session,
+    user_id: str,
+    store_ids: Sequence[str] | None = None,
+    min_share: float = MIN_SUGGESTION_SHARE,
+) -> list[dict[str, object]]:
+    """Najczęstsza kategoria transakcji sklepu, gdy ma co najmniej `min_share` z nich.
+
+    Mianownik to wszystkie transakcje sklepu poza przelewami i korektami salda, także
+    te bez kategorii: sklep z dwiema skategoryzowanymi transakcjami na dziesięć nie
+    dostaje podpowiedzi. Kategorie kont (spłaty kart) się nie liczą.
+    """
+    stmt = _scoped(
+        select(
+            Transaction.store_id, Transaction.category_id, Category.is_for_accounts, func.count()
+        ),
+        user_id,
+        store_ids,
+    ).where(~_is_internal_report_transaction())
+    stmt = stmt.group_by(Transaction.store_id, Transaction.category_id, Category.is_for_accounts)
+
+    totals: dict[str, int] = {}
+    best: dict[str, tuple[str, int]] = {}
+    for store_id, category_id, for_accounts, count in db.execute(stmt):
+        totals[store_id] = totals.get(store_id, 0) + count
+        if category_id is None or for_accounts:
+            continue
+        current = best.get(store_id)
+        # Remis rozstrzyga id, żeby wynik nie zależał od kolejności wierszy z bazy
+        if current is None or (count, category_id) > (current[1], current[0]):
+            best[store_id] = (category_id, count)
+
+    return [
+        {
+            "store_id": store_id,
+            "category_id": category_id,
+            "count": count,
+            "total": totals[store_id],
+        }
+        for store_id, (category_id, count) in sorted(best.items())
+        if count >= min_share * totals[store_id]
+    ]
+
+
+def apply_category_suggestions(db: Session, user_id: str) -> int:
+    """Ustawia podpowiedziane kategorie aktywnym sklepom, które nie mają żadnej.
+
+    Zwraca liczbę uzupełnionych sklepów. Niczego nie nadpisuje.
+    """
+    suggestions = {row["store_id"]: row["category_id"] for row in category_suggestions(db, user_id)}
+    if not suggestions:
+        return 0
+    stores = db.scalars(
+        select(Store).where(
+            Store.user_id == user_id,
+            Store.id.in_(suggestions),
+            Store.automatic_category_id.is_(None),
+            Store.is_deleted.is_(False),
+        )
+    ).all()
+    for store in stores:
+        store.automatic_category_id = str(suggestions[store.id])
+        # Domyślna kategoria działa przy imporcie tylko razem z tą flagą
+        store.automatically_categorize_payee = True
+    db.flush()
+    return len(stores)

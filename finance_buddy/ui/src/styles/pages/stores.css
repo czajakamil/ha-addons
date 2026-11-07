@@ -491,6 +491,27 @@
     display: none;
   }
 
+  /* Szybkie akcje na całej liście: podpowiedzi kategorii i scalenie wszystkich duplikatów */
+  .stores-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-8);
+  }
+
+  .stores-bulk-merge .stores-list__row {
+    gap: var(--s-12);
+  }
+
+  .stores-bulk-merge .stores-list__name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .stores-bulk-merge .stores-merge-conflict {
+    flex: none;
+    max-width: 50%;
+  }
+
   /* Odwrócone kolory, tak jak główny przycisk: pasek ma odcinać się od listy */
   .stores-bulk {
     display: flex;
