@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.14
+
+- W całym interfejsie „Tag” nazywa się teraz „Kategoria”: ekran „Kategorie”, kolejka „Bez kategorii”,
+  konta, raporty, przedmioty, paragony i komunikaty błędów. Stare adresy `/tags`
+  i `/transactions/untagged` przekierowują na nowe.
+- Przedmioty: lista ma kolumny „Zakupy”, „Wydano (12 mies.)” i „Ostatni zakup” oraz sortowanie
+  po nich. Okno przedmiotu pokazuje podsumowanie zakupów i wykres wydatków miesięcznie. Liczymy tylko
+  PLN, bez przelewów i korekt, a zwroty pomniejszają sumę.
+- Transakcje: ikona statusu jest zawsze widoczna i każdy stan ma inny kształt: pusty okrąg
+  (niezatwierdzona), okrąg z ptaszkiem (zatwierdzona), kłódka (uzgodniona). Kliknięcie przełącza tylko
+  niezatwierdzona ↔ zatwierdzona. Uzgodnienie ustawia się z menu kontekstowego, a jego cofnięcie wymaga
+  potwierdzenia i zostawia transakcję zatwierdzoną.
+
 ## 0.1.13
 
 - Sklepy: „Do uporządkowania” ma przycisk „Usuń sklepy bez transakcji”, który jednym potwierdzeniem usuwa
