@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.22
+
+- Paragony z pozycjami liczą się teraz do kategorii produktów — w Budżecie, Raportach i na ekranie Kategorie.
+  Przykład: zakupy w Kaufland za 60 zł z winem za 20 zł zdejmą 20 zł z koperty „Alkohol”, a resztę z kategorii
+  transakcji.
+- Produkt bez kategorii i niewpisana część paragonu liczą się do głównej kategorii transakcji. Rabat na cały
+  paragon rozkłada się proporcjonalnie na pozycje.
+- Szczegóły transakcji: kategoria główna jest znów widoczna także przy paragonach z pozycjami. Pozycje,
+  które z niej dziedziczą, mają ją przygaszoną.
+- Filtr kategorii w Raportach pokazuje tylko pasującą część paragonu.
+
 ## 0.1.21
 
 - Szczegóły transakcji w nowym układzie. Nagłówek ma nazwę sklepu (link do jego transakcji), dużą kwotę
