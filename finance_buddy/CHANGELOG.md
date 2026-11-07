@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.16
+
+- Raporty → Wydatki: wykres ma przełącznik „Słupki | Koło”. Koło to pierścień z podziałem wydatków za cały
+  wybrany okres (5 największych kategorii i „Pozostałe”, te same kolory co na słupkach), z sumą w środku
+  i listą kwot oraz udziałów obok. Najechanie podświetla kategorię, a kliknięcie otwiera jej transakcje.
+  Wybrany widok zostaje zapamiętany w przeglądarce.
+
 ## 0.1.15
 
 - Raporty: w menu wyboru kont i kategorii checkbox stoi w jednym wierszu z nazwą, a samo menu nie chowa się
