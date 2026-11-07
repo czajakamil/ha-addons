@@ -1092,6 +1092,17 @@
     scroll-margin-block: var(--row-height-compact);
   }
 
+  .lookup-autocomplete__path {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .lookup-autocomplete__ancestors {
+    color: var(--text-muted);
+  }
+
   .lookup-autocomplete__option svg {
     flex-shrink: 0;
     color: var(--text-muted);
@@ -1539,6 +1550,21 @@
 
   .filter-menu__item--nested {
     padding-inline-start: calc(var(--s-8) + 24px * var(--filter-depth, 1));
+  }
+
+  /* Wybór jednej kategorii: wiersz-przycisk bez checkboxa */
+  .filter-menu__item--pick {
+    width: 100%;
+    min-height: 28px;
+    border: 0;
+    background: none;
+    text-align: start;
+    padding-inline-start: calc(var(--s-8) + 16px * var(--filter-depth, 0));
+  }
+
+  .filter-menu__item--pick:focus-visible {
+    outline: none;
+    background: var(--surface-2);
   }
 
   .filter-menu__name {

@@ -16,6 +16,7 @@ import { copy } from '../copy/pl';
 import { refreshUntaggedCount } from '../hooks/useUntaggedCount';
 import { navGroups } from './AppSidebar';
 import NewTransactionModal from './transactions/NewTransactionModal';
+import { formatCategoryPath } from '../utils/categoryPath';
 
 const labels = copy.palette;
 
@@ -127,12 +128,12 @@ const CommandPalette = () => {
             {lookups?.categories.map((category) => (
               <Command.Item
                 key={category.id}
-                value={`kategoria ${category.path || category.name}`}
+                value={`kategoria ${formatCategoryPath(category.path) || category.name}`}
                 className="palette__item"
-                onSelect={() => go('/budget')}
+                onSelect={() => go(`/categories/${encodeURIComponent(category.id)}`)}
               >
                 <PiggyBank size={16} aria-hidden="true" />
-                {category.path || category.name}
+                {formatCategoryPath(category.path) || category.name}
               </Command.Item>
             ))}
           </Command.Group>

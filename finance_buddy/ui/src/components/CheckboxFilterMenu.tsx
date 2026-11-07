@@ -39,7 +39,7 @@ type CheckboxFilterMenuProps = {
 };
 
 // Menu rozwija się w prawo od przycisku; gdy tam brakuje miejsca, przylega do jego prawej krawędzi
-const FilterMenuBody = ({ children }: { children: ReactNode }) => {
+export const FilterMenuBody = ({ children }: { children: ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {

@@ -32,6 +32,7 @@ import {
   type QueueItem
 } from './model';
 import ResizableTable from '../../components/ui/ResizableTable';
+import { formatCategoryPath } from '../../utils/categoryPath';
 
 const TAG_INPUT_ID = 'untagged-queue-tag';
 
@@ -224,7 +225,7 @@ const UntaggedQueuePage = () => {
       setTotal(total - updated);
       setUntaggedCount(total - updated);
       moveTo(next.items, next.cursor, total - updated);
-      setNotice(`${confirm.storeName}: ${updated} × → ${confirm.path}`);
+      setNotice(`${confirm.storeName}: ${updated} × → ${formatCategoryPath(confirm.path)}`);
     } catch (err) {
       console.error(err);
       setError('Nie udało się nadać kategorii transakcjom sklepu.');
@@ -375,7 +376,7 @@ const UntaggedQueuePage = () => {
                 <div className="untagged-queue__suggestion">
                   {suggestion && suggestedCategory ? (
                     <>
-                      <TagChip category={suggestedCategory} byId={categoryById} label={suggestedCategory.path} />
+                      <TagChip category={suggestedCategory} byId={categoryById} label={formatCategoryPath(suggestedCategory.path)} />
                       <span className="untagged-queue__muted">{describeSuggestion(suggestion)}</span>
                     </>
                   ) : (
@@ -387,7 +388,7 @@ const UntaggedQueuePage = () => {
               {confirm ? (
                 <div className="untagged-queue__confirm" role="alertdialog" aria-label="Nadać kategorię całemu sklepowi?">
                   <p>
-                    Nadać kategorię <strong>{confirm.path}</strong> <strong>{confirm.count}</strong>{' '}
+                    Nadać kategorię <strong>{formatCategoryPath(confirm.path)}</strong> <strong>{confirm.count}</strong>{' '}
                     {confirm.count === 1 ? 'transakcji' : 'transakcjom'} z „{confirm.storeName}”?
                   </p>
                   <div className="untagged-queue__actions">
@@ -457,7 +458,7 @@ const UntaggedQueuePage = () => {
                         <TruncatedText text={item.store_name || item.comment || '—'} />
                         {path ? (
                           <span className="untagged-queue__list-hint">
-                            <TruncatedText text={path} />
+                            <TruncatedText text={formatCategoryPath(path)} />
                           </span>
                         ) : null}
                       </td>

@@ -1,6 +1,9 @@
 // Pasek akcji zbiorczych nad listą: pojawia się po zaznaczeniu wierszy.
+import { useMemo } from 'react';
 import type { Category } from '../../../api';
+import CategoryPickerMenu from '../../../components/CategoryPickerMenu';
 import { copy } from '../../../copy/pl';
+import { buildFilterTree, categoryFilterOptions } from '../categoryFilter';
 
 const labels = copy.transactions;
 
@@ -22,34 +25,33 @@ const TransactionsBulkBar = ({
   onCategoryChange,
   onApprove,
   onClear
-}: TransactionsBulkBarProps) => (
-  <div className="transactions-bulk" role="toolbar" aria-label={labels.selected(count)}>
-    <span className="transactions-bulk__count" aria-live="polite">
-      {progress ?? labels.selected(count)}
-    </span>
-    <select
-      className="form-select"
-      aria-label={labels.bulkCategory}
-      value=""
-      disabled={busy}
-      onChange={(event) => {
-        if (event.target.value) onCategoryChange(event.target.value);
-      }}
-    >
-      <option value="">{labels.bulkCategory}</option>
-      {categories.map((category) => (
-        <option key={category.id} value={category.id}>
-          {category.path || category.name}
-        </option>
-      ))}
-    </select>
-    <button type="button" className="btn btn-primary" disabled={busy} onClick={onApprove}>
-      {labels.bulkApprove}
-    </button>
-    <button type="button" className="text-button" disabled={busy} onClick={onClear}>
-      {labels.bulkClear}
-    </button>
-  </div>
-);
+}: TransactionsBulkBarProps) => {
+  const tree = useMemo(() => buildFilterTree(categories), [categories]);
+  return (
+    <div className="transactions-bulk" role="toolbar" aria-label={labels.selected(count)}>
+      <span className="transactions-bulk__count" aria-live="polite">
+        {progress ?? labels.selected(count)}
+      </span>
+      {/* Drzewo z wyszukiwarką zamiast długiej listy ścieżek; „Bez kategorii” tu nie ma sensu */}
+      <CategoryPickerMenu
+        id="transactions-bulk-category"
+        label={labels.bulkCategory}
+        triggerClassName="transactions-filters__menu-trigger"
+        triggerLabel={labels.bulkCategory}
+        searchPlaceholder={labels.searchCategories}
+        emptyText={labels.noCategoriesFound}
+        disabled={busy}
+        options={(search) => categoryFilterOptions(tree, search, [], null)}
+        onSelect={onCategoryChange}
+      />
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={onApprove}>
+        {labels.bulkApprove}
+      </button>
+      <button type="button" className="text-button" disabled={busy} onClick={onClear}>
+        {labels.bulkClear}
+      </button>
+    </div>
+  );
+};
 
 export default TransactionsBulkBar;

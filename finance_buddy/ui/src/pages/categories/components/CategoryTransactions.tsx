@@ -8,6 +8,7 @@ import TruncatedText from '../../../components/ui/TruncatedText';
 import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
 import { maskAccountNumbers } from '../../stores/cleanup';
+import { formatCategoryPath } from '../../../utils/categoryPath';
 
 const labels = copy.categories;
 const text = labels.details;
@@ -46,7 +47,7 @@ const CategoryTransactions = ({
   const relativePath = (tx: Transaction) => {
     const path = tx.category_id ? categoryMap.get(tx.category_id)?.path : undefined;
     if (!path || tx.category_id === category.id) return category.name;
-    return path.slice(category.path.length + 1).split('/').join(' › ');
+    return formatCategoryPath(path.slice(category.path.length + 1));
   };
 
   return (

@@ -19,6 +19,7 @@ import BulkMergeDialog from './BulkMergeDialog';
 import CategoryDialog from './CategoryDialog';
 import MergeDialog from './MergeDialog';
 import SelfTransferDialog from './SelfTransferDialog';
+import { formatCategoryPath } from '../../../utils/categoryPath';
 
 const labels = copy.stores;
 const PAGE_SIZE = 100;
@@ -45,7 +46,7 @@ const describeHint = (
     default: {
       const path = suggestionPath(item);
       return path && suggestion
-        ? labels.hints.suggested(path, suggestion.count, suggestion.total)
+        ? labels.hints.suggested(formatCategoryPath(path), suggestion.count, suggestion.total)
         : labels.hints.uncategorized;
     }
   }

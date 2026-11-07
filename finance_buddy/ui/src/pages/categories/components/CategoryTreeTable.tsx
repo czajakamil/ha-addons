@@ -12,6 +12,7 @@ import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
 import AccountNameInput from '../../accounts/components/AccountNameInput';
 import type { CategorySort, CategorySortKey, DropPosition, VisibleRow } from '../model';
+import { formatCategoryPath } from '../../../utils/categoryPath';
 
 const labels = copy.categories;
 const SPARK_HEIGHT_PX = 18;
@@ -235,7 +236,7 @@ const CategoryTreeTable = ({
                         <Link
                           to={`/categories/${category.id}`}
                           className="categories-name__link"
-                          title={category.path.split('/').join(' › ')}
+                          title={formatCategoryPath(category.path)}
                           onClick={(event) => event.stopPropagation()}
                         >
                           <TruncatedText text={category.name} />

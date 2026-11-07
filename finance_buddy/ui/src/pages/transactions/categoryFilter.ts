@@ -24,14 +24,15 @@ export const categoryFilterOptions = (
   tree: readonly CategoryNode[],
   search: string,
   pendingIds: readonly string[],
-  uncategorizedLabel: string
+  // null = bez pozycji „Bez kategorii” (np. przy nadawaniu kategorii)
+  uncategorizedLabel: string | null
 ): CheckboxFilterOption[] => {
   const query = search.trim().toLocaleLowerCase('pl');
   const matches = (name: string) => !query || name.toLocaleLowerCase('pl').includes(query);
   const pending = new Set(pendingIds);
   const options: CheckboxFilterOption[] = [];
 
-  if (matches(uncategorizedLabel)) {
+  if (uncategorizedLabel !== null && matches(uncategorizedLabel)) {
     options.push({ id: UNCATEGORIZED_ID, label: uncategorizedLabel });
   }
 

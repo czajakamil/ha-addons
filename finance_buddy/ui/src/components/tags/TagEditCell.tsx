@@ -6,6 +6,7 @@ import type { Category } from '../../api';
 import TagPathInput from './TagPathInput';
 import { TagChip } from './TagChip';
 import { buildCategoryMap } from './tagColors';
+import { formatCategoryPath } from '../../utils/categoryPath';
 
 type TagEditCellProps = {
   isEditing: boolean;
@@ -66,11 +67,11 @@ const TagEditCell = ({
 
   const category = categoryId ? byId.get(categoryId) : undefined;
 
-  // Mamy dopasowany tag → kolorowy chip (jak w transakcjach), z pełną ścieżką jako etykietą.
+  // Mamy dopasowany tag → kolorowy chip z nazwą (jak w transakcjach), pełna ścieżka w podpowiedzi.
   if (category) {
     return (
-      <div className={cellClass} title={displayValue || category.path}>
-        <TagChip category={category} byId={byId} label={displayValue || category.name} />
+      <div className={cellClass} title={formatCategoryPath(category.path)}>
+        <TagChip category={category} byId={byId} />
       </div>
     );
   }

@@ -36,6 +36,7 @@ import { useAuthorizedObjectUrl } from '../hooks/useAuthorizedObjectUrl';
 import { formatMoney, parseAmountToCents } from '../utils/format';
 import { DateInput, TimeInput } from '../components/ui/DateTimeInput';
 import ResizableTable from '../components/ui/ResizableTable';
+import { formatCategoryPath } from '../utils/categoryPath';
 
 type RouteParams = {
   transactionId?: string;
@@ -763,7 +764,7 @@ const TransactionDetailsPage = () => {
                   />
                   {matchedTagCategory && (
                     <div className="mt-1">
-                      <TagChip category={matchedTagCategory} byId={categoryMap} label={matchedTagCategory.path} />
+                      <TagChip category={matchedTagCategory} byId={categoryMap} label={formatCategoryPath(matchedTagCategory.path)} />
                     </div>
                   )}
                 </div>

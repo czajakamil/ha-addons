@@ -28,6 +28,7 @@ import { errorDetail } from '../stores/apiError';
 import CategorySettings from './components/CategorySettings';
 import CategoryTransactions from './components/CategoryTransactions';
 import { buildCategoryTree, findNode, MONTHS_IN_WINDOW, moveTargets, subtreeIds, toStatsMap, windowMonths } from './model';
+import { formatCategoryPath } from '../../utils/categoryPath';
 
 const labels = copy.categories;
 const text = labels.details;
@@ -131,7 +132,7 @@ const CategoryDetailsPage = () => {
                 <span className="categories-details__parent">
                   <span className="tag-dot" style={{ ['--tag-color' as string]: color }} aria-hidden="true" />
                   <Link to={`/categories/${parent.id}`} className="categories-details__parent-link">
-                    {parent.path.split('/').join(' › ')}
+                    {formatCategoryPath(parent.path)}
                   </Link>
                 </span>
               )}

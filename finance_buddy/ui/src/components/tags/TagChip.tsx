@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { Category } from '../../api';
 import { resolveTagColor } from './tagColors';
+import { formatCategoryPath } from '../../utils/categoryPath';
 
 type TagColorDotProps = {
   /** Wartość CSS koloru (np. z resolveTagColor().value). */
@@ -37,7 +38,7 @@ export const TagChip = ({ category, byId, label }: TagChipProps) => {
     <span
       className="tag-chip"
       style={{ '--tag-color': value } as CSSProperties}
-      title={category.path}
+      title={formatCategoryPath(category.path)}
     >
       <TagColorDot value={value} inherited={inherited} size={8} />
       <span className="tag-chip__label">{label ?? category.name}</span>

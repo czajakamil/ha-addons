@@ -56,6 +56,18 @@ const getSuggestions = (value: string, categories: Category[], forAccounts?: boo
     .sort((a, b) => a.path.localeCompare(b.path, 'pl'));
 };
 
+/** Podpowiedź: przodkowie przygaszeni, sama kategoria normalnie — „Rachunki › Czynsz”. */
+const CategoryPathLabel = ({ path }: { path: string }) => {
+  const segments = path.split('/').filter(Boolean);
+  const leaf = segments.pop() ?? path;
+  return (
+    <span className="lookup-autocomplete__path">
+      {segments.length > 0 && <span className="lookup-autocomplete__ancestors">{segments.join(' › ')} › </span>}
+      {leaf}
+    </span>
+  );
+};
+
 /** Segmentowy autocomplete ścieżki tagu (np. "dom/remont/lazienka") — pozwala wybrać istniejącą gałąź albo wpisać nową. */
 const TagPathInput = ({
   value,
@@ -224,7 +236,7 @@ const TagPathInput = ({
               }
               onMouseDown={(event) => handleOptionMouseDown(category.path, event)}
             >
-              {category.path}
+              <CategoryPathLabel path={category.path} />
             </button>
           ))}
         </div>

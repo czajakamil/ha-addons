@@ -40,6 +40,7 @@ import TransactionsBulkReport from './transactions/components/TransactionsBulkRe
 import TransactionsFilters from './transactions/components/TransactionsFilters';
 import TransactionsContextMenu from './transactions/components/TransactionsContextMenu';
 import TransactionStatusCell from './transactions/components/TransactionStatusCell';
+import { formatCategoryPath } from '../utils/categoryPath';
 
 const labels = copy.transactions;
 const DAY_ROW_HEIGHT = 32;
@@ -775,7 +776,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
           onCategoryChange={(categoryId) => {
             const category = categoryMap.get(categoryId);
             void applyToSelected({
-              label: labels.bulk.categoryAction(category?.path || category?.name || ''),
+              label: labels.bulk.categoryAction(formatCategoryPath(category?.path) || category?.name || ''),
               skippedLabel: labels.bulk.skippedTransfers,
               payload: (tx) => (tx.transfer_account_id ? null : { category_id: categoryId })
             });
