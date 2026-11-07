@@ -1,7 +1,7 @@
 // Logika listy transakcji: zapytanie o stronę, doklejanie kolejnych stron i opisy
 // liczników. Filtrowanie i wyszukiwanie robi serwer, więc tu nie ma żadnego
 // przeszukiwania danych w przeglądarce.
-import { getTransactions, getTransactionsPage, type Transaction, type TransactionPageParams } from '../../api';
+import { getTransactionsPage, type Transaction, type TransactionPageParams } from '../../api';
 import { pluralPL } from '../../utils/format';
 import type { FilterState } from './model';
 
@@ -9,21 +9,13 @@ export const TRANSACTIONS_PAGE_SIZE = 100;
 // Wyszukiwarka pyta serwer dopiero po chwili bez pisania, nie po każdym znaku.
 export const SEARCH_DEBOUNCE_MS = 300;
 
-// /transactions/page nie filtruje po kategorii. Z filtrem kategorii lista idzie przez
-// /transactions, który nie zwraca liczby wszystkich wyników; `total` jest wtedy znany
-// dopiero po wczytaniu ostatniej, niepełnej strony.
 export const fetchTransactionsPage = async (
   filters: FilterState,
   search: string,
   offset = 0
 ): Promise<{ items: Transaction[]; total: number | null }> => {
-  const query = buildTransactionsPageQuery(filters, search, offset);
-  if (!filters.categoryId) {
-    const page = await getTransactionsPage(query);
-    return { items: page.items, total: page.total };
-  }
-  const items = await getTransactions({ ...query, category_id: filters.categoryId });
-  return { items, total: items.length < TRANSACTIONS_PAGE_SIZE ? offset + items.length : null };
+  const page = await getTransactionsPage(buildTransactionsPageQuery(filters, search, offset));
+  return { items: page.items, total: page.total };
 };
 
 export const buildTransactionsPageQuery = (
@@ -37,6 +29,7 @@ export const buildTransactionsPageQuery = (
     end_date: filters.endDate || undefined,
     account_ids: filters.accountIds.length ? filters.accountIds : undefined,
     store_ids: filters.storeIds?.length ? filters.storeIds : undefined,
+    category_ids: filters.categoryIds.length ? filters.categoryIds : undefined,
     search: needle || undefined,
     offset,
     limit: TRANSACTIONS_PAGE_SIZE

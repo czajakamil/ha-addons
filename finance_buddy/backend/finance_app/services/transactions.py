@@ -534,7 +534,12 @@ def _filtered_transactions(
         stmt = stmt.where(Transaction.store_id.in_(store_ids))
     if category_ids:
         # Bez sprawdzania właściciela: wyżej zawężamy do transakcji użytkownika.
-        stmt = stmt.where(Transaction.category_id.in_(category_ids))
+        # „__uncategorized__” na liście dokłada transakcje bez kategorii.
+        real_ids = [cid for cid in category_ids if cid != "__uncategorized__"]
+        category_clauses = [Transaction.category_id.in_(real_ids)] if real_ids else []
+        if len(real_ids) != len(category_ids):
+            category_clauses.append(Transaction.category_id.is_(None))
+        stmt = stmt.where(or_(*category_clauses))
     if category_id is not None:
         if category_id == "__uncategorized__":
             stmt = stmt.where(Transaction.category_id.is_(None))

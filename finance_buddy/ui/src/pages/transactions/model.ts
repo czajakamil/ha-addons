@@ -7,7 +7,9 @@ export type FilterState = {
   endDate: string;
   // Puste = wszystkie konta
   accountIds: string[];
-  categoryId: string;
+  // Puste = wszystkie kategorie; dokładne id (rodzic nie obejmuje sam podkategorii —
+  // zaznacza je menu), plus `__uncategorized__` dla transakcji bez kategorii
+  categoryIds: string[];
   // Strona sklepu prowadzi tu z gotowym filtrem (?stores=)
   storeIds?: string[];
 };

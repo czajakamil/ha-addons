@@ -1538,7 +1538,7 @@
   }
 
   .filter-menu__item--nested {
-    padding-inline-start: calc(var(--s-8) + 24px);
+    padding-inline-start: calc(var(--s-8) + 24px * var(--filter-depth, 1));
   }
 
   .filter-menu__name {

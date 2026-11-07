@@ -15,9 +15,10 @@ import {
   getAllStores
 } from '../../api';
 import { type EditableLookupField, type FilterState } from './model';
+import { expandCategoryParam } from './categoryFilter';
 import { SEARCH_DEBOUNCE_MS, appendTransactionsPage, fetchTransactionsPage } from './listQuery';
 
-const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountIds: [], categoryId: '' };
+const EMPTY_FILTERS: FilterState = { startDate: '', endDate: '', accountIds: [], categoryIds: [] };
 
 // `scopedAccountId`: lista na stronie konta, stale zawężona do tego konta (także zarchiwizowanego).
 export const useTransactionsData = (scopedAccountId?: string) => {
@@ -30,14 +31,17 @@ export const useTransactionsData = (scopedAccountId?: string) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   // Liczba wszystkich pasujących transakcji; null, gdy nie jest jeszcze znana (filtr kategorii).
   const [totalCount, setTotalCount] = useState<number | null>(0);
-  // Szczegóły konta, sklepu i kategorii prowadzą tu z gotowym filtrem (?account=, ?stores=, ?category=)
+  // Szczegóły konta, sklepu i kategorii prowadzą tu z gotowym filtrem (?account=, ?stores=, ?category=).
+  // Kategoria z linku rozwija się do całej gałęzi dopiero po wczytaniu drzewa (bootstrap).
+  const [categoryParam] = useState(() =>
+    scopedAccountId ? '' : new URLSearchParams(window.location.search).get('category') ?? ''
+  );
   const [initialFilters] = useState<FilterState>(() => {
     const params = new URLSearchParams(window.location.search);
     const storeIds = scopedAccountId ? [] : (params.get('stores') ?? '').split(',').filter(Boolean);
     return {
       ...EMPTY_FILTERS,
       accountIds: [scopedAccountId ?? params.get('account')].filter((id): id is string => Boolean(id)),
-      categoryId: scopedAccountId ? '' : params.get('category') ?? '',
       ...(storeIds.length ? { storeIds } : {})
     };
   });
@@ -140,7 +144,11 @@ export const useTransactionsData = (scopedAccountId?: string) => {
         setStores(storesData);
         setCategories(categoriesData);
         setProducts(productsData);
-        await loadTransactions(initialFilters);
+        const startFilters = categoryParam
+          ? { ...initialFilters, categoryIds: expandCategoryParam(categoriesData, categoryParam) }
+          : initialFilters;
+        setFilters(startFilters);
+        await loadTransactions(startFilters);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -151,7 +159,7 @@ export const useTransactionsData = (scopedAccountId?: string) => {
     };
 
     void bootstrap();
-  }, [initialFilters, loadTransactions]);
+  }, [initialFilters, categoryParam, loadTransactions]);
 
   const activeAccounts = useMemo(() => accounts.filter((account) => !account.is_closed), [accounts]);
   const accountMap = useMemo(() => new Map(accounts.map((account) => [account.id, account])), [accounts]);

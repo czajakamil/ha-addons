@@ -6,11 +6,18 @@ import CheckboxFilterMenu from '../../../components/CheckboxFilterMenu';
 import { DateInput } from '../../../components/ui/DateTimeInput';
 import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
+import {
+  allFilterIds,
+  buildFilterTree,
+  categoryFilterOptions,
+  selectedCategoryNames,
+  toggleCategory
+} from '../categoryFilter';
 import { datePresetRange, type DatePreset, type FilterState } from '../model';
 
 const labels = copy.transactions;
 const PRESETS = Object.keys(labels.presets) as DatePreset[];
-const NO_FILTERS: FilterState = { startDate: '', endDate: '', accountIds: [], categoryId: '' };
+const NO_FILTERS: FilterState = { startDate: '', endDate: '', accountIds: [], categoryIds: [] };
 
 type TransactionsFiltersProps = {
   filters: FilterState;
@@ -39,6 +46,38 @@ const TransactionsFilters = ({
   const [accountsMenuOpen, setAccountsMenuOpen] = useState(false);
   const [pendingAccountIds, setPendingAccountIds] = useState<string[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
+  // Menu kategorii działa tak samo: drzewo, wyszukiwarka i „Zatwierdź"
+  const [categoriesMenuOpen, setCategoriesMenuOpen] = useState(false);
+  const [pendingCategoryIds, setPendingCategoryIds] = useState<string[]>([]);
+  const [categorySearch, setCategorySearch] = useState('');
+  const categoryTree = useMemo(() => buildFilterTree(categories), [categories]);
+  const categoryOptions = useMemo(
+    () => categoryFilterOptions(categoryTree, categorySearch, pendingCategoryIds, labels.uncategorized),
+    [categoryTree, categorySearch, pendingCategoryIds]
+  );
+
+  const handleCategoriesMenuOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setPendingCategoryIds(filters.categoryIds);
+      setCategorySearch('');
+    }
+    setCategoriesMenuOpen(nextOpen);
+  };
+
+  const applyCategories = () => {
+    // Wszystkie zaznaczone = bez filtra
+    const categoryIds = pendingCategoryIds.length === allFilterIds(categoryTree).length ? [] : pendingCategoryIds;
+    setCategoriesMenuOpen(false);
+    onChange({ ...filters, categoryIds });
+  };
+
+  const categoryNames = selectedCategoryNames(categoryTree, filters.categoryIds, labels.uncategorized);
+  const categoriesLabel =
+    filters.categoryIds.length === 0
+      ? labels.allCategories
+      : categoryNames.length === 1
+        ? categoryNames[0]
+        : labels.selectedCategories(categoryNames.length || filters.categoryIds.length);
 
   const accountOptions = useMemo(() => {
     const query = accountSearch.trim().toLowerCase();
@@ -100,12 +139,8 @@ const TransactionsFilters = ({
     accountNames.length && !accountLocked
       ? { key: 'account', label: accountsLabel, onRemove: () => onChange({ ...filters, accountIds: [] }) }
       : null,
-    filters.categoryId
-      ? {
-          key: 'category',
-          label: categories.find((category) => category.id === filters.categoryId)?.name ?? labels.category,
-          onRemove: () => onChange({ ...filters, categoryId: '' })
-        }
+    filters.categoryIds.length
+      ? { key: 'category', label: categoriesLabel, onRemove: () => onChange({ ...filters, categoryIds: [] }) }
       : null
   ].filter((chip) => chip !== null);
 
@@ -174,19 +209,25 @@ const TransactionsFilters = ({
             onOpenChange={handleAccountsMenuOpenChange}
           />
         )}
-        <select
-          className="form-select"
-          aria-label={labels.category}
-          value={filters.categoryId}
-          onChange={(event) => onChange({ ...filters, categoryId: event.target.value })}
-        >
-          <option value="">{labels.allCategories}</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.path || category.name}
-            </option>
-          ))}
-        </select>
+        <CheckboxFilterMenu
+          id="transactions-categories-filter"
+          label={labels.category}
+          triggerClassName="transactions-filters__menu-trigger"
+          triggerLabel={categoriesLabel}
+          searchPlaceholder={labels.searchCategories}
+          emptyText={labels.noCategoriesFound}
+          options={categoryOptions}
+          search={categorySearch}
+          onSearchChange={setCategorySearch}
+          pendingIds={pendingCategoryIds}
+          onToggle={(id) => setPendingCategoryIds((prev) => toggleCategory(categoryTree, prev, id))}
+          onSelectAll={() => setPendingCategoryIds(allFilterIds(categoryTree))}
+          onClearAll={() => setPendingCategoryIds([])}
+          onCancel={() => setCategoriesMenuOpen(false)}
+          onApply={applyCategories}
+          isOpen={categoriesMenuOpen}
+          onOpenChange={handleCategoriesMenuOpenChange}
+        />
       </div>
 
       {chips.length > 0 && (

@@ -1,6 +1,6 @@
 // Rozwijane menu filtra z wyszukiwarką i listą checkboxów (konta, kategorie). Wybór
 // działa dopiero po „Zatwierdź" — stan roboczy (pendingIds) trzyma wywołujący.
-import { ReactNode, useLayoutEffect, useRef } from 'react';
+import { CSSProperties, ReactNode, useLayoutEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import Button from './Button';
 import PopoverFilter from './PopoverFilter';
@@ -10,6 +10,10 @@ export type CheckboxFilterOption = {
   label: string;
   // Podkategoria: wcięta pod rodzicem
   nested?: boolean;
+  // Poziom w drzewie (0 = korzeń); ma pierwszeństwo przed `nested`
+  depth?: number;
+  // Gałąź zaznaczona częściowo
+  indeterminate?: boolean;
 };
 
 type CheckboxFilterMenuProps = {
@@ -106,8 +110,19 @@ const CheckboxFilterMenu = ({
       />
       <div className="filter-menu__list">
         {options.map((option) => (
-          <label key={option.id} className={`filter-menu__item${option.nested ? ' filter-menu__item--nested' : ''}`}>
-            <input type="checkbox" checked={pendingIds.includes(option.id)} onChange={() => onToggle(option.id)} />
+          <label
+            key={option.id}
+            className={`filter-menu__item${option.nested || option.depth ? ' filter-menu__item--nested' : ''}`}
+            style={option.depth ? ({ '--filter-depth': option.depth } as CSSProperties) : undefined}
+          >
+            <input
+              type="checkbox"
+              checked={pendingIds.includes(option.id)}
+              ref={(input) => {
+                if (input) input.indeterminate = Boolean(option.indeterminate) && !pendingIds.includes(option.id);
+              }}
+              onChange={() => onToggle(option.id)}
+            />
             <span className="filter-menu__name">{option.label}</span>
           </label>
         ))}

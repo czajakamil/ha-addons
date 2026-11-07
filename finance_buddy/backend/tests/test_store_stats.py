@@ -140,6 +140,21 @@ def add_categories(db: Session) -> None:
     db.flush()
 
 
+def test_page_filters_by_categories_and_uncategorized(db: Session) -> None:
+    add_categories(db)
+    day = dt.date(2026, 11, 1)
+    for category in ["food", "home", None]:
+        add_tx(db, "s1", day, -100, category_id=category)
+
+    def total(ids: list[str]) -> int:
+        return list_transactions_page(db, USER, category_ids=ids, limit=10)["total"]
+
+    assert total(["food"]) == 1
+    assert total(["food", "home"]) == 2
+    assert total(["__uncategorized__"]) == 1
+    assert total(["food", "__uncategorized__"]) == 2
+
+
 def test_suggestion_needs_clear_majority_of_all_transactions(db: Session) -> None:
     add_categories(db)
     day = dt.date(2026, 11, 1)
