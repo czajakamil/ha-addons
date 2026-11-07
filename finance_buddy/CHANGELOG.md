@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.19
+
+- Transakcje: nowy wybór kategorii zamiast długiej listy ścieżek. Kategorie są drzewem w kolejności z ekranu
+  Kategorie, z wyszukiwarką, i można zaznaczyć kilka naraz. Zaznaczenie kategorii nadrzędnej obejmuje jej
+  podkategorie; częściowo zaznaczona grupa ma kreskę w polu wyboru. Jest też „Bez kategorii”.
+- Z filtrem kategorii lista od razu pokazuje liczbę wszystkich pasujących operacji.
+- „Pokaż transakcje” z ekranu Kategorie obejmuje teraz także podkategorie.
+
 ## 0.1.18
 
 - Kategorie: podkategorie z importu YNAB nazywają się już po prostu „Jedzenie”, a nie „Delegacje/Jedzenie”.
