@@ -171,6 +171,7 @@ export const copy = {
     archive: 'Zarchiwizuj',
     deleteStore: 'Usuń',
     deleteEmpty: (count: number) => `Usuń bez transakcji (${count})`,
+    deleteAllEmpty: (count: number) => `Usuń sklepy bez transakcji (${count})`,
     deleteConfirm: (count: number) =>
       count === 1
         ? 'Usunąć ten sklep? Nie ma transakcji, a usunięcia nie można cofnąć.'
@@ -212,6 +213,10 @@ export const copy = {
       suggested: (path: string, count: number, total: number) => `Podpowiedź: ${path} (${count} z ${total} transakcji)`
     },
     applySuggestion: 'Zastosuj podpowiedź',
+    verifyName: 'Nazwa jest poprawna',
+    verifyNames: (count: number) => `Nazwy są poprawne (${count})`,
+    namesVerified: (count: number) =>
+      count === 1 ? 'Oznaczono nazwę jako poprawną' : `Oznaczono ${count} ${pluralPL(count, 'nazwę', 'nazwy', 'nazw')} jako poprawne`,
     applySuggestions: (count: number) => `Zastosuj podpowiedzi kategorii (${count})`,
     suggestionsApplied: (count: number) =>
       `Ustawiono kategorię ${count} ${pluralPL(count, 'sklepowi', 'sklepom', 'sklepom')}`,

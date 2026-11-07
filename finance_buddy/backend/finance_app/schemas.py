@@ -124,6 +124,7 @@ class StoreBase(BaseModel):
     address: str | None = None
     comment: str | None = None
     is_deleted: bool = False
+    verified_name: str | None = None
 
     @field_validator("nip")
     @classmethod
@@ -148,6 +149,7 @@ class StoreUpdate(BaseModel):
     address: str | None = None
     comment: str | None = None
     is_deleted: bool | None = None
+    verified_name: str | None = None
 
     @field_validator("nip")
     @classmethod

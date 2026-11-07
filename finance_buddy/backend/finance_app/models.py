@@ -420,6 +420,9 @@ class Store(Base):
     is_deleted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
+    # Nazwa grupy potwierdzona przez użytkownika mimo reguły „surowej nazwy z banku”.
+    # Pasuje tylko do tej nazwy, więc po zmianie nazwy grupy reguła wraca.
+    verified_name: Mapped[str | None] = mapped_column(Text)
 
     # Sklep scalony: ukryty, a import YNAB kieruje jego payee do sklepu docelowego.
     merged_into_id: Mapped[str | None] = mapped_column(

@@ -109,6 +109,13 @@ describe('buildCleanupItems', () => {
     expect(items.map((item) => [item.group.name, item.reason])).toEqual([['Sklep ul. Krótka 2', 'raw']]);
   });
 
+  it('potwierdzona nazwa nie jest surowa, dopóki grupa nazywa się tak samo', () => {
+    const verified = store('Sklep ul. Krótka 2', { verified_name: 'Sklep ul. Krótka 2' });
+    expect(buildCleanupItems([verified])).toEqual([]);
+    const renamed = store('Sklep ul. Krótka 2', { group_name: 'Sklep 30-001', verified_name: 'Sklep ul. Krótka 2' });
+    expect(buildCleanupItems([renamed]).map((item) => item.reason)).toEqual(['raw']);
+  });
+
   it('kategoria jednego sklepu wystarcza całej grupie, a grupa bez kategorii to jedna pozycja', () => {
     const items = buildCleanupItems([
       store('LIDL 1', { group_name: 'Lidl', automatic_category_id: null }),

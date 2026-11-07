@@ -108,7 +108,9 @@ export const buildCleanupItems = (
       const duplicateOf = namesakes.find((other) => other.key !== group.key);
       return [{ store, group, reason: 'duplicate', isAmbiguous, duplicateOf }];
     }
-    const rawKind = rawKindOf(group.name);
+    // Potwierdzenie pasuje tylko do obecnej nazwy: po zmianie nazwy reguła wraca
+    const isVerified = group.members.some((member) => member.verified_name?.trim() === group.name.trim());
+    const rawKind = isVerified ? undefined : rawKindOf(group.name);
     if (rawKind) {
       const proposedName = rawKind === 'digits' ? undefined : proposeName(group.name);
       return [{ store, group, reason: 'raw', rawKind, proposedName }];

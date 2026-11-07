@@ -1,7 +1,7 @@
 // Widok „Do uporządkowania”: chipy powodów, tabela z zaznaczaniem i pasek akcji zbiorczych.
 import { useEffect, useMemo, useState } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Ellipsis, GitMerge, SearchCheck } from 'lucide-react';
+import { Ellipsis, GitMerge, SearchCheck, Trash2 } from 'lucide-react';
 import type { Category } from '../../../api';
 import EmptyState from '../../../components/ui/EmptyState';
 import TruncatedText from '../../../components/ui/TruncatedText';
@@ -14,7 +14,7 @@ import {
   type CleanupReason,
   type MergePlan
 } from '../cleanup';
-import type { StoreStat } from '../groups';
+import type { StoreGroup, StoreStat } from '../groups';
 import BulkMergeDialog from './BulkMergeDialog';
 import CategoryDialog from './CategoryDialog';
 import MergeDialog from './MergeDialog';
@@ -59,11 +59,15 @@ type StoresCleanupProps = {
   /** Podpowiedzi kategorii z historii transakcji, po kluczu grupy. */
   suggestions: ReadonlyMap<string, CategorySuggestion>;
   onApplySuggestions: (items: CleanupItem[]) => void;
+  /** Potwierdza obecną nazwę grupy mimo reguły „surowej nazwy z banku”. */
+  onVerifyNames: (items: CleanupItem[]) => void;
   onOpen: (storeId: string) => void;
   /** Archiwizuje całą grupę: wszystkie jej nazwy z banku. */
   onArchive: (item: CleanupItem) => void;
   /** Usuwa grupy bez transakcji (wszystkie ich nazwy z banku). Grupy z transakcjami trzeba scalić albo zarchiwizować. */
-  onDelete: (items: CleanupItem[]) => void;
+  onDelete: (groups: StoreGroup[]) => void;
+  /** Wszystkie aktywne grupy bez transakcji, także te spoza tej listy. */
+  emptyGroups: StoreGroup[];
   onSetCategory: (items: CleanupItem[], path: string) => Promise<boolean>;
   ensureCategory: (path: string) => Promise<string>;
   onMerged: () => Promise<void>;
@@ -76,9 +80,11 @@ const StoresCleanup = ({
   categoryMap,
   suggestions,
   onApplySuggestions,
+  onVerifyNames,
   onOpen,
   onArchive,
   onDelete,
+  emptyGroups,
   onSetCategory,
   ensureCategory,
   onMerged
@@ -124,6 +130,7 @@ const StoresCleanup = ({
   const hasSuggestion = (item: CleanupItem) => item.reason === 'uncategorized' && Boolean(suggestionPath(item));
   const withSuggestion = items.filter(hasSuggestion);
   const selectedWithSuggestion = selectedItems.filter(hasSuggestion);
+  const selectedRaw = selectedItems.filter((item) => item.reason === 'raw');
   const allMergePlans = useMemo(() => buildMergePlans(items), [items]);
   const selectedMergePlans = buildMergePlans(selectedItems);
   const allSelected = filtered.length > 0 && filtered.every((item) => selected.has(item.store.id));
@@ -176,7 +183,7 @@ const StoresCleanup = ({
         ))}
       </div>
 
-      {(withSuggestion.length > 0 || allMergePlans.length > 0) && (
+      {(withSuggestion.length > 0 || allMergePlans.length > 0 || emptyGroups.length > 0) && (
         <div className="stores-quick-actions">
           {withSuggestion.length > 0 && (
             <button type="button" className="account-button" onClick={() => onApplySuggestions(withSuggestion)}>
@@ -187,6 +194,12 @@ const StoresCleanup = ({
             <button type="button" className="account-button" onClick={() => setBulkPlans(allMergePlans)}>
               <GitMerge size={14} aria-hidden="true" />
               {labels.mergeAllDuplicates(allMergePlans.length)}
+            </button>
+          )}
+          {emptyGroups.length > 0 && (
+            <button type="button" className="account-button" onClick={() => onDelete(emptyGroups)}>
+              <Trash2 size={14} aria-hidden="true" />
+              {labels.deleteAllEmpty(emptyGroups.length)}
             </button>
           )}
         </div>
@@ -212,6 +225,11 @@ const StoresCleanup = ({
               {labels.mergeSelectedDuplicates(selectedMergePlans.length)}
             </button>
           )}
+          {selectedRaw.length > 0 && (
+            <button type="button" className="stores-bulk__action" onClick={() => onVerifyNames(selectedRaw)}>
+              {labels.verifyNames(selectedRaw.length)}
+            </button>
+          )}
           {selectedWithSuggestion.length > 0 && (
             <button
               type="button"
@@ -222,7 +240,7 @@ const StoresCleanup = ({
             </button>
           )}
           {selectedEmpty.length > 0 && (
-            <button type="button" className="stores-bulk__action" onClick={() => onDelete(selectedEmpty)}>
+            <button type="button" className="stores-bulk__action" onClick={() => onDelete(selectedEmpty.map((item) => item.group))}>
               {labels.deleteEmpty(selectedEmpty.length)}
             </button>
           )}
@@ -310,6 +328,11 @@ const StoresCleanup = ({
                             <DropdownMenu.Item className="menu__item" onSelect={() => onOpen(item.store.id)}>
                               {labels.open}
                             </DropdownMenu.Item>
+                            {item.reason === 'raw' && (
+                              <DropdownMenu.Item className="menu__item" onSelect={() => onVerifyNames([item])}>
+                                {labels.verifyName}
+                              </DropdownMenu.Item>
+                            )}
                             {hasSuggestion(item) && (
                               <DropdownMenu.Item className="menu__item" onSelect={() => onApplySuggestions([item])}>
                                 {labels.applySuggestion}
@@ -330,7 +353,7 @@ const StoresCleanup = ({
                               {labels.archive}
                             </DropdownMenu.Item>
                             {isEmpty(item) && (
-                              <DropdownMenu.Item className="menu__item" onSelect={() => onDelete([item])}>
+                              <DropdownMenu.Item className="menu__item" onSelect={() => onDelete([item.group])}>
                                 {labels.deleteStore}
                               </DropdownMenu.Item>
                             )}

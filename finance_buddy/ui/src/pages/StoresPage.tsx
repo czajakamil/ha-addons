@@ -84,6 +84,9 @@ const StoresPage = () => {
     [groups, ownerName, ambiguousIds]
   );
   const activeGroups = groups.filter((group) => !group.isArchived);
+  // Także uporządkowane: pusty sklep z kategorią i ładną nazwą też jest do usunięcia.
+  // Bez statystyk nie wiadomo, które są puste.
+  const emptyGroups = stats ? activeGroups.filter((group) => group.count === 0) : [];
   const suggestions = useMemo(
     () => groupCategorySuggestions(groups, suggestionsRequest.data ?? []),
     [groups, suggestionsRequest.data]
@@ -164,9 +167,15 @@ const StoresPage = () => {
     if (changes.length) void save(changes, labels.suggestionsApplied(items.length));
   };
 
-  const deleteGroups = async (items: CleanupItem[]) => {
-    const targets = items.flatMap(({ group }) => group.members);
-    if (!targets.length || !window.confirm(labels.deleteConfirm(items.length))) return;
+  const verifyNames = (items: CleanupItem[]) =>
+    void save(
+      items.flatMap(({ group }) => group.members.map((store) => ({ store, payload: { verified_name: group.name } }))),
+      labels.namesVerified(items.length)
+    );
+
+  const deleteGroups = async (toDelete: StoreGroup[]) => {
+    const targets = toDelete.flatMap((group) => group.members);
+    if (!targets.length || !window.confirm(labels.deleteConfirm(toDelete.length))) return;
     // Po kilka naraz, jak przy zapisie grup: po imporcie z YNAB pustych sklepów bywają setki
     const results: PromiseSettledResult<void>[] = [];
     for (let start = 0; start < targets.length; start += DELETE_CONCURRENCY) {
@@ -178,7 +187,7 @@ const StoresPage = () => {
     results.forEach((result) => result.status === 'rejected' && console.error(result.reason));
     if (removed.size) setStores((current) => current?.filter((store) => !removed.has(store.id)));
     if (failed) toast.error(labels.deletePartial(failed, targets.length));
-    else toast(labels.deleted(items.length));
+    else toast(labels.deleted(toDelete.length));
     // Usunięta nazwa może przestać być niejednoznaczna dla innego sklepu
     void ambiguous.refetch();
   };
@@ -313,11 +322,13 @@ const StoresPage = () => {
           categoryMap={categoryMap}
           suggestions={suggestions}
           onApplySuggestions={applySuggestions}
+          onVerifyNames={verifyNames}
           onOpen={(storeId) => navigate(`/payees/${storeId}`)}
           onArchive={({ group }) =>
             void save(group.members.map((store) => ({ store, payload: { is_deleted: true } })), labels.archived)
           }
-          onDelete={(items) => void deleteGroups(items)}
+          emptyGroups={emptyGroups}
+          onDelete={(toDelete) => void deleteGroups(toDelete)}
           onSetCategory={setCategoryForItems}
           ensureCategory={ensureCategory}
           onMerged={async () => {

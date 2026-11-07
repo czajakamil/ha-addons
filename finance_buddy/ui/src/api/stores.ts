@@ -12,6 +12,8 @@ export interface Store {
   address?: string | null;
   comment?: string | null;
   is_deleted: boolean;
+  /** Nazwa grupy potwierdzona mimo reguły „surowej nazwy z banku”. */
+  verified_name?: string | null;
 }
 
 export interface StoreCreate {
@@ -25,6 +27,7 @@ export interface StoreCreate {
   address?: string | null;
   comment?: string | null;
   is_deleted?: boolean;
+  verified_name?: string | null;
 }
 
 export interface StoreUpdate {
@@ -38,6 +41,7 @@ export interface StoreUpdate {
   address?: string | null;
   comment?: string | null;
   is_deleted?: boolean;
+  verified_name?: string | null;
 }
 
 export interface StoreQueryParams {
