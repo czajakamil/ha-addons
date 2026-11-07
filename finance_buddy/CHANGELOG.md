@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.17
+
+- Kategorie: nowy ekran z drzewem w tabeli. Każda kategoria pokazuje liczbę transakcji, wydatki z 12 miesięcy,
+  datę ostatniej transakcji i mini-wykres trendu; kwoty kategorii nadrzędnej obejmują podkategorie. Jest
+  wyszukiwarka, „Rozwiń/Zwiń wszystko”, a kategorie bez transakcji od 12 miesięcy chowają się za „Pokaż nieużywane”.
+- Kolejność kategorii ustawisz przeciąganiem wiersza: nad, pod albo do środka innej kategorii. To samo zrobisz
+  z menu „⋯”: „Przesuń wyżej/niżej” i „Przenieś do…”. Nowe i przeniesione kategorie trafiają na koniec listy.
+- Kliknięcie kategorii otwiera jej stronę: średnia i suma wydatków, wykres miesięcy, ostatnie transakcje razem
+  z podkategoriami, najczęstsze sklepy oraz ustawienia kategorii nadrzędnej i koloru.
+- Usunąć można już tylko kategorię bez transakcji (także w podkategoriach), żeby transakcje nie traciły
+  kategorii bez ostrzeżenia.
+
 ## 0.1.16
 
 - Raporty → Wydatki: wykres ma przełącznik „Słupki | Koło”. Koło to pierścień z podziałem wydatków za cały
