@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Category } from '../../api';
-import { buildCategoryTree, countUnused, flattenVisible, planMove, planShift, toStatsMap, windowStart } from './model';
+import {
+  buildCategoryTree,
+  countUnused,
+  flattenVisible,
+  planMove,
+  planShift,
+  sortTree,
+  toStatsMap,
+  windowStart
+} from './model';
 
 const cat = (id: string, name: string, parent: string | null, order: number): Category => ({
   id,
@@ -73,5 +82,18 @@ describe('planMove', () => {
   it('planShift zamienia z sąsiadem i zatrzymuje się na brzegu', () => {
     expect(planShift(tree, 'home', -1)).toEqual({ parentId: null, orderedIds: ['home', 'food'] });
     expect(planShift(tree, 'food', -1)).toBeNull();
+  });
+});
+
+describe('sortTree', () => {
+  it('sortuje rodzeństwo na każdym poziomie, a kategorie bez transakcji idą na koniec', () => {
+    const bySpent = sortTree(tree, { key: 'spent', direction: 'asc' });
+    expect(bySpent.map((node) => node.category.id)).toEqual(['home', 'food']);
+    expect(bySpent[1].children.map((node) => node.category.id)).toEqual(['out', 'shop']);
+    const byLast = sortTree(tree, { key: 'last', direction: 'asc' });
+    expect(byLast.map((node) => node.category.id)).toEqual(['food', 'home']);
+    const byName = sortTree(tree, { key: 'name', direction: 'asc' });
+    expect(byName.map((node) => node.category.name)).toEqual(['Dom', 'Jedzenie']);
+    expect(sortTree(tree, null).map((node) => node.category.id)).toEqual(['food', 'home']);
   });
 });

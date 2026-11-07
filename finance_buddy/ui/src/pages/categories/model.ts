@@ -234,3 +234,36 @@ export const moveTargets = (roots: readonly CategoryNode[], id: string) => {
   });
   return targets;
 };
+
+export type CategorySortKey = 'name' | 'count' | 'spent' | 'last';
+export type SortDirection = 'asc' | 'desc';
+/** null = własna kolejność (sort_order), ustawiana przeciąganiem. */
+export type CategorySort = { key: CategorySortKey; direction: SortDirection } | null;
+
+/** Kierunek pierwszego kliknięcia: nazwy od A, liczby i daty od największych (jak w Sklepach). */
+export const DEFAULT_DIRECTION: Record<CategorySortKey, SortDirection> = {
+  name: 'asc',
+  count: 'desc',
+  spent: 'desc',
+  last: 'desc'
+};
+
+/** Sortuje rodzeństwo na każdym poziomie, drzewo zostaje drzewem. */
+export const sortTree = (nodes: readonly CategoryNode[], sort: CategorySort): CategoryNode[] => {
+  if (!sort) return [...nodes];
+  const sign = sort.direction === 'asc' ? 1 : -1;
+  const byName = (a: CategoryNode, b: CategoryNode) => a.category.name.localeCompare(b.category.name, 'pl');
+  const compare: Record<CategorySortKey, (a: CategoryNode, b: CategoryNode) => number> = {
+    name: (a, b) => sign * byName(a, b),
+    count: (a, b) => sign * (a.total.count - b.total.count),
+    spent: (a, b) => sign * (a.total.spentCents - b.total.spentCents),
+    // Kategorie bez transakcji zawsze na końcu, niezależnie od kierunku
+    last: (a, b) =>
+      a.total.lastDate && b.total.lastDate
+        ? sign * a.total.lastDate.localeCompare(b.total.lastDate)
+        : Number(!a.total.lastDate) - Number(!b.total.lastDate)
+  };
+  return nodes
+    .map((node) => ({ ...node, children: sortTree(node.children, sort) }))
+    .sort((a, b) => compare[sort.key](a, b) || byName(a, b));
+};

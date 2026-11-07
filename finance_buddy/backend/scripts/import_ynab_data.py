@@ -24,7 +24,7 @@ from ..finance_app.models import (
     Transaction,
     YnabBudgetSnapshot,
 )
-from ..finance_app.services.categories import READY_TO_ASSIGN_TAG_NAME
+from ..finance_app.services.categories import READY_TO_ASSIGN_TAG_NAME, sanitize_segment
 from ..finance_app.services.store_aliases import find_store_by_name, register_store_name
 from ..finance_app.services.store_merges import resolve_merged_store
 
@@ -434,13 +434,15 @@ def import_categories_tree(
                 mapping[cat_id] = cat_row.id
                 continue
 
-            cat_name = c.name or "Category"
-            combined_name = f"{g.name or 'Group'}/{cat_name}"
+            # Sama nazwa kategorii: grupę wyraża parent_id, a ścieżkę „Grupa/Kategoria”
+            # i tak wylicza drzewo. Wcześniej import zapisywał tu „Grupa/Kategoria”,
+            # przez co pod grupą wisiało „Delegacje/Jedzenie” zamiast „Jedzenie”.
+            cat_name = sanitize_segment(c.name or "") or "Category"
             if not cat_row:
                 cat_row = Category(
                     id=cat_id,
                     user_id=user_id,
-                    name=combined_name,
+                    name=cat_name,
                     parent_id=group_id,
                 )
                 s.add(cat_row)
@@ -448,7 +450,7 @@ def import_categories_tree(
                 if cat_row.user_id and cat_row.user_id != user_id:
                     raise ValueError("YNAB import collision on Category ID.")
                 # jeśli kiedyś zmienisz nazwę kategorii w YNAB
-                cat_row.name = combined_name or cat_row.name
+                cat_row.name = cat_name
                 if cat_row.parent_id != group_id:
                     cat_row.parent_id = group_id
             mapping[cat_id] = cat_row.id

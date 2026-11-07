@@ -394,6 +394,15 @@ export const copy = {
     scopeAccounts: 'Konta',
     search: 'Szukaj kategorii…',
     searchLabel: 'Szukaj kategorii',
+    sortLabel: 'Sortowanie kategorii',
+    sort: {
+      manual: 'Sortuj: Własna kolejność',
+      name: 'Sortuj: Kategoria',
+      count: 'Sortuj: Transakcje',
+      spent: 'Sortuj: Wydano (12 mies.)',
+      last: 'Sortuj: Ostatnio'
+    },
+    sortedHint: 'Przeciąganie działa przy sortowaniu „Własna kolejność”.',
     expandAll: 'Rozwiń wszystko',
     collapseAll: 'Zwiń wszystko',
     newPlaceholder: 'Nazwa albo ścieżka, np. Dom/Remont',

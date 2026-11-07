@@ -1,9 +1,9 @@
 // Drzewo kategorii jako tabela: kwoty gałęzi, mini-wykres miesięcy i akcje w „⋯”.
 // Wiersz można przeciągnąć: górna i dolna ćwiartka wstawiają obok, środek — do środka.
-import { useRef, useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { ChevronDown, ChevronRight, Ellipsis, GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Ellipsis, GripVertical } from 'lucide-react';
 import type { Category } from '../../../api';
 import { resolveTagColor } from '../../../components/tags/tagColors';
 import Money from '../../../components/ui/Money';
@@ -11,7 +11,7 @@ import TruncatedText from '../../../components/ui/TruncatedText';
 import { copy } from '../../../copy/pl';
 import { formatShortDate } from '../../../utils/date';
 import AccountNameInput from '../../accounts/components/AccountNameInput';
-import type { DropPosition, VisibleRow } from '../model';
+import type { CategorySort, CategorySortKey, DropPosition, VisibleRow } from '../model';
 
 const labels = copy.categories;
 const SPARK_HEIGHT_PX = 18;
@@ -38,6 +38,31 @@ const Sparkline = ({ values, color }: { values: readonly number[]; color: string
   );
 };
 
+type SortableHeaderProps = {
+  column: CategorySortKey;
+  sort: CategorySort;
+  onSort: (column: CategorySortKey) => void;
+  className?: string;
+  children: ReactNode;
+};
+
+const SortableHeader = ({ column, sort, onSort, className, children }: SortableHeaderProps) => {
+  const active = sort?.key === column;
+  const Icon = sort?.direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th
+      scope="col"
+      className={className}
+      aria-sort={active ? (sort?.direction === 'asc' ? 'ascending' : 'descending') : undefined}
+    >
+      <button type="button" className={`stores-sort${active ? ' stores-sort--active' : ''}`} onClick={() => onSort(column)}>
+        {children}
+        {active && <Icon size={14} aria-hidden="true" className="stores-sort__icon" />}
+      </button>
+    </th>
+  );
+};
+
 const dropPositionAt = (event: DragEvent<HTMLElement>): DropPosition => {
   const rect = event.currentTarget.getBoundingClientRect();
   const ratio = (event.clientY - rect.top) / Math.max(rect.height, 1);
@@ -48,6 +73,8 @@ const dropPositionAt = (event: DragEvent<HTMLElement>): DropPosition => {
 
 type CategoryTreeTableProps = {
   rows: VisibleRow[];
+  sort: CategorySort;
+  onSort: (column: CategorySortKey) => void;
   categoryMap: Map<string, Category>;
   statsLoaded: boolean;
   renamingId: string | null;
@@ -63,6 +90,8 @@ type CategoryTreeTableProps = {
 
 const CategoryTreeTable = ({
   rows,
+  sort,
+  onSort,
   categoryMap,
   statsLoaded,
   renamingId,
@@ -80,6 +109,8 @@ const CategoryTreeTable = ({
   const [dropTarget, setDropTarget] = useState<{ id: string; position: DropPosition } | null>(null);
 
   const open = (category: Category) => navigate(`/categories/${category.id}`);
+  // Przy sortowaniu po kolumnie kolejność wynika z danych, więc przeciąganie jej nie zmieni
+  const manualOrder = sort === null;
 
   return (
     <div className="accounts-table-card categories-table-card">
@@ -88,10 +119,18 @@ const CategoryTreeTable = ({
           <thead>
             <tr>
               <th scope="col" className="categories-table__handle" aria-hidden="true" />
-              <th scope="col">{labels.columns.category}</th>
-              <th scope="col" className="categories-table__num categories-table__count">{labels.columns.count}</th>
-              <th scope="col" className="categories-table__num categories-table__spent">{labels.columns.spent}</th>
-              <th scope="col" className="categories-table__num categories-table__last">{labels.columns.last}</th>
+              <SortableHeader column="name" sort={sort} onSort={onSort}>
+                {labels.columns.category}
+              </SortableHeader>
+              <SortableHeader column="count" sort={sort} onSort={onSort} className="categories-table__num categories-table__count">
+                {labels.columns.count}
+              </SortableHeader>
+              <SortableHeader column="spent" sort={sort} onSort={onSort} className="categories-table__num categories-table__spent">
+                {labels.columns.spent}
+              </SortableHeader>
+              <SortableHeader column="last" sort={sort} onSort={onSort} className="categories-table__num categories-table__last">
+                {labels.columns.last}
+              </SortableHeader>
               <th scope="col" className="categories-table__num categories-table__trend">{labels.columns.trend}</th>
               <th scope="col" className="accounts-table__menu" aria-label={labels.actions('')} />
             </tr>
@@ -115,7 +154,7 @@ const CategoryTreeTable = ({
                   onClick={() => open(category)}
                   onDragOver={(event) => {
                     const dragged = draggedRef.current;
-                    if (!dragged || dragged === category.id) return;
+                    if (!manualOrder || !dragged || dragged === category.id) return;
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'move';
                     const position = dropPositionAt(event);
@@ -138,24 +177,26 @@ const CategoryTreeTable = ({
                   }}
                 >
                   <td className="categories-table__handle" onClick={(event) => event.stopPropagation()}>
-                    <span
-                      className="categories-handle"
-                      draggable
-                      title={labels.dragHandle(category.name)}
-                      onDragStart={(event) => {
-                        draggedRef.current = category.id;
-                        event.dataTransfer.effectAllowed = 'move';
-                        event.dataTransfer.setData('text/plain', category.id);
-                        const row = event.currentTarget.closest('tr');
-                        if (row) event.dataTransfer.setDragImage(row, 16, 16);
-                      }}
-                      onDragEnd={() => {
-                        draggedRef.current = null;
-                        setDropTarget(null);
-                      }}
-                    >
-                      <GripVertical size={14} aria-hidden="true" />
-                    </span>
+                    {manualOrder && (
+                      <span
+                        className="categories-handle"
+                        draggable
+                        title={labels.dragHandle(category.name)}
+                        onDragStart={(event) => {
+                          draggedRef.current = category.id;
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', category.id);
+                          const row = event.currentTarget.closest('tr');
+                          if (row) event.dataTransfer.setDragImage(row, 16, 16);
+                        }}
+                        onDragEnd={() => {
+                          draggedRef.current = null;
+                          setDropTarget(null);
+                        }}
+                      >
+                        <GripVertical size={14} aria-hidden="true" />
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div className="categories-name" style={{ paddingInlineStart: depth * INDENT_PX }}>
@@ -229,10 +270,10 @@ const CategoryTreeTable = ({
                           <DropdownMenu.Item className="menu__item" onSelect={() => onMove(category)}>
                             {labels.menu.move}
                           </DropdownMenu.Item>
-                          <DropdownMenu.Item className="menu__item" onSelect={() => onShift(category, -1)}>
+                          <DropdownMenu.Item className="menu__item" disabled={!manualOrder} onSelect={() => onShift(category, -1)}>
                             {labels.menu.moveUp}
                           </DropdownMenu.Item>
-                          <DropdownMenu.Item className="menu__item" onSelect={() => onShift(category, 1)}>
+                          <DropdownMenu.Item className="menu__item" disabled={!manualOrder} onSelect={() => onShift(category, 1)}>
                             {labels.menu.moveDown}
                           </DropdownMenu.Item>
                           <DropdownMenu.Item

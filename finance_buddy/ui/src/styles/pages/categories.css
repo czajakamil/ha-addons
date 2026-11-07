@@ -17,6 +17,10 @@
     max-width: 360px;
   }
 
+  .categories-toolbar__sort {
+    width: auto;
+  }
+
   .categories-toolbar__tree-actions {
     display: flex;
     gap: var(--s-12);

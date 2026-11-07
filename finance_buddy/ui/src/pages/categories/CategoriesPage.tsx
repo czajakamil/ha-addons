@@ -30,7 +30,11 @@ import {
   moveTargets,
   planMove,
   planShift,
+  sortTree,
   toStatsMap,
+  DEFAULT_DIRECTION,
+  type CategorySort,
+  type CategorySortKey,
   walkTree,
   type DropPosition,
   type MovePlan,
@@ -40,6 +44,7 @@ import {
 const labels = copy.categories;
 
 type Scope = 'spending' | 'accounts';
+const SORT_KEYS: CategorySortKey[] = ['name', 'count', 'spent', 'last'];
 
 const CategoriesPage = () => {
   const [scope, setScope] = useState<Scope>('spending');
@@ -55,6 +60,7 @@ const CategoriesPage = () => {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState('');
   const [showUnused, setShowUnused] = useState(false);
+  const [sort, setSort] = useState<CategorySort>(null);
   // Świeżo dodane kategorie nie mają transakcji, a nie mogą zniknąć zaraz po dodaniu
   const [keep, setKeep] = useState<ReadonlySet<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -78,10 +84,19 @@ const CategoriesPage = () => {
   const tree = useMemo(() => buildCategoryTree(categories, stats), [categories, stats]);
   const categoryMap = useMemo(() => buildCategoryMap(categories), [categories]);
   const hideUnused = !showUnused && stats !== null;
+  // Bez statystyk kolumny liczbowe są puste, więc do ich wczytania zostaje własna kolejność
+  const effectiveSort: CategorySort = stats || sort?.key === 'name' ? sort : null;
+  const sortedTree = useMemo(() => sortTree(tree, effectiveSort), [tree, effectiveSort]);
   const rows = useMemo(
-    () => flattenVisible(tree, { expanded, query, hideUnused, keep }),
-    [tree, expanded, query, hideUnused, keep]
+    () => flattenVisible(sortedTree, { expanded, query, hideUnused, keep }),
+    [sortedTree, expanded, query, hideUnused, keep]
   );
+  const toggleSort = (key: CategorySortKey) =>
+    setSort((current) =>
+      current?.key === key
+        ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: DEFAULT_DIRECTION[key] }
+    );
   const unusedCount = useMemo(() => (stats ? countUnused(tree) : 0), [tree, stats]);
 
   const toggle = useCallback(
@@ -233,6 +248,22 @@ const CategoriesPage = () => {
             />
           </div>
         </div>
+        <select
+          className="form-select form-select-sm categories-toolbar__sort"
+          aria-label={labels.sortLabel}
+          value={sort?.key ?? 'manual'}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSort(value === 'manual' ? null : { key: value as CategorySortKey, direction: DEFAULT_DIRECTION[value as CategorySortKey] });
+          }}
+        >
+          <option value="manual">{labels.sort.manual}</option>
+          {SORT_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {labels.sort[key]}
+            </option>
+          ))}
+        </select>
         {!query && (
           <span className="categories-toolbar__tree-actions">
             <button type="button" className="text-button" onClick={expandAll}>
@@ -290,6 +321,8 @@ const CategoriesPage = () => {
           {rows.length ? (
             <CategoryTreeTable
               rows={rows}
+              sort={effectiveSort}
+              onSort={toggleSort}
               categoryMap={categoryMap}
               statsLoaded={stats !== null}
               renamingId={renamingId}
@@ -310,7 +343,10 @@ const CategoriesPage = () => {
               {showUnused ? labels.hideUnused : labels.showUnused(unusedCount)}
             </button>
           )}
-          <p className="categories-list__footnote">{labels.footnote}</p>
+          <p className="categories-list__footnote">
+            {labels.footnote}
+            {sort && ` ${labels.sortedHint}`}
+          </p>
         </div>
       )}
 
