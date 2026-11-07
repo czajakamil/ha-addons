@@ -41,7 +41,7 @@ import {
   UNCATEGORIZED_COLOR,
   UNCATEGORIZED_KEY,
   buildCategorySplit,
-  itemCategoryId,
+  itemCategory,
   itemTotalCents,
   itemsMatchTotal
 } from './transactionDetails/model';
@@ -205,7 +205,7 @@ const TransactionDetailsPage = () => {
   );
 
   const split = useMemo(
-    () => (transaction ? buildCategorySplit(transaction.items, productsById, categoriesById) : []),
+    () => (transaction ? buildCategorySplit(transaction.items, productsById, categoriesById, transaction.category_id) : []),
     [transaction, productsById, categoriesById]
   );
   const splitColor = useMemo(() => new Map(split.map((entry) => [entry.key, entry.color])), [split]);
@@ -657,9 +657,14 @@ const TransactionDetailsPage = () => {
                         <span role="columnheader" className="tx-items-grid__num">Suma</span>
                       </div>
                       {transaction.items.map((item) => {
-                        const categoryId = itemCategoryId(item, productsById);
+                        const { categoryId, inherited } = itemCategory(
+                          item,
+                          productsById,
+                          categoriesById,
+                          transaction.category_id
+                        );
                         const path = categoryId ? categoriesById.get(categoryId)?.path ?? '' : '';
-                        const color = splitColor.get(path ? categoryId! : UNCATEGORIZED_KEY) ?? UNCATEGORIZED_COLOR;
+                        const color = splitColor.get(categoryId ?? UNCATEGORIZED_KEY) ?? UNCATEGORIZED_COLOR;
                         const name = item.product_name ?? 'Produkt';
                         return (
                           <div key={item.id} className="tx-items-grid__row" role="row">
@@ -675,8 +680,12 @@ const TransactionDetailsPage = () => {
                             <span role="cell" className="tx-items-grid__category">
                               <CategoryPickerMenu
                                 id={`tx-item-category-${item.id}`}
-                                label={`Kategoria produktu ${name}. Zmiana obowiązuje też przy kolejnych zakupach`}
-                                triggerClassName="tx-detail__inline-select"
+                                label={
+                                  inherited
+                                    ? `Kategoria produktu ${name}: brak, liczy się do kategorii transakcji. Wybierz własną`
+                                    : `Kategoria produktu ${name}. Zmiana obowiązuje też przy kolejnych zakupach`
+                                }
+                                triggerClassName={`tx-detail__inline-select${inherited ? ' tx-detail__inline-select--inherited' : ''}`}
                                 triggerLabel={
                                   <>
                                     <CategoryDot color={color} />
@@ -847,21 +856,22 @@ const TransactionDetailsPage = () => {
                   placeholder="Wpisz, aby wyszukać sklep"
                 />
               </div>
-              {!hasItems && (
-                <div className="tx-detail__field">
-                  <span className="form-label">Kategoria</span>
-                  <CategoryPickerMenu
-                    id="tx-detail-category"
-                    label="Kategoria transakcji"
-                    triggerClassName="tx-detail__select"
-                    triggerLabel={<CategoryLabel path={transactionCategoryPath} empty="Wybierz kategorię" />}
-                    searchPlaceholder="Szukaj kategorii…"
-                    emptyText="Brak pasujących kategorii"
-                    options={pickerOptions}
-                    onSelect={selectCategory}
-                  />
-                </div>
-              )}
+              <div className="tx-detail__field">
+                <span className="form-label">Kategoria</span>
+                <CategoryPickerMenu
+                  id="tx-detail-category"
+                  label="Kategoria transakcji"
+                  triggerClassName="tx-detail__select"
+                  triggerLabel={<CategoryLabel path={transactionCategoryPath} empty="Wybierz kategorię" />}
+                  searchPlaceholder="Szukaj kategorii…"
+                  emptyText="Brak pasujących kategorii"
+                  options={pickerOptions}
+                  onSelect={selectCategory}
+                />
+                {hasItems && (
+                  <span className="tx-detail__hint">Do niej liczą się pozycje, których produkt nie ma własnej kategorii.</span>
+                )}
+              </div>
               <div className="tx-detail__field">
                 <label className="form-label" htmlFor="tx-comment">Komentarz</label>
                 <textarea

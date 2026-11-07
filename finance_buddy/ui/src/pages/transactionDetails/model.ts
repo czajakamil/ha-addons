@@ -20,20 +20,39 @@ export type CategorySplitEntry = {
 export const itemTotalCents = (item: Pick<TransactionItem, 'unit_price_cents' | 'quantity'>) =>
   Math.round(item.unit_price_cents * item.quantity);
 
-/** Kategoria pozycji to kategoria produktu — paragon nie ma własnej. */
-export const itemCategoryId = (item: Pick<TransactionItem, 'product_id'>, productsById: ReadonlyMap<string, Item>) =>
-  productsById.get(item.product_id)?.category_id ?? null;
+export type ItemCategory = {
+  /** Kategoria, do której liczy się pozycja; null — ani produkt, ani transakcja jej nie mają. */
+  categoryId: string | null;
+  /** Wzięta z transakcji, bo produkt nie ma własnej. */
+  inherited: boolean;
+};
+
+/**
+ * Pozycja liczy się do kategorii swojego produktu; produkt bez kategorii (albo z usuniętą)
+ * spada na główną kategorię transakcji.
+ */
+export const itemCategory = (
+  item: Pick<TransactionItem, 'product_id'>,
+  productsById: ReadonlyMap<string, Item>,
+  categoriesById: ReadonlyMap<string, Category>,
+  transactionCategoryId: string | null | undefined
+): ItemCategory => {
+  const own = productsById.get(item.product_id)?.category_id;
+  if (own && categoriesById.has(own)) return { categoryId: own, inherited: false };
+  const fallback = transactionCategoryId && categoriesById.has(transactionCategoryId) ? transactionCategoryId : null;
+  return { categoryId: fallback, inherited: fallback !== null };
+};
 
 /** Sumy kategorii od największej; udział liczony od sumy pozycji. */
 export const buildCategorySplit = (
   items: readonly TransactionItem[],
   productsById: ReadonlyMap<string, Item>,
-  categoriesById: ReadonlyMap<string, Category>
+  categoriesById: ReadonlyMap<string, Category>,
+  transactionCategoryId: string | null | undefined
 ): CategorySplitEntry[] => {
   const sums = new Map<string, number>();
   items.forEach((item) => {
-    const categoryId = itemCategoryId(item, productsById);
-    const key = categoryId && categoriesById.has(categoryId) ? categoryId : UNCATEGORIZED_KEY;
+    const key = itemCategory(item, productsById, categoriesById, transactionCategoryId).categoryId ?? UNCATEGORIZED_KEY;
     sums.set(key, (sums.get(key) ?? 0) + itemTotalCents(item));
   });
   const total = [...sums.values()].reduce((sum, cents) => sum + Math.abs(cents), 0);

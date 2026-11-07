@@ -11,7 +11,7 @@ import datetime as dt
 from collections import defaultdict
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..dependencies import _get_owned_or_404
@@ -32,6 +32,7 @@ from ..schemas import (
     BudgetMonthResponse,
     BudgetMonthSummary,
 )
+from .category_split import load_item_shares, split_lines
 
 
 def _allowed_budget_months() -> set[str]:
@@ -273,8 +274,11 @@ def get_budget_month(db: Session, month: str, user_id: str) -> BudgetMonthRespon
     if month_keys and on_budget_accounts:
         start_date = _parse_month_key(month_keys[0])
         end_date = _month_end(target_month)
+        # Bez filtra na `category_id`: transakcja bez głównej kategorii może mieć
+        # pozycje z kategoriami produktów, a te liczą się do swoich kopert.
         tx_rows = db.execute(
             select(
+                Transaction.id,
                 Transaction.category_id,
                 Transaction.account_id,
                 Transaction.transfer_account_id,
@@ -282,17 +286,14 @@ def get_budget_month(db: Session, month: str, user_id: str) -> BudgetMonthRespon
                 Transaction.total_cents,
             ).where(
                 Transaction.user_id == user_id,
-                or_(
-                    Transaction.category_id.isnot(None),
-                    Transaction.transfer_account_id.isnot(None),
-                ),
                 Transaction.date >= start_date,
                 Transaction.date <= end_date,
             )
         ).all()
+        item_shares = load_item_shares(db, [row[0] for row in tx_rows])
         credit_account_ids = {account.id for account in credit_accounts}
-        for category_id, account_id, transfer_account_id, tx_date, total_cents in tx_rows:
-            if account_id not in on_budget_accounts or category_id in ready_to_assign_ids:
+        for tx_id, tx_category_id, account_id, transfer_account_id, tx_date, tx_total in tx_rows:
+            if account_id not in on_budget_accounts:
                 continue
             month_key = _month_key(tx_date)
             if month_key not in month_keys:
@@ -302,16 +303,19 @@ def get_budget_month(db: Session, month: str, user_id: str) -> BudgetMonthRespon
             # gotówki z karty kopert nie rusza, tylko powiększa dług. Przelew na
             # konto spoza budżetu ma kategorię i liczy się jak wydatek (niżej).
             if transfer_account_id in on_budget_accounts:
-                if account_id in credit_account_ids and total_cents > 0:
-                    card_payments[month_key][account_id] += int(total_cents)
+                if account_id in credit_account_ids and tx_total > 0:
+                    card_payments[month_key][account_id] += int(tx_total)
                 continue
-            if category_id is None:
-                continue
-            if account_id in credit_account_ids:
-                activity_credit[month_key][category_id][account_id] += int(total_cents)
-            else:
-                activity_cash[month_key][category_id] += int(total_cents)
-            activity_total[month_key][category_id] += int(total_cents)
+            for category_id, total_cents in split_lines(
+                tx_category_id, int(tx_total), item_shares.get(tx_id)
+            ):
+                if category_id is None or category_id in ready_to_assign_ids:
+                    continue
+                if account_id in credit_account_ids:
+                    activity_credit[month_key][category_id][account_id] += int(total_cents)
+                else:
+                    activity_cash[month_key][category_id] += int(total_cents)
+                activity_total[month_key][category_id] += int(total_cents)
 
     card_balances = _card_balances_by_month(
         db, user_id, list(credit_payment_map), month_keys, _month_end(target_month)

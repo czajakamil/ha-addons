@@ -294,6 +294,9 @@
 
 .tx-detail__inline-select .tx-detail__category { display: inline; }
 
+/* Kategoria odziedziczona z transakcji: przygaszona, żeby odróżniała się od własnej kategorii produktu */
+.tx-detail__inline-select--inherited { color: var(--text-muted); }
+
 .tx-detail__inline-select:hover:not(:disabled),
 .tx-detail__inline-select[aria-expanded='true'] {
   border-color: var(--border-strong);
@@ -490,6 +493,12 @@
 
 .tx-detail__select:hover:not(:disabled) { border-color: var(--border-strong); }
 .tx-detail__select .filter-menu-trigger__value { min-width: 0; display: flex; }
+
+.tx-detail__hint {
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  line-height: var(--leading-12);
+}
 
 .tx-detail__save {
   margin: 0;

@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import NamedTuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db_session
@@ -42,6 +42,7 @@ from ..schemas import (
     SpendingOutflowInfo,
     SpendingTrendsReport,
 )
+from ..services.category_split import load_item_shares, split_lines
 
 router = APIRouter()
 
@@ -466,30 +467,30 @@ def monthly_category_report(
     next_month_value = 1 if month == 12 else month + 1
     next_month = dt.date(next_month_year, next_month_value, 1)
 
-    stmt = (
-        select(
-            Category.id,
-            Category.name,
-            func.coalesce(func.sum(Transaction.total_cents), 0).label("total_cents"),
+    categories = db.execute(
+        select(Category.id, Category.name).where(Category.user_id == current_user.id)
+    ).all()
+    tx_rows = db.execute(
+        select(Transaction.id, Transaction.category_id, Transaction.total_cents).where(
+            Transaction.user_id == current_user.id,
+            Transaction.date >= first_day,
+            Transaction.date < next_month,
         )
-        .outerjoin(
-            Transaction,
-            and_(
-                Transaction.category_id == Category.id,
-                Transaction.user_id == current_user.id,
-                Transaction.date >= first_day,
-                Transaction.date < next_month,
-            ),
-        )
-        .where(Category.user_id == current_user.id)
-        .group_by(Category.id, Category.name)
-        .order_by(func.coalesce(func.sum(Transaction.total_cents), 0).desc())
-    )
+    ).all()
+    # Pozycje paragonu rozbijają kwotę na kategorie produktów (services/category_split.py)
+    item_shares = load_item_shares(db, [row.id for row in tx_rows])
+    totals: dict[str, int] = defaultdict(int)
+    for tx_id, tx_category_id, tx_total in tx_rows:
+        for category_id, cents in split_lines(
+            tx_category_id, int(tx_total), item_shares.get(tx_id)
+        ):
+            if category_id:
+                totals[category_id] += cents
 
-    rows = db.execute(stmt).all()
+    rows = sorted(categories, key=lambda row: totals.get(row.id, 0), reverse=True)
     summaries: list[MonthlyCategorySummary] = []
-    for category_id, category_name, total_cents in rows:
-        total_cents_int = int(total_cents or 0)
+    for category_id, category_name in rows:
+        total_cents_int = totals.get(category_id, 0)
         summaries.append(
             MonthlyCategorySummary(
                 category_id=category_id,
@@ -546,6 +547,7 @@ def reports_dashboard(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account filter."
             )
         range_conditions.append(Transaction.account_id.in_(account_ids))
+    allowed_categories: set[str | None] | None = None
     if category_ids:
         include_uncategorized = uncategorized_token in category_ids
         filtered_category_ids = [cid for cid in category_ids if cid != uncategorized_token]
@@ -560,23 +562,21 @@ def reports_dashboard(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid category filter.",
                 )
-        category_filters = []
-        if filtered_category_ids:
-            category_filters.append(Transaction.category_id.in_(filtered_category_ids))
+        # Filtr kategorii działa na liniach podziału (niżej), nie na transakcji:
+        # paragon z pozycjami z kilku kategorii pokazuje tylko pasującą część.
+        allowed_categories: set[str | None] = set(filtered_category_ids)
         if include_uncategorized:
-            category_filters.append(Transaction.category_id.is_(None))
-        if category_filters:
-            range_conditions.append(or_(*category_filters))
+            allowed_categories.add(None)
     # pomijamy transfery/adjustmenty między własnymi kontami przy liczeniu wydatków/przychodów
     range_conditions.append(~_is_internal_report_transaction())
 
     range_stmt = (
         select(
+            Transaction.id,
             Transaction.date,
             Transaction.total_cents,
             Transaction.category_id,
             Transaction.comment,
-            Category.name.label("category_name"),
             Store.name.label("store_name"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
@@ -584,16 +584,28 @@ def reports_dashboard(
         .where(*range_conditions)
         .order_by(Transaction.date)
     )
+    tx_rows = db.execute(range_stmt).all()
+    category_names = dict(
+        db.execute(select(Category.id, Category.name).where(Category.user_id == current_user.id))
+        .tuples()
+        .all()
+    )
+    # Wiersz na część transakcji w kategorii; pozycje paragonu idą do kategorii produktów
+    item_shares = load_item_shares(db, [row.id for row in tx_rows])
     range_rows = [
         {
             "date": row.date,
-            "total_cents": int(row.total_cents),
-            "category_id": row.category_id,
-            "category_name": row.category_name,
+            "total_cents": cents,
+            "category_id": category_id,
+            "category_name": category_names.get(category_id) if category_id else None,
             "store_name": row.store_name,
             "comment": row.comment,
         }
-        for row in db.execute(range_stmt).all()
+        for row in tx_rows
+        for category_id, cents in split_lines(
+            row.category_id, int(row.total_cents), item_shares.get(row.id)
+        )
+        if allowed_categories is None or category_id in allowed_categories
     ]
 
     spending_breakdown = _build_spending_breakdown(range_rows)
