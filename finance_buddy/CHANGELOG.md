@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.21
+
+- Szczegóły transakcji w nowym układzie. Nagłówek ma nazwę sklepu (link do jego transakcji), dużą kwotę
+  ze statusem i menu „⋯” z usuwaniem transakcji.
+- Transakcja z pozycjami: nowa karta „Podział na kategorie” z paskiem i kwotami, a w tabeli pozycji kategorię
+  zmienia się prosto w wierszu (drzewo z wyszukiwarką). Kategoria należy do produktu, więc obowiązuje też przy
+  kolejnych zakupach. „Jedna kategoria dla wszystkich…” ustawia ją całemu paragonowi naraz.
+- Pod tabelą widać, czy suma pozycji zgadza się z kwotą transakcji, a jeśli nie — o ile się różni.
+- Zdjęcia paragonu jako miniatury z kafelkiem „Dodaj zdjęcie”.
+- Transakcja bez pozycji: zamiast pustej tabeli pasek „Dodaj zdjęcie paragonu / Dodaj pozycje” i lista
+  poprzednich transakcji z tym samym sklepem.
+- Pola po prawej zapisują się same — przycisk „Zapisz zmiany” zniknął.
+
 ## 0.1.20
 
 - Transakcje: „Zmień kategorię” przy zaznaczonych wierszach to teraz drzewo z wyszukiwarką zamiast długiej
