@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.26
+
+- Nowa transakcja na telefonie: pole „Komentarz” nie jest już ucięte, a formularz przewija się na niższych
+  ekranach. Data i godzina na iPhonie stoją przy lewej krawędzi jak reszta wartości.
+
 ## 0.1.25
 
 - Dodając transakcję na telefonie, możesz od razu dołączyć zdjęcie paragonu (z aparatu lub galerii) albo PDF.
