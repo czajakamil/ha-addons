@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.32
+
+- W Transakcjach sklep, którego jeszcze nie ma, tworzysz od razu w polu Sklep: wpisz nazwę i wybierz
+  „Utwórz sklep „…””. Gdy nic innego nie pasuje, wystarczy Enter. Jeśli zrobisz literówkę i zaraz
+  przepniesz transakcję na poprawny sklep, ten z literówką zniknie (o ile nie ma innych transakcji).
+- Podpowiedzi kategorii w Transakcjach znów pokazują zagnieżdżenie, np. „Dom › Domena Internetowa”,
+  a wpisanie nazwy grupy pokazuje też wszystkie jej podkategorie.
+- Pola w tabeli Transakcji (sklep, kategoria, kwota, godzina, komentarz) wpisujesz wprost w komórce,
+  bez dodatkowego, mniejszego pola z osobną ramką.
+- Esc w komentarzu anuluje zmiany. Wcześniej wpisany tekst i tak się zapisywał.
+
 ## 0.1.31
 
 - Płatności kartą z PKO mają nazwę sklepu zamiast sklejonego napisu z banku. Z „NOWY TARGKAUFLANDPL · CARD-PAYMENT”
