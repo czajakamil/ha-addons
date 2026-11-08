@@ -5,6 +5,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { Menu, X } from 'lucide-react';
 import { Toaster } from 'sonner';
 import AppSidebar from './components/AppSidebar';
+import MobileTabBar from './components/MobileTabBar';
 import CommandPalette from './components/CommandPalette';
 import WelcomeScreen from './components/WelcomeScreen';
 import AuthScreen from './components/AuthScreen';
@@ -379,6 +380,7 @@ const App = () => {
               </Suspense>
             </main>
           </div>
+          {!isDesktop && <MobileTabBar isMenuOpen={isSidebarOpen} onOpenMenu={toggleSidebar} />}
         </div>
       </div>
       <CommandPalette />

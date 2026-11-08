@@ -11,6 +11,7 @@
 @import './bank-import.css';
 @import './home.css';
 @import './transactions.css';
+@import './new-transaction.css';
 @import './panel.css';
 @import './items.css';
 @import './transaction-details.css';

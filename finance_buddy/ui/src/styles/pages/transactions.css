@@ -706,7 +706,8 @@
   .transactions-fab {
     position: fixed;
     inset-inline-end: var(--s-16);
-    inset-block-end: calc(var(--s-16) + env(safe-area-inset-bottom));
+    /* Nad dolnym paskiem kart */
+    inset-block-end: calc(var(--tabbar-height, 0px) + var(--s-16) + env(safe-area-inset-bottom));
     z-index: 5;
     display: flex;
     align-items: center;

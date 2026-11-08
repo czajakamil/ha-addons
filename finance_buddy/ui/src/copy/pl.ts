@@ -18,7 +18,9 @@ export const copy = {
     expand: 'Rozwiń menu',
     open: 'Otwórz menu',
     close: 'Zamknij menu',
-    mainNavigation: 'Główna nawigacja'
+    mainNavigation: 'Główna nawigacja',
+    tabBar: 'Nawigacja dolna',
+    more: 'Więcej'
   },
   user: {
     fallbackName: 'Użytkownik',

@@ -1,0 +1,459 @@
+/* ==========================================================================
+   „Nowa transakcja" na telefonie: pełny ekran z kwotą, wierszami pól i podekranami wyboru.
+   ========================================================================== */
+
+@layer components {
+  .new-tx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .new-tx::backdrop {
+    background: var(--bg);
+  }
+
+  .new-tx__screen,
+  .new-tx__form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .new-tx__header {
+    flex: none;
+    display: grid;
+    grid-template-columns: 88px 1fr 88px;
+    align-items: center;
+    height: 52px;
+    padding: 0 var(--s-8);
+  }
+
+  .new-tx__title {
+    margin: 0;
+    text-align: center;
+    font-size: 17px;
+    line-height: 24px;
+    font-weight: var(--weight-semibold);
+  }
+
+  .new-tx__icon-button,
+  .new-tx__back {
+    display: inline-flex;
+    align-items: center;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: var(--weight-regular);
+  }
+
+  .new-tx__icon-button {
+    justify-content: center;
+    width: 44px;
+    padding: 0;
+    border-radius: 999px;
+  }
+
+  .new-tx__back {
+    gap: 2px;
+    padding: 0 var(--s-8);
+  }
+
+  .new-tx__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-16);
+    padding: var(--s-4) var(--s-16) var(--s-24);
+  }
+
+  .new-tx__amount {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: var(--s-12) 0 var(--s-4);
+    text-align: center;
+  }
+
+  .new-tx__amount-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-8);
+    max-width: 100%;
+  }
+
+  .new-tx__sign {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 24px;
+    line-height: 24px;
+    font-weight: var(--weight-semibold);
+  }
+
+  .new-tx__sign.is-positive {
+    border-color: var(--positive);
+    color: var(--positive);
+  }
+
+  .new-tx .new-tx__amount-field {
+    display: flex;
+    flex-direction: row;
+    font-size: inherit;
+    font-weight: inherit;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .new-tx .new-tx__amount-field input {
+    min-width: 4ch;
+    max-width: 220px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 40px;
+    line-height: 48px;
+    font-weight: var(--weight-semibold);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .new-tx__currency {
+    color: var(--text-muted);
+    font-size: 22px;
+    line-height: 48px;
+    font-weight: var(--weight-medium);
+  }
+
+  .new-tx__muted {
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: 16px;
+  }
+
+  .new-tx__option-label .new-tx__muted,
+  .new-tx__row-value > .new-tx__muted {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .new-tx__muted-icon {
+    flex: none;
+    color: var(--text-muted);
+  }
+
+  .new-tx__hint {
+    white-space: normal;
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    line-height: 16px;
+  }
+
+  .new-tx__error {
+    margin: 0;
+    color: var(--negative);
+    font-size: var(--text-13);
+    text-align: center;
+  }
+
+  .new-tx__card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  .new-tx .new-tx__row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-12);
+    width: 100%;
+    min-height: 56px;
+    margin: 0;
+    padding: var(--s-8) 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: var(--weight-regular);
+    text-align: start;
+  }
+
+  .new-tx__row + .new-tx__row {
+    border-block-start: 1px solid var(--border);
+  }
+
+  .new-tx__row-label {
+    flex: none;
+    width: 92px;
+    color: var(--text-muted);
+    font-size: var(--text-14);
+  }
+
+  .new-tx__row-value {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .new-tx__row-value--stack {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .new-tx__inline {
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--s-8);
+    min-width: 0;
+  }
+
+  .new-tx__option-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .new-tx__dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .new-tx .new-tx__row-input,
+  .new-tx .new-tx__when input {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 16px; /* mniejsza czcionka powiększa stronę na iOS przy fokusie */
+    color-scheme: light dark;
+  }
+
+  .new-tx__row-input {
+    flex: 1;
+  }
+
+  .new-tx__when {
+    gap: var(--s-12);
+  }
+
+  .new-tx .new-tx__when input[type='date'] {
+    flex: 1 1 auto;
+  }
+
+  .new-tx .new-tx__when input[type='time'] {
+    flex: none;
+    width: 5.5em;
+  }
+
+  .new-tx__track {
+    flex: none;
+    display: flex;
+    width: 44px;
+    height: 26px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: background var(--motion-fast);
+  }
+
+  .new-tx__track::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--text-muted);
+    transition: transform var(--motion-fast), background var(--motion-fast);
+  }
+
+  .new-tx__switch[aria-checked='true'] .new-tx__track {
+    background: var(--text);
+  }
+
+  .new-tx__switch[aria-checked='true'] .new-tx__track::after {
+    background: var(--bg);
+    transform: translateX(18px);
+  }
+
+  .new-tx__receipt {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: 56px;
+    padding: var(--s-8) 14px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: var(--weight-regular);
+    text-align: start;
+  }
+
+  .new-tx__footer {
+    flex: none;
+    padding: var(--s-12) var(--s-16) calc(20px + env(safe-area-inset-bottom));
+    border-block-start: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .new-tx__submit {
+    width: 100%;
+    height: 50px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 16px;
+    font-weight: var(--weight-semibold);
+  }
+
+  .new-tx__submit:disabled {
+    opacity: 0.6;
+  }
+
+  /* Podekrany wyboru */
+  .new-tx__picker-search {
+    flex: none;
+    padding: 0 var(--s-16) var(--s-8);
+  }
+
+  .new-tx .new-tx__search {
+    display: flex;
+    flex-direction: row;
+    font-size: inherit;
+    font-weight: inherit;
+    align-items: center;
+    gap: var(--s-8);
+    height: 44px;
+    margin: 0;
+    padding: 0 var(--s-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+
+  .new-tx .new-tx__search input {
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 16px;
+  }
+
+  .new-tx__picker-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-block-end: var(--s-24);
+  }
+
+  .new-tx__section {
+    padding: 14px var(--s-16) 6px;
+    color: var(--text-muted);
+    font-size: var(--text-12);
+    font-weight: var(--weight-medium);
+  }
+
+  .new-tx__option {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    width: 100%;
+    min-height: 56px;
+    padding: 0 var(--s-16);
+    border: 0;
+    border-block-end: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: var(--weight-regular);
+    text-align: start;
+  }
+
+  .new-tx__option--compact {
+    gap: 10px;
+    min-height: 48px;
+  }
+
+  .new-tx__option--group {
+    font-weight: var(--weight-semibold);
+  }
+
+  .new-tx__option-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .new-tx__avatar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: var(--text-13);
+    font-weight: var(--weight-semibold);
+  }
+
+  .new-tx__empty {
+    margin: 0;
+    padding: var(--s-16);
+    color: var(--text-muted);
+    font-size: var(--text-13);
+  }
+}

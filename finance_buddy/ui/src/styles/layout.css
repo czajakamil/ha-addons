@@ -282,3 +282,64 @@
 .page-shell > .accounts-page__header:first-child {
   margin-top: 0;
 }
+
+/* Dolny pasek kart: tylko telefon. Treść dostaje zapas, żeby pasek jej nie zasłaniał. */
+@layer components {
+  .mobile-tabbar {
+    display: none;
+  }
+
+  @media (max-width: 700px) {
+    .mobile-tabbar {
+      position: fixed;
+      inset-inline: 0;
+      inset-block-end: 0;
+      z-index: 15; /* pod tłem i szufladą menu (--z-overlay, --z-sidebar) */
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+      padding-block-end: env(safe-area-inset-bottom);
+      border-block-start: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .app__main {
+      padding-block-end: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+    }
+  }
+
+  :root {
+    --tabbar-height: 60px;
+  }
+
+  .mobile-tabbar__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: var(--weight-regular);
+    text-decoration: none;
+  }
+
+  /* Wyżej niż globalny kolor linków */
+  .mobile-tabbar .mobile-tabbar__item {
+    color: var(--text-muted);
+  }
+
+  .mobile-tabbar .mobile-tabbar__item:hover,
+  .mobile-tabbar .mobile-tabbar__item[aria-current='page'] {
+    color: var(--text);
+  }
+
+  .mobile-tabbar .mobile-tabbar__item[aria-current='page'] {
+    font-weight: var(--weight-semibold);
+  }
+}

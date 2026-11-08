@@ -209,9 +209,13 @@ export const useTransactionsData = (scopedAccountId?: string) => {
     [accountMap, storeMap, categoryMap, formatTransferLabel]
   );
 
+  // Sklep dodany poza tym ekranem (np. przy nowej transakcji) — bez ponownego pobierania słownika
+  const addStore = useCallback((store: Store) => setStores((prev) => [...prev, store]), []);
+
   return {
     accounts,
     stores,
+    addStore,
     categories,
     products,
     setProducts,

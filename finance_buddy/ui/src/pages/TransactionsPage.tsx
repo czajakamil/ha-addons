@@ -14,6 +14,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUntaggedCount } from '../hooks/useUntaggedCount';
 import Button from '../components/Button';
 import NewTransactionModal from '../components/transactions/NewTransactionModal';
+import NewTransactionScreen from '../components/transactions/NewTransactionScreen';
 import DataTable, { type MoneyColumn } from '../components/DataTable';
 import BottomSheet from '../components/ui/BottomSheet';
 import EmptyState from '../components/ui/EmptyState';
@@ -105,6 +106,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
 
   const {
     stores,
+    addStore,
     categories,
     setProducts,
     transactions,
@@ -992,8 +994,24 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         </div>
       </BottomSheet>
 
+      <NewTransactionScreen
+        open={showModal && isCompact}
+        accounts={activeAccounts}
+        stores={stores}
+        categories={categories}
+        recentTransactions={transactions}
+        defaultAccountId={scope?.accountId}
+        onStoreCreated={addStore}
+        onClose={() => setShowModal(false)}
+        onCreated={async () => {
+          await loadTransactions(filters);
+          refreshUnclearedCount();
+          onScopeChanged?.();
+        }}
+      />
+
       <NewTransactionModal
-        open={showModal}
+        open={showModal && !isCompact}
         accounts={activeAccounts}
         stores={stores}
         categories={categories}
