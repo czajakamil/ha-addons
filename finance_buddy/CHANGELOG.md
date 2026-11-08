@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.25
+
+- Dodając transakcję na telefonie, możesz od razu dołączyć zdjęcie paragonu (z aparatu lub galerii) albo PDF.
+  Pliki widać jako miniatury, a po zapisie są w szczegółach transakcji w sekcji „Zdjęcia”.
+- Przycisk zdjęć nie zamyka już formularza, więc wpisane dane nie przepadają.
+  Pozycje z paragonu nie rozpoznają się jeszcze automatycznie — do tego nadal służy skrzynka Paragony.
+
 ## 0.1.24
 
 - Na telefonie na dole ekranu jest pasek kart: Start, Budżet, Transakcje, Raporty i „Więcej” (reszta menu).
