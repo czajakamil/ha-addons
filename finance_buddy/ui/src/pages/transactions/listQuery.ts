@@ -31,6 +31,7 @@ export const buildTransactionsPageQuery = (
     store_ids: filters.storeIds?.length ? filters.storeIds : undefined,
     category_ids: filters.categoryIds.length ? filters.categoryIds : undefined,
     search: needle || undefined,
+    uncleared_only: filters.unclearedOnly || undefined,
     offset,
     limit: TRANSACTIONS_PAGE_SIZE
   };

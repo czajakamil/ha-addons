@@ -46,6 +46,8 @@ def list_transactions_page(
     store_ids: list[str] | None = Query(None),
     category_ids: list[str] | None = Query(None),
     search: str | None = Query(None, max_length=200),
+    # Tylko niezatwierdzone — kolejka „Do zatwierdzenia" na telefonie
+    uncleared_only: bool = Query(False),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db_session),
@@ -62,6 +64,7 @@ def list_transactions_page(
         store_ids=store_ids,
         category_ids=category_ids,
         search=search,
+        uncleared_only=uncleared_only,
         offset=offset,
         limit=limit,
     )

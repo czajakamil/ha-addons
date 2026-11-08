@@ -9,12 +9,13 @@ import {
   type ColSpanArgs
 } from 'react-data-grid';
 import { ChevronDown, ChevronRight, ListFilter, PanelRightOpen, Plus, Receipt, Tags } from 'lucide-react';
-import { Store, Transaction, deleteTransaction, updateTransaction } from '../api';
+import { Store, Transaction, deleteTransaction, getTransactionsPage, updateTransaction } from '../api';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUntaggedCount } from '../hooks/useUntaggedCount';
 import Button from '../components/Button';
 import NewTransactionModal from '../components/transactions/NewTransactionModal';
 import DataTable, { type MoneyColumn } from '../components/DataTable';
+import BottomSheet from '../components/ui/BottomSheet';
 import EmptyState from '../components/ui/EmptyState';
 import Money, { formatSignedMoney } from '../components/ui/Money';
 import PageHeader from '../components/ui/PageHeader';
@@ -40,6 +41,9 @@ import TransactionsBulkReport from './transactions/components/TransactionsBulkRe
 import TransactionsFilters from './transactions/components/TransactionsFilters';
 import TransactionsContextMenu from './transactions/components/TransactionsContextMenu';
 import TransactionStatusCell from './transactions/components/TransactionStatusCell';
+import TransactionsMobileList from './transactions/components/TransactionsMobileList';
+import { buildMobileDays } from './transactions/mobileList';
+import { buildFilterTree, categoryFilterOptions } from './transactions/categoryFilter';
 import { formatCategoryPath } from '../utils/categoryPath';
 
 const labels = copy.transactions;
@@ -72,6 +76,12 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [bulkReport, setBulkReport] = useState<BulkReport | null>(null);
   const [showModal, setShowModal] = useState(false);
+  // Transakcja, której kategorię zmienia panel otwarty przesunięciem wiersza
+  const [categoryTarget, setCategoryTarget] = useState<Transaction | null>(null);
+  const [categorySearch, setCategorySearch] = useState('');
+  // Liczba niezatwierdzonych do baneru „Do zatwierdzenia"; zmiana klucza liczy od nowa
+  const [unclearedCount, setUnclearedCount] = useState(0);
+  const [unclearedKey, setUnclearedKey] = useState(0);
   // Rozwinięte transakcje trzymamy po id, a nie w danych — zwijanie ma przetrwać
   // przeładowanie listy po edycji.
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -171,6 +181,56 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     getLookupDisplayValue,
     openTransactionDetails
   });
+
+  const scopedAccountId = scope?.accountId;
+  useEffect(() => {
+    if (!isCompact) return;
+    let cancelled = false;
+    getTransactionsPage({
+      account_ids: scopedAccountId ? [scopedAccountId] : undefined,
+      uncleared_only: true,
+      limit: 1
+    })
+      .then((page) => {
+        if (!cancelled) setUnclearedCount(page.total);
+      })
+      .catch((err) => console.error(err));
+    return () => {
+      cancelled = true;
+    };
+  }, [isCompact, scopedAccountId, unclearedKey]);
+
+  const refreshUnclearedCount = useCallback(() => setUnclearedKey((key) => key + 1), []);
+
+  const toggleApprovedFromList = useCallback(
+    async (transaction: Transaction) => {
+      await toggleTransactionStatus(transaction);
+      refreshUnclearedCount();
+    },
+    [toggleTransactionStatus, refreshUnclearedCount]
+  );
+
+  const categoryTree = useMemo(() => buildFilterTree(categories), [categories]);
+
+  const assignCategory = async (transaction: Transaction, categoryId: string) => {
+    setCategoryTarget(null);
+    try {
+      const updated = await updateTransaction(transaction.id, { category_id: categoryId });
+      setEditedTransactions((prev) => prev.map((tx) => (tx.id === updated.id ? updated : tx)));
+      setInlineError(null);
+    } catch (err) {
+      console.error(err);
+      setInlineError(labels.categoryFailed);
+    }
+  };
+
+  const mobileDays = useMemo(
+    () =>
+      isCompact
+        ? buildMobileDays(transactions, { accountMap, storeMap, categoryMap, productMap, hideAccount: Boolean(scope) })
+        : [],
+    [isCompact, transactions, accountMap, storeMap, categoryMap, productMap, scope]
+  );
 
   useEffect(() => {
     if (!contextMenu) {
@@ -734,7 +794,13 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
 
   return (
     <div className={scope ? 'transactions-page transactions-page--account' : 'page-shell transactions-page'}>
-      {!scope && (
+      {!scope && isCompact && (
+        <div className="transactions-mobile-heading">
+          <h1 className="transactions-mobile-heading__title">{labels.title}</h1>
+          {!loading && <span className="transactions-mobile-heading__count">{countLabel}</span>}
+        </div>
+      )}
+      {!scope && !isCompact && (
         <PageHeader
           title={labels.title}
           actions={
@@ -765,7 +831,18 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         categories={categories}
         storeLabel={filters.storeIds?.length ? getStoreFilterLabel(storeMap.get(filters.storeIds[0])) : undefined}
         accountLocked={Boolean(scope)}
+        variant={isCompact ? 'mobile' : 'bar'}
       />
+
+      {isCompact && unclearedCount > 0 && !filters.unclearedOnly && (
+        <div className="transactions-review">
+          <span className="transactions-review__count">{unclearedCount}</span>
+          <span className="transactions-review__label">{labels.unclearedOnly}</span>
+          <Button variant="secondary" onClick={() => handleFiltersChange({ ...filters, unclearedOnly: true })}>
+            {labels.review}
+          </Button>
+        </div>
+      )}
 
       {selectedIds.size > 0 && (
         <TransactionsBulkBar
@@ -816,7 +893,10 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         </p>
       )}
 
-      <section className="transactions-card" aria-busy={refreshing || loadingMore}>
+      <section
+        className={isCompact ? 'transactions-card transactions-card--mobile' : 'transactions-card'}
+        aria-busy={refreshing || loadingMore}
+      >
         {loading && <SkeletonRows rows={12} />}
         {noResults && (
           <EmptyState
@@ -824,7 +904,24 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
             message={hasActiveFilters ? labels.empty : labels.emptyAll}
           />
         )}
-        {!loading && !error && !noResults && (
+        {!loading && !error && !noResults && isCompact && (
+          <TransactionsMobileList
+            days={mobileDays}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            onLoadMore={() => {
+              if (!refreshing) void loadMoreTransactions();
+            }}
+            statusUpdatingId={statusUpdatingId}
+            onOpen={(transaction) => openTransactionDetails(transaction.id)}
+            onToggleApproved={(transaction) => void toggleApprovedFromList(transaction)}
+            onPickCategory={(transaction) => {
+              setCategorySearch('');
+              setCategoryTarget(transaction);
+            }}
+          />
+        )}
+        {!loading && !error && !noResults && !isCompact && (
           <DataTable
             aria-label={labels.gridLabel}
             tableId={scope ? ACCOUNT_COLUMN_WIDTH_TABLE_ID : COLUMN_WIDTH_TABLE_ID}
@@ -849,7 +946,51 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         )}
       </section>
 
-      <p className="transactions-count">{loading ? '' : formatOperationsCount(transactions.length)} {totalCount !== null && !loading && transactions.length < totalCount ? `z ${countLabel}` : ''}</p>
+      {!isCompact && <p className="transactions-count">{loading ? '' : formatOperationsCount(transactions.length)} {totalCount !== null && !loading && transactions.length < totalCount ? `z ${countLabel}` : ''}</p>}
+
+      {isCompact && (
+        <button
+          type="button"
+          className="transactions-fab is-focusable"
+          aria-label={labels.newTransaction}
+          onClick={() => setShowModal(true)}
+        >
+          <Plus size={24} aria-hidden="true" />
+        </button>
+      )}
+
+      <BottomSheet
+        isOpen={categoryTarget !== null}
+        onClose={() => setCategoryTarget(null)}
+        title={labels.pickCategory}
+        closeLabel={labels.closeCategoryPicker}
+      >
+        <div className="transactions-category-picker">
+          <input
+            type="search"
+            className="form-control"
+            placeholder={labels.searchCategories}
+            aria-label={labels.searchCategories}
+            value={categorySearch}
+            onChange={(event) => setCategorySearch(event.target.value)}
+          />
+          <ul className="transactions-category-picker__list">
+            {categoryFilterOptions(categoryTree, categorySearch, [], null).map((option) => (
+              <li key={option.id}>
+                <button
+                  type="button"
+                  className="transactions-category-picker__option"
+                  aria-current={categoryTarget?.category_id === option.id ? 'true' : undefined}
+                  style={{ paddingInlineStart: 12 + (option.depth ?? 0) * 16 }}
+                  onClick={() => categoryTarget && void assignCategory(categoryTarget, option.id)}
+                >
+                  {option.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </BottomSheet>
 
       <NewTransactionModal
         open={showModal}
@@ -859,6 +1000,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
         onClose={() => setShowModal(false)}
         onCreated={async () => {
           await loadTransactions(filters);
+          refreshUnclearedCount();
           onScopeChanged?.();
         }}
       />

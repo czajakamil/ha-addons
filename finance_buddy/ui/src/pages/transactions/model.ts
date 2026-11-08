@@ -12,6 +12,8 @@ export type FilterState = {
   categoryIds: string[];
   // Strona sklepu prowadzi tu z gotowym filtrem (?stores=)
   storeIds?: string[];
+  // Tylko niezatwierdzone — kolejka „Do zatwierdzenia"
+  unclearedOnly?: boolean;
 };
 
 export type DatePreset = 'all' | 'thisMonth' | 'previousMonth' | 'last90' | 'year' | 'custom';

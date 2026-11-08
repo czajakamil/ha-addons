@@ -506,6 +506,7 @@ def _filtered_transactions(
     store_ids: Sequence[str] | None = None,
     account_ids: Sequence[str] | None = None,
     category_ids: Sequence[str] | None = None,
+    uncleared_only: bool = False,
 ) -> Select[tuple[Transaction]]:
     stmt = (
         select(Transaction)
@@ -546,6 +547,9 @@ def _filtered_transactions(
         else:
             _get_owned_or_404(db, Category, category_id, user_id, "Category")
             stmt = stmt.where(Transaction.category_id == category_id)
+
+    if uncleared_only:
+        stmt = stmt.where(Transaction.cleared.is_(False))
 
     if exclude_internal:
         stmt = stmt.where(~_is_internal_report_transaction())
@@ -610,6 +614,7 @@ def list_transactions_page(
     store_ids: Sequence[str] | None = None,
     category_ids: Sequence[str] | None = None,
     search: str | None = None,
+    uncleared_only: bool = False,
     offset: int = 0,
     limit: int = 50,
 ) -> dict[str, Any]:
@@ -627,6 +632,7 @@ def list_transactions_page(
         category_ids=category_ids,
         search=search,
         exclude_internal=False,
+        uncleared_only=uncleared_only,
     )
     ids = filtered.with_only_columns(Transaction.id).subquery()
     total = db.scalar(select(func.count()).select_from(ids)) or 0

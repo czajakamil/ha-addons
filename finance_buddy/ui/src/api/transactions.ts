@@ -94,6 +94,7 @@ export interface TransactionQueryParams {
   category_ids?: readonly string[];
   search?: string;
   exclude_internal?: boolean;
+  uncleared_only?: boolean;
   offset?: number;
   limit?: number;
 }
@@ -112,6 +113,7 @@ const toSearchParams = (params: TransactionQueryParams) => {
   if (typeof params.exclude_internal === 'boolean') {
     searchParams.set('exclude_internal', params.exclude_internal ? 'true' : 'false');
   }
+  if (params.uncleared_only) searchParams.set('uncleared_only', 'true');
   if (typeof params.offset === 'number') searchParams.set('offset', params.offset.toString());
   if (typeof params.limit === 'number') searchParams.set('limit', params.limit.toString());
   const query = searchParams.toString();
@@ -131,7 +133,7 @@ export interface TransactionPage {
 
 export type TransactionPageParams = Pick<
   TransactionQueryParams,
-  'start_date' | 'end_date' | 'account_id' | 'account_ids' | 'store_ids' | 'category_ids' | 'search' | 'offset' | 'limit'
+  'start_date' | 'end_date' | 'account_id' | 'account_ids' | 'store_ids' | 'category_ids' | 'search' | 'uncleared_only' | 'offset' | 'limit'
 >;
 
 export const getTransactionsPage = (params: TransactionPageParams = {}) =>
