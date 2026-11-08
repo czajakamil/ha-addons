@@ -141,6 +141,33 @@
     background: var(--surface);
   }
 
+  /* Komentarz edytujemy w polu na kilka linii, które nie mieści się w wierszu
+     tabeli (40 px). Edytor wychodzi więc ponad wiersz zamiast ściskać pole. */
+  .editable-cell.is-editing:has(> textarea) {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: 20;
+    height: auto;
+    min-width: 280px;
+    padding: var(--s-8);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+  }
+
+  .editable-cell.is-editing > textarea {
+    flex: none;
+    min-height: 72px;
+    resize: vertical;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+
+  .editable-cell.is-editing:has(> textarea) .editable-cell__meta {
+    margin-block-start: 0;
+  }
+
   .editable-cell__meta {
     margin-block-start: calc(var(--s-8) * 0.8);
     font-size: 0.7rem;
