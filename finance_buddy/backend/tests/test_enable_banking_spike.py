@@ -276,3 +276,15 @@ def test_stability_detects_shifted_numbering() -> None:
     text = "\n".join(eb.stability(old, new))
     assert "stare id obecne w nowym zrzucie: 2/2" in text
     assert "to samo id, INNA transakcja: 2" in text
+
+
+def test_iban_is_masked_in_output() -> None:
+    assert eb.mask_iban("PL82 1020 3466 0000 9002 0235 8398") == "…8398"
+    assert eb.mask_iban(None) == "?"
+    text = "\n".join(
+        eb.analyze_account(
+            {"uid": "u1", "iban": "PL82102034660000900202358398", "transactions": []}
+        )
+    )
+    assert "…8398" in text
+    assert "PL8210" not in text

@@ -338,13 +338,21 @@ def _pct(part: int, whole: int) -> str:
     return f"{part}/{whole} ({100 * part / whole:.0f}%)" if whole else "0/0"
 
 
+def mask_iban(value: object) -> str:
+    """Ostatnie 4 cyfry wystarczą, żeby odróżnić konta; pełny IBAN nie trafia na ekran."""
+    iban = "".join(str(value or "").split())
+    if not iban:
+        return "?"
+    return f"…{iban[-4:]}" if len(iban) > 4 else "****"
+
+
 def analyze_account(account: dict) -> list[str]:
     txs: list[dict] = account.get("transactions") or []
     rows = normalize(txs)
     lines = [
         (
             f"Konto {account.get('name') or account.get('uid')} "
-            f"({account.get('iban') or '?'}, {account.get('currency') or '?'})"
+            f"({mask_iban(account.get('iban'))}, {account.get('currency') or '?'})"
         ),
         f"  transakcji: {len(rows)}, zapytań o transakcje: {account.get('pages', '?')}",
     ]
@@ -680,10 +688,8 @@ def cmd_session(args: argparse.Namespace) -> None:
     pending_path.unlink(missing_ok=True)
     print(f"Sesja zapisana w {args.state_dir / 'session.json'}")
     for acc in session.get("accounts", []):
-        iban = (acc.get("account_id") or {}).get("iban")
-        print(
-            f"  {acc['uid']}  {iban or '-'}  {acc.get('name') or '-'}  {acc.get('currency') or '-'}"
-        )
+        iban = mask_iban((acc.get("account_id") or {}).get("iban"))
+        print(f"  {acc['uid']}  {iban}  {acc.get('name') or '-'}  {acc.get('currency') or '-'}")
 
 
 def cmd_dump(args: argparse.Namespace) -> None:
