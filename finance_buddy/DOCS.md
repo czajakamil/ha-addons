@@ -27,6 +27,31 @@ Nie wystawiaj portu aplikacji: `nginx` przyjmuje ruch tylko od bramy Ingress.
 `/share` jest widoczny przez dodatek Samba, a kopie zawierają całą historię finansową.
 Jeśli udostępniasz ten folder innym osobom, ustaw `backup_dir` na `/data/backups`.
 
+## Połączenie z bankiem
+
+Transakcje mogą spływać z banku same, przez [Enable Banking](https://enablebanking.com)
+(PSD2). Dla własnych kont jest to bezpłatne.
+
+1. Załóż konto na enablebanking.com i dodaj aplikację w trybie produkcyjnym. Jako
+   Redirect URL wpisz dowolny adres, np. `https://czajakamil.github.io/ha-addons/eb-callback`.
+   Strona nie musi istnieć: dodatek nie ma publicznego adresu, więc adres powrotu
+   wklejasz ręcznie.
+2. W panelu Enable Banking podepnij swoje konta (aplikacja prywatna widzi tylko je).
+3. W Finance Buddy otwórz **Panel → Połączenia z bankiem**, wpisz Application ID
+   i wgraj plik `.pem`.
+4. **Wybierz bank**, zaloguj się w nim, a po powrocie skopiuj cały adres z paska
+   przeglądarki i wklej go w aplikacji.
+5. Przy każdym rachunku wybierz konto w aplikacji. Jeśli konto ma już transakcje
+   z wyciągu CSV, „Pobieraj od” ustawia się na dzień po ostatniej z nich.
+
+Aplikacja pobiera transakcje co 12 godzin, a przycisk **Pobierz teraz** od razu.
+Bierze tylko zaksięgowane operacje i łączy je z tymi, które już są (ręczne, z YNAB,
+z paragonów). Każde pobranie widać w historii importu i można je cofnąć. Zgoda banku
+wygasa najpóźniej po 180 dniach; wtedy użyj **Połącz ponownie**.
+
+Klucz `.pem` leży w `/data`, więc trafia do kopii zapasowych Home Assistanta,
+ale nie do kopii aplikacji w `/share`.
+
 ## Przeniesienie istniejących danych
 
 Przy starcie, gdy aplikacja nie ma jeszcze bazy, importuje dane z

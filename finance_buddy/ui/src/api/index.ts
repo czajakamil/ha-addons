@@ -13,3 +13,4 @@ export * from './demo';
 export * from './system';
 export * from './bankImport';
 export * from './home';
+export * from './bankSync';

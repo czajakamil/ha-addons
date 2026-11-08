@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     backup_keep_monthly: int = Field(6, ge=0, alias="FINANCE_BACKUP_KEEP_MONTHLY")
     backup_include_attachments: bool = Field(True, alias="FINANCE_BACKUP_ATTACHMENTS")
 
+    # Pobieranie z banków (Enable Banking) w tle. PSD2 pozwala na ok. 4 pobrania
+    # na dobę bez użytkownika, więc 12 h zostawia zapas na „Pobierz teraz". 0 = wyłączone.
+    bank_sync_interval_hours: float = Field(12, ge=0, alias="FINANCE_BANK_SYNC_INTERVAL_HOURS")
+
     passkey_rp_id: str = Field("localhost", alias="PASSKEY_RP_ID")
     passkey_rp_name: str = Field("Finance Buddy", alias="PASSKEY_RP_NAME")
     passkey_origins: str = Field("http://localhost:5173", alias="PASSKEY_ORIGINS")

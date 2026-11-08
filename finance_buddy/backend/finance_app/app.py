@@ -30,6 +30,7 @@ from .routers import (
     accounts,
     auth,
     bank_import,
+    bank_sync,
     budget,
     categories,
     demo,
@@ -44,6 +45,7 @@ from .routers import (
     ynab,
 )
 from .services import backups
+from .services import bank_sync as bank_sync_service
 
 setup_logging(
     log_level=settings.log_level,
@@ -80,14 +82,15 @@ async def lifespan(_: FastAPI):
     # Alembic's own env.py would find a populated DB and its migrations fail).
     init_db()
     log_startup()
-    scheduler = _start_backup_scheduler()
+    tasks = [t for t in (_start_backup_scheduler(), _start_bank_sync_scheduler()) if t]
     try:
         yield
     finally:
-        if scheduler is not None:
-            scheduler.cancel()
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
             with contextlib.suppress(asyncio.CancelledError):
-                await scheduler
+                await task
 
 
 def _start_backup_scheduler() -> asyncio.Task[None] | None:
@@ -100,6 +103,16 @@ def _start_backup_scheduler() -> asyncio.Task[None] | None:
         "Automatic backups every %g h into %s", settings.backup_interval_hours, config.backup_dir
     )
     return asyncio.create_task(backups.run_scheduler(config, interval), name="backup-scheduler")
+
+
+def _start_bank_sync_scheduler() -> asyncio.Task[None] | None:
+    if settings.bank_sync_interval_hours <= 0 or settings.db_path == ":memory:":
+        log.info("Background bank sync disabled.")
+        return None
+    interval = dt.timedelta(hours=settings.bank_sync_interval_hours)
+    return asyncio.create_task(
+        bank_sync_service.run_scheduler(interval, SessionLocal), name="bank-sync-scheduler"
+    )
 
 
 app = FastAPI(title="Finance API", lifespan=lifespan)
@@ -183,6 +196,7 @@ app.include_router(home.router)
 app.include_router(transactions.router)
 app.include_router(receipts.router)
 app.include_router(bank_import.router)
+app.include_router(bank_sync.router)
 app.include_router(reports.router)
 app.include_router(ynab.router)
 app.include_router(system.router)

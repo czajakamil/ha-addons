@@ -846,4 +846,82 @@ class BankImportBatch(Base):
     profile: Mapped[BankImportProfile | None] = relationship()
 
 
+class BankConnection(Base):
+    """Zgoda PSD2 w jednym banku przez Enable Banking.
+
+    `pending` = użytkownik poszedł do banku, czekamy na wklejony adres powrotu
+    (`auth_state` go weryfikuje). `active` = mamy `session_id`. `expired` =
+    zgoda wygasła albo bank ją odrzucił — trzeba połączyć ponownie, a nowa
+    sesja da kontom nowe `uid`. Projekt: docs/design/enable-banking.md §4.
+    """
+
+    __tablename__ = "bank_connections"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    aspsp_name: Mapped[str] = mapped_column(Text, nullable=False)
+    aspsp_country: Mapped[str] = mapped_column(String(2), nullable=False)
+    psu_type: Mapped[str] = mapped_column(String(16), nullable=False, default="personal")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    auth_state: Mapped[str | None] = mapped_column(String(64))
+    session_id: Mapped[str | None] = mapped_column(String)
+    valid_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_synced_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+    accounts: Mapped[list[BankConnectionAccount]] = relationship(
+        back_populates="connection",
+        cascade="all, delete-orphan",
+        order_by="BankConnectionAccount.created_at",
+    )
+
+
+class BankConnectionAccount(Base):
+    """Rachunek w banku z powiązaniem do konta w aplikacji.
+
+    Bez powiązania (`account_id` = None) rachunek się nie synchronizuje. IBAN
+    trzymamy tylko jako końcówkę do wyświetlenia i odcisk do przepięcia
+    powiązań po ponownej zgodzie.
+    """
+
+    __tablename__ = "bank_connection_accounts"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    connection_id: Mapped[str] = mapped_column(
+        String, ForeignKey("bank_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    uid: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str | None] = mapped_column(Text)
+    iban_masked: Mapped[str | None] = mapped_column(String(16))
+    iban_hash: Mapped[str | None] = mapped_column(String(64))
+    currency: Mapped[str | None] = mapped_column(String(3))
+    account_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("accounts.id", ondelete="SET NULL")
+    )
+    # Najwcześniejsza data do pobrania. Domyślnie dzień po ostatniej transakcji
+    # z wyciągu CSV na tym koncie — wiersze z CSV mają inne `external_id`, więc
+    # sito 1 ich nie rozpozna, a sito 2 celowo pomija transakcje z banku.
+    sync_from: Mapped[date | None] = mapped_column(Date)
+    last_synced_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Najnowsza zaksięgowana data z banku — kolejne pobranie zaczyna kilka dni
+    # przed nią, a duplikaty wycina sito 1.
+    last_booked_date: Mapped[date | None] = mapped_column(Date)
+    bank_balance_cents: Mapped[int | None] = mapped_column(BigInteger)
+    bank_balance_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+    connection: Mapped[BankConnection] = relationship(back_populates="accounts")
+    account: Mapped[Account | None] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("connection_id", "uid", name="uq_bank_connection_account_uid"),
+    )
+
+
 # Database helpers live in backend/finance_app/db.py

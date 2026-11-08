@@ -50,6 +50,7 @@ from ..schemas import (
     BankPreviewRow,
     BankPreviousImport,
     BankRowAction,
+    BankRowDecision,
     BankRowStatus,
 )
 from . import bank_csv
@@ -261,13 +262,24 @@ def analyze(db: Session, user_id: str, content: bytes, spec: BankImportSpec) -> 
         raise _bad_request(errors)
     options = bank_csv.resolve_value_formats(table, mapping)
     analysis = Analysis(account=account, table=table, options=options, mapping=mapping)
+    analysis.rows = [
+        AnalyzedRow(parsed=parsed, status=parsed.status, reason=parsed.reason)
+        for parsed in bank_csv.apply_mapping(table, mapping, options)
+    ]
+    sieve(db, user_id, account, analysis.rows)
+    return analysis
 
+
+def sieve(db: Session, user_id: str, account: Account, rows: list[AnalyzedRow]) -> None:
+    """Nadaje status wierszom, które parser uznał za poprawne — trzy sita z nagłówka.
+
+    Wspólne dla wyciągu CSV i synchronizacji z banku (services/bank_sync.py).
+    """
     seen_ids: set[str] = set()
     pending: list[AnalyzedRow] = []
-    for parsed in bank_csv.apply_mapping(table, mapping, options):
-        row = AnalyzedRow(parsed=parsed, status=parsed.status, reason=parsed.reason)
-        analysis.rows.append(row)
-        if parsed.status != bank_csv.ROW_OK:
+    for row in rows:
+        parsed = row.parsed
+        if row.status != bank_csv.ROW_OK:
             continue
         if parsed.currency and parsed.currency != account.currency:
             row.status = STATUS_OTHER_CURRENCY
@@ -321,7 +333,6 @@ def analyze(db: Session, user_id: str, content: bytes, spec: BankImportSpec) -> 
     for row in remaining:
         if row.status == bank_csv.ROW_OK:
             row.status = STATUS_NEW
-    return analysis
 
 
 def _load(db: Session, ids: list[str]) -> list[Transaction]:
@@ -491,13 +502,52 @@ def commit(
     db.add(batch)
     db.flush()
 
+    created, merged, skipped, merged_ids, dates = write_rows(
+        db, user_id, account, list(rows.values()), decisions, batch
+    )
+
+    batch.profile_id = _save_profile(db, user_id, request, analysis)
+    fill_batch(batch, created, merged, skipped, merged_ids, dates)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Część wierszy została w międzyczasie zaimportowana — odśwież podgląd.",
+        ) from exc
+    db.refresh(batch)
+    return serialize_batch(batch)
+
+
+def default_decisions(rows: list[AnalyzedRow]) -> dict[int, BankRowDecision]:
+    """Decyzje, jakie podgląd proponuje: nowe dodaj, dopasowane scal, przelew sparuj."""
+    return {
+        r.parsed.index: BankRowDecision(row=r.parsed.index, action=_DEFAULT_ACTION[r.status])
+        for r in rows
+        if r.status in _DEFAULT_ACTION
+    }
+
+
+def write_rows(
+    db: Session,
+    user_id: str,
+    account: Account,
+    rows: list[AnalyzedRow],
+    decisions: dict[int, BankRowDecision],
+    batch: BankImportBatch,
+) -> tuple[int, int, int, list[str], list[dt.date]]:
+    """Zapis wierszy po sitach według decyzji.
+
+    Zwraca (dodane, scalone, pominięte, id scalonych, daty zapisanych wierszy).
+    """
     stores = load_matcher(db, user_id)
     created = merged = skipped = 0
     merged_ids: list[str] = []
     dates: list[dt.date] = []
 
-    for index, row in rows.items():
-        decision = decisions.get(index)
+    for row in rows:
+        decision = decisions.get(row.parsed.index)
         if decision is None or decision.action == "skip" or row.status in _NEVER_IMPORTED:
             if row.status not in (STATUS_SKIPPED, STATUS_INVALID):
                 skipped += 1
@@ -529,23 +579,23 @@ def commit(
                 partner.transfer_transaction_id = tx.id
         created += 1
 
-    batch.profile_id = _save_profile(db, user_id, request, analysis)
+    return created, merged, skipped, merged_ids, dates
+
+
+def fill_batch(
+    batch: BankImportBatch,
+    created: int,
+    merged: int,
+    skipped: int,
+    merged_ids: list[str],
+    dates: list[dt.date],
+) -> None:
     batch.created_count = created
     batch.merged_count = merged
     batch.skipped_count = skipped
     batch.merged_transaction_ids = merged_ids
     batch.date_from = min(dates) if dates else None
     batch.date_to = max(dates) if dates else None
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Część wierszy została w międzyczasie zaimportowana — odśwież podgląd.",
-        ) from exc
-    db.refresh(batch)
-    return serialize_batch(batch)
 
 
 def _apply_transfer(

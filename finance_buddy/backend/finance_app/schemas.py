@@ -1452,3 +1452,89 @@ __all__ = [
     "YnabSettingsRead",
     "YnabSettingsUpdate",
 ]
+
+
+# --- Enable Banking ---------------------------------------------------------------
+
+
+class BankSyncSettingsRead(BaseModel):
+    configured: bool = False
+    app_id: str | None = None
+    app_name: str | None = None
+    redirect_url: str | None = None
+
+
+class BankSyncSettingsUpdate(BaseModel):
+    app_id: str = Field(min_length=1, max_length=64)
+    private_key_pem: str = Field(min_length=1, max_length=20_000)
+
+
+class BankAspspRead(BaseModel):
+    name: str
+    country: str
+    logo: str | None = None
+    max_consent_days: int
+    psu_types: list[str] = Field(default_factory=list)
+
+
+class BankConnectionStart(BaseModel):
+    aspsp_name: str = Field(min_length=1)
+    country: str = Field(default="PL", min_length=2, max_length=2)
+    psu_type: Literal["personal", "business"] = "personal"
+
+
+class BankConnectionStartResponse(BaseModel):
+    connection_id: str
+    url: str
+    valid_until: dt.datetime
+
+
+class BankConnectionComplete(BaseModel):
+    redirect: str = Field(min_length=1, max_length=4000)
+
+
+class BankConnectionAccountRead(BaseModel):
+    id: str
+    uid: str
+    name: str | None = None
+    iban_masked: str | None = None
+    currency: str | None = None
+    account_id: str | None = None
+    account_name: str | None = None
+    account_balance_cents: int | None = None
+    sync_from: dt.date | None = None
+    last_synced_at: dt.datetime | None = None
+    last_booked_date: dt.date | None = None
+    bank_balance_cents: int | None = None
+    bank_balance_at: dt.datetime | None = None
+
+
+class BankConnectionAccountUpdate(BaseModel):
+    account_id: str | None = None
+    sync_from: dt.date | None = None
+
+
+class BankConnectionRead(BaseModel):
+    id: str
+    aspsp_name: str
+    aspsp_country: str
+    status: Literal["pending", "active", "expired"]
+    valid_until: dt.datetime | None = None
+    last_synced_at: dt.datetime | None = None
+    last_error: str | None = None
+    created_at: dt.datetime
+    accounts: list[BankConnectionAccountRead] = Field(default_factory=list)
+
+
+class BankSyncAccountResult(BaseModel):
+    connection_account_id: str
+    account_name: str | None = None
+    created: int = 0
+    merged: int = 0
+    batch_id: str | None = None
+    error: str | None = None
+
+
+class BankSyncResult(BaseModel):
+    connection: BankConnectionRead
+    accounts: list[BankSyncAccountResult] = Field(default_factory=list)

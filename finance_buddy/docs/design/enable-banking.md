@@ -1,6 +1,7 @@
 # Enable Banking — synchronizacja z bankiem przez PSD2
 
-Stan: **research i spike zakończone dla PKO BP, integracja nie zaczęta.**
+Stan: **integracja w aplikacji (0.1.28)** — `services/enable_banking.py` (klient),
+`services/bank_sync.py` (zgody, pobieranie), Panel → Połączenia z bankiem.
 Narzędzie testowe: `backend/scripts/enable_banking_spike.py` (instrukcja w docstringu).
 
 ## 1. Dlaczego Enable Banking
@@ -44,6 +45,10 @@ Narzędzie testowe: `backend/scripts/enable_banking_spike.py` (instrukcja w docs
   wykaże przesuwanie numeracji PKO, odcisk staje się podstawą także dla PKO.
 - **Import przez istniejące sita** (`services/bank_import.py`): wiersz z API →
   `ParsedRow`; `analyze()` trzeba rozdzielić na parsowanie CSV i sita.
+- **Pierwsze pobranie** sięga 90 dni wstecz, ale nie wcześniej niż `sync_from`
+  rachunku — domyślnie dzień po ostatniej transakcji z CSV na koncie. Wiersze
+  z CSV mają inne `external_id`, a sito 2 celowo pomija transakcje z banku,
+  więc bez tej granicy pierwsze pobranie zdublowałoby wyciąg.
 - **Tylko zaksięgowane.** Okno pobierania: od ostatniej zaksięgowanej daty
   minus ~7 dni; duplikaty wycina sito 1.
 - **Kompletność:** porównanie `balance_after_transaction` i salda `ITBD`

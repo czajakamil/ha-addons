@@ -2,6 +2,7 @@ import { useApi } from '../hooks/useApi';
 import { getSession, type AuthUser } from '../api';
 import PageHeader from '../components/ui/PageHeader';
 import BackupsCard from './panel/BackupsCard';
+import BankSyncSection from './panel/BankSyncSection';
 import UsersSection from './panel/UsersSection';
 import YnabSection from './panel/YnabSection';
 
@@ -56,6 +57,7 @@ const UsersPage = () => {
         </div>
       </section>
 
+      <BankSyncSection />
       <YnabSection />
       {isAdmin && <UsersSection currentUserId={currentUser.id} />}
       {isAdmin && <BackupsCard />}
