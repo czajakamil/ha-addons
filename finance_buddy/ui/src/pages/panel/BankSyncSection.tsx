@@ -291,7 +291,8 @@ const ConnectionCard = ({
       )}
       {connection.accounts.length === 0 ? (
         <p className="account-hint">
-          Bank nie udostępnił jeszcze żadnego rachunku. „Pobierz teraz” zapyta go ponownie.
+          Bank nie udostępnił żadnego rachunku. Prywatna aplikacja w Enable Banking widzi tylko
+          rachunki podpięte w jej panelu — dodaj tam ten rachunek i kliknij „Połącz ponownie”.
         </p>
       ) : (
         connection.accounts.map((link) => (
@@ -404,7 +405,7 @@ const BankSyncSection = () => {
         toast(
           result.connection.accounts.length
             ? 'Bank udostępnił rachunki — wybierz dla nich konta.'
-            : 'Bank nadal nie udostępnia rachunków. Spróbuj połączyć ponownie.'
+            : 'Bank nie udostępnia rachunków. Podepnij je w panelu Enable Banking.'
         );
       else toast(syncSummary(result));
     } catch (err) {
