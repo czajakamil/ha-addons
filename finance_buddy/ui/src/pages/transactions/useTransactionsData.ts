@@ -14,6 +14,7 @@ import {
   getAllItems,
   getAllStores
 } from '../../api';
+import { categoryLookupLabel } from '../../components/transactions/lookupOptions';
 import { type EditableLookupField, type FilterState } from './model';
 import { expandCategoryParam } from './categoryFilter';
 import { SEARCH_DEBOUNCE_MS, appendTransactionsPage, fetchTransactionsPage } from './listQuery';
@@ -204,18 +205,23 @@ export const useTransactionsData = (scopedAccountId?: string) => {
         return group || name;
       }
       if (!tx.category_id) return '';
-      return categoryMap.get(tx.category_id)?.name ?? '';
+      return categoryLookupLabel(tx.category_id, categoryMap);
     },
     [accountMap, storeMap, categoryMap, formatTransferLabel]
   );
 
   // Sklep dodany poza tym ekranem (np. przy nowej transakcji) — bez ponownego pobierania słownika
   const addStore = useCallback((store: Store) => setStores((prev) => [...prev, store]), []);
+  const removeStore = useCallback(
+    (storeId: string) => setStores((prev) => prev.filter((store) => store.id !== storeId)),
+    []
+  );
 
   return {
     accounts,
     stores,
     addStore,
+    removeStore,
     categories,
     products,
     setProducts,

@@ -409,7 +409,7 @@ export const useBreakdownEditing = ({
 
       if (isEditing) {
         return (
-          <div className="editable-cell editable-cell--numeric align-middle">
+          <div className="editable-cell editable-cell--numeric align-middle is-editing">
             <AmountEditCell
               value={editingBreakdownAmount?.value ?? ''}
               disabled={isSaving}

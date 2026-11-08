@@ -1,4 +1,4 @@
-import type { Account, Store } from '../../api';
+import type { Account, Category, Store } from '../../api';
 
 /**
  * Pozycja listy wyboru. Zapis idzie po `id`, a `label` to pełna nazwa do filtrowania
@@ -8,7 +8,8 @@ export type LookupOption = {
   id: string;
   label: string;
   rowLabel?: string;
-  kind: 'entry' | 'transfer';
+  // 'create' to pozycja „Utwórz…” z wpisanego tekstu (label = ten tekst), nie istniejąca wartość.
+  kind: 'entry' | 'transfer' | 'create';
 };
 
 export type TypedLookupResult =
@@ -80,3 +81,43 @@ export const buildTransferOptions = (accounts: Account[]): LookupOption[] =>
     const rowLabel = `${account.name}${account.currency ? ` (${account.currency})` : ''}`;
     return { id: account.id, label: `Przelew: ${rowLabel}`, rowLabel, kind: 'transfer' };
   });
+
+type CategoryLike = Pick<Category, 'id' | 'name' | 'parent_id'>;
+
+/** Pełna ścieżka kategorii z nazw przodków: „Dom › Domena Internetowa”. */
+export const categoryLookupLabel = (
+  categoryId: string,
+  byId: ReadonlyMap<string, CategoryLike>
+): string => {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  let current = byId.get(categoryId);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    names.unshift(current.name.trim());
+    current = current.parent_id ? byId.get(current.parent_id) : undefined;
+  }
+  return names.join(' › ');
+};
+
+/**
+ * Kategorie do wyboru w kolejności drzewa (rodzic, potem jego dzieci), każda z pełną
+ * ścieżką — po samej nazwie podkategorii nie widać, pod czym wisi.
+ */
+export const buildCategoryOptions = (categories: readonly CategoryLike[]): LookupOption[] => {
+  const byId = new Map(categories.map((category) => [category.id, category]));
+  const children = new Map<string | null, CategoryLike[]>();
+  categories.forEach((category) => {
+    const parent = category.parent_id && byId.has(category.parent_id) ? category.parent_id : null;
+    children.set(parent, [...(children.get(parent) ?? []), category]);
+  });
+  const options: LookupOption[] = [];
+  const visit = (parentId: string | null) => {
+    (children.get(parentId) ?? []).forEach((category) => {
+      options.push({ id: category.id, label: categoryLookupLabel(category.id, byId), kind: 'entry' });
+      visit(category.id);
+    });
+  };
+  visit(null);
+  return options;
+};

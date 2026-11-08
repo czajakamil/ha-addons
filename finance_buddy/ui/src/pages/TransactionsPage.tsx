@@ -107,6 +107,7 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
   const {
     stores,
     addStore,
+    removeStore,
     categories,
     setProducts,
     transactions,
@@ -181,7 +182,9 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     storeMap,
     categoryMap,
     getLookupDisplayValue,
-    openTransactionDetails
+    openTransactionDetails,
+    addStore,
+    removeStore
   });
 
   const scopedAccountId = scope?.accountId;

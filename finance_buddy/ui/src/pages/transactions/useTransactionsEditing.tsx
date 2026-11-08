@@ -1,13 +1,25 @@
 // Edycja inline wierszy transakcji: komentarz, kwota, pola słownikowe
 // (konto/sklep/kategoria) oraz cykliczna zmiana statusu. Zwraca funkcje renderujące
 // komórki i handlery zdarzeń siatki, z których korzysta TransactionsPage.
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { type CellKeyboardEvent } from 'react-data-grid';
-import { Account, Category, Item, Store, Transaction, updateItem, updateTransaction } from '../../api';
+import {
+  Account,
+  Category,
+  Item,
+  Store,
+  Transaction,
+  createStore,
+  deleteStore,
+  updateItem,
+  updateTransaction
+} from '../../api';
 import LookupAutocompleteInput from '../../components/transactions/LookupAutocompleteInput';
 import {
+  buildCategoryOptions,
   buildStoreOptions,
+  categoryLookupLabel,
   buildTransferOptions,
   type LookupOption
 } from '../../components/transactions/lookupOptions';
@@ -41,6 +53,8 @@ type UseTransactionsEditingParams = {
   categoryMap: Map<string, Category>;
   getLookupDisplayValue: (tx: Transaction, field: EditableLookupField) => string;
   openTransactionDetails: (transactionId: string) => void;
+  addStore: (store: Store) => void;
+  removeStore: (storeId: string) => void;
 };
 
 /**
@@ -64,8 +78,15 @@ export const useTransactionsEditing = ({
   storeMap,
   categoryMap,
   getLookupDisplayValue,
-  openTransactionDetails
+  openTransactionDetails,
+  addStore,
+  removeStore
 }: UseTransactionsEditingParams) => {
+  // Sklepy utworzone z pola Sklep na tym ekranie. Gdy transakcję zaraz przepniemy na
+  // inny sklep (poprawka literówki), porzucony nowy sklep usuwamy — backend i tak
+  // odmówi, jeśli ma jeszcze jakieś transakcje.
+  const createdStoreIdsRef = useRef(new Set<string>());
+  const categoryOptions = useMemo(() => buildCategoryOptions(categories), [categories]);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [savingFieldTransactionId, setSavingFieldTransactionId] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
@@ -171,6 +192,16 @@ export const useTransactionsEditing = ({
     [getLookupDisplayValue]
   );
 
+  const dropAbandonedStore = async (storeId: string) => {
+    try {
+      await deleteStore(storeId);
+      createdStoreIdsRef.current.delete(storeId);
+      removeStore(storeId);
+    } catch {
+      // Sklep ma jeszcze inne transakcje — zostaje.
+    }
+  };
+
   const commitLookupEdit = async (option: LookupOption | null) => {
     if (!editingLookup) return;
 
@@ -194,9 +225,25 @@ export const useTransactionsEditing = ({
       return;
     }
 
-    const newId = option?.id ?? null;
+    let newId = option?.id ?? null;
 
     if (field === 'store') {
+      const previousStoreId = tx.store_id ?? null;
+      setSavingFieldTransactionId(tx.id);
+      if (option?.kind === 'create') {
+        try {
+          const created = await createStore({ name: option.label.trim() });
+          addStore(created);
+          createdStoreIdsRef.current.add(created.id);
+          newId = created.id;
+        } catch (err) {
+          console.error(err);
+          setInlineError('Nie udało się utworzyć sklepu.');
+          setSavingFieldTransactionId(null);
+          setEditingLookup(null);
+          return;
+        }
+      }
       // obsługa przelewów między własnymi kontami
       const payload: Record<string, string | null> =
         option?.kind === 'transfer'
@@ -211,11 +258,17 @@ export const useTransactionsEditing = ({
               transfer_account_id: null,
               transfer_transaction_id: null
             };
-      setSavingFieldTransactionId(tx.id);
       try {
         const updated = await updateTransaction(tx.id, payload);
         setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         setInlineError(null);
+        if (
+          previousStoreId &&
+          previousStoreId !== updated.store_id &&
+          createdStoreIdsRef.current.has(previousStoreId)
+        ) {
+          void dropAbandonedStore(previousStoreId);
+        }
       } catch (err) {
         console.error(err);
         setInlineError('Nie udało się zaktualizować pola.');
@@ -335,7 +388,7 @@ export const useTransactionsEditing = ({
 
   const startEditingItemCategory = useCallback(
     (rowId: string, productId: string, category: Category | null) => {
-      setEditingItemCategory({ rowId, productId, inputValue: category?.name ?? '' });
+      setEditingItemCategory({ rowId, productId, inputValue: category ? categoryLookupLabel(category.id, categoryMap) : '' });
     },
     []
   );
@@ -436,7 +489,7 @@ export const useTransactionsEditing = ({
           ? activeAccounts.map((a) => ({ id: a.id, label: a.name, kind: 'entry' }))
           : field === 'store'
           ? [...buildStoreOptions(stores), ...buildTransferOptions(activeAccounts)]
-          : categories.map((c) => ({ id: c.id, label: c.name, kind: 'entry' }));
+          : categoryOptions;
       const className = ['editable-cell', 'align-middle', 'is-editing']
         .filter(Boolean)
         .join(' ');
@@ -448,6 +501,7 @@ export const useTransactionsEditing = ({
             disabled={isSaving}
             options={options}
             placeholder={field === 'store' ? 'Szukaj sklepu lub konta' : undefined}
+            createLabel={field === 'store' ? (text) => `Utwórz sklep „${text}”` : undefined}
             onInputChange={(value) =>
               setEditingLookup((prev) => (prev ? { ...prev, inputValue: value } : prev))
             }
@@ -508,7 +562,7 @@ export const useTransactionsEditing = ({
 
     if (isEditing) {
       return (
-        <div className="editable-cell editable-cell--numeric align-middle">
+        <div className="editable-cell editable-cell--numeric align-middle is-editing">
           <AmountEditCell
             value={editingAmount?.value ?? ''}
             disabled={isSaving}
@@ -537,7 +591,7 @@ export const useTransactionsEditing = ({
           <LookupAutocompleteInput
             inputValue={editingItemCategory.inputValue}
             disabled={isSaving}
-            options={categories.map((c) => ({ id: c.id, label: c.name, kind: 'entry' }))}
+            options={categoryOptions}
             onInputChange={(value) =>
               setEditingItemCategory((prev) => (prev ? { ...prev, inputValue: value } : prev))
             }

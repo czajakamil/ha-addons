@@ -10,7 +10,7 @@ const options: LookupOption[] = [
   { id: 'a1', label: 'Przelew: Revolut (EUR) (PLN)', rowLabel: 'Revolut (EUR) (PLN)', kind: 'transfer' }
 ];
 
-const setup = (initial = '') => {
+const setup = (initial = '', createLabel?: (text: string) => string) => {
   const onCommit = vi.fn();
   const onCancel = vi.fn();
   const Harness = () => {
@@ -22,6 +22,7 @@ const setup = (initial = '') => {
         onInputChange={setValue}
         onCommit={onCommit}
         onCancel={onCancel}
+        createLabel={createLabel}
       />
     );
   };
@@ -73,5 +74,46 @@ describe('LookupAutocompleteInput', () => {
     fireEvent.blur(input);
     expect(onCommit).not.toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  describe('tworzenie nowej pozycji', () => {
+    const createLabel = (text: string) => `Utwórz sklep „${text}”`;
+
+    it('Enter tworzy, gdy nic nie pasuje', () => {
+      const { input, onCommit } = setup('', createLabel);
+
+      fireEvent.change(input, { target: { value: '  Biedronak ' } });
+      expect(screen.getByRole('button', { name: 'Utwórz sklep „Biedronak”' })).toBeTruthy();
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCommit).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'create', label: 'Biedronak' })
+      );
+    });
+
+    it('przy częściowym dopasowaniu Enter wybiera istniejącą pozycję, a „Utwórz” jest na końcu', () => {
+      const { input, onCommit } = setup('', createLabel);
+
+      fireEvent.change(input, { target: { value: 'orl' } });
+      const buttons = screen.getAllByRole('button');
+      expect(buttons[buttons.length - 1].textContent).toBe('Utwórz sklep „orl”');
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCommit).toHaveBeenCalledWith(options[1]);
+    });
+
+    it('nie proponuje tworzenia, gdy tekst to dokładnie istniejąca pozycja', () => {
+      const { input } = setup('', createLabel);
+
+      fireEvent.change(input, { target: { value: 'orlen' } });
+      expect(screen.queryByText(/Utwórz sklep/)).toBeNull();
+    });
+
+    it('wyjście z pola nie tworzy', () => {
+      const { input, onCommit, onCancel } = setup('', createLabel);
+
+      fireEvent.change(input, { target: { value: 'Biedronak' } });
+      fireEvent.blur(input);
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(onCancel).toHaveBeenCalledOnce();
+    });
   });
 });

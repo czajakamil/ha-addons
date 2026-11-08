@@ -26,6 +26,9 @@ const CommentEditCell = ({
   onCancel
 }: CommentEditCellProps) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Esc i Cmd/Ctrl+Enter oddają fokus komórce, co odpala blur textarea jeszcze
+  // przed odmontowaniem — bez tej flagi blur zapisałby anulowany tekst.
+  const settledRef = useRef(false);
 
   // po wejściu w edycję – kursor na końcu tekstu
   useEffect(() => {
@@ -49,6 +52,7 @@ const CommentEditCell = ({
 
     if (key === 'Escape') {
       event.preventDefault();
+      settledRef.current = true;
 
       const anchor = captureGridCellAnchor(textareaRef.current);
       onCancel();
@@ -58,6 +62,7 @@ const CommentEditCell = ({
 
     if ((metaKey || ctrlKey) && key === 'Enter') {
       event.preventDefault();
+      settledRef.current = true;
 
       // Kotwica PRZED onCommit, bo po nim komponent się unmountuje.
       const anchor = captureGridCellAnchor(textareaRef.current);
@@ -76,6 +81,8 @@ const CommentEditCell = ({
   const handleBlur = (_event: ReactFocusEvent<HTMLTextAreaElement>) => {
     // kliknięcie gdzieś indziej – zapisujemy, ale
     // NIE przejmujemy z powrotem fokusu na tabelę
+    if (settledRef.current) return;
+    settledRef.current = true;
     void Promise.resolve(onCommit());
   };
 

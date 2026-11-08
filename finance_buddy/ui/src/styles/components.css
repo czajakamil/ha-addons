@@ -141,6 +141,52 @@
     background: var(--surface);
   }
 
+  /* Jednoliniowe pole w siatce wpisujemy wprost w komórce: wypełnia ją całą
+     (także pod jej paddingiem), bez własnej ramki, z czcionką i wcięciem tekstu
+     komórki. Jedyną ramką zostaje obrys zaznaczonej komórki. */
+  .rdg-cell .editable-cell.is-editing:not(:has(> textarea)) {
+    margin-inline: calc(var(--s-12) * -1);
+    width: calc(100% + var(--s-12) * 2);
+    gap: 0;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+
+  .rdg-cell .editable-cell.is-editing:not(:has(> textarea)) input,
+  .rdg-cell .editable-cell.is-editing .lookup-autocomplete .form-control.form-control-sm {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    padding: 0 var(--s-12);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    background: transparent;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .rdg-cell .editable-cell.is-editing .lookup-autocomplete {
+    display: flex;
+    flex: 1 1 auto;
+    height: 100%;
+  }
+
+  .rdg-cell .editable-cell.is-editing .lookup-autocomplete__menu {
+    margin-top: 2px;
+  }
+
+  .rdg-cell .editable-cell.is-editing:not(:has(> textarea)) .editable-cell__meta {
+    position: absolute;
+    inset-inline-end: var(--s-12);
+    inset-block: 0;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    pointer-events: none;
+  }
+
   /* Komentarz edytujemy w polu na kilka linii, które nie mieści się w wierszu
      tabeli (40 px). Edytor wychodzi więc ponad wiersz zamiast ściskać pole. */
   .editable-cell.is-editing:has(> textarea) {
@@ -150,15 +196,26 @@
     z-index: 20;
     height: auto;
     min-width: 280px;
-    padding: var(--s-8);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-control);
-    background: var(--surface-2);
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 2px var(--accent), var(--shadow-md, 0 6px 16px rgb(0 0 0 / 0.12));
   }
 
+  /* Jak przy polach jednoliniowych: bez własnej ramki, tekst od wcięcia komórki,
+     pierwsza linia na wysokości wartości w wierszu. */
   .editable-cell.is-editing > textarea {
     flex: none;
     min-height: 72px;
+    padding: 11px var(--s-12) var(--s-4);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    background: transparent;
+    font-size: inherit;
     resize: vertical;
     line-height: 1.4;
     white-space: pre-wrap;
@@ -166,6 +223,7 @@
 
   .editable-cell.is-editing:has(> textarea) .editable-cell__meta {
     margin-block-start: 0;
+    padding: 0 var(--s-12) var(--s-8);
   }
 
   .editable-cell__meta {
@@ -1117,6 +1175,20 @@
     line-height: 1.3;
     /* Żeby przewinięta opcja nie chowała się pod przyklejonym nagłówkiem sekcji. */
     scroll-margin-block: var(--row-height-compact);
+  }
+
+  /* „Utwórz…” to akcja, nie wartość: oddzielona kreską od pozycji listy. */
+  .lookup-autocomplete__menu--rows .lookup-autocomplete__option--create {
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .lookup-autocomplete__menu--rows .lookup-autocomplete__option--create:first-child {
+    border-top: 0;
+  }
+
+  .lookup-autocomplete__option--create .lookup-autocomplete__label {
+    color: var(--text);
   }
 
   .lookup-autocomplete__path {

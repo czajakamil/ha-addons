@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Account, Store } from '../../api';
 import {
+  buildCategoryOptions,
   buildStoreOptions,
   buildTransferOptions,
   defaultLookupHighlight,
@@ -111,5 +112,22 @@ describe('selectableAccounts', () => {
 
   it('zostawia zarchiwizowane konto, które pole już ma ustawione', () => {
     expect(selectableAccounts([open, closed], 'a2')).toEqual([open, closed]);
+  });
+});
+
+describe('buildCategoryOptions', () => {
+  it('pokazuje pełną ścieżkę w kolejności drzewa', () => {
+    const options = buildCategoryOptions([
+      { id: 'c', name: 'Domena Internetowa', parent_id: 'd' },
+      { id: 'r', name: 'Rachunki', parent_id: null },
+      { id: 'd', name: 'Dom', parent_id: null },
+      { id: 'x', name: 'Czynsz', parent_id: 'r' }
+    ]);
+    expect(options.map((option) => [option.id, option.label])).toEqual([
+      ['r', 'Rachunki'],
+      ['x', 'Rachunki › Czynsz'],
+      ['d', 'Dom'],
+      ['c', 'Dom › Domena Internetowa']
+    ]);
   });
 });

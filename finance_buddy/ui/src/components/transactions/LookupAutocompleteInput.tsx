@@ -9,7 +9,7 @@ import {
   type FocusEvent as ReactFocusEvent,
   type MouseEvent as ReactMouseEvent
 } from 'react';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, Plus } from 'lucide-react';
 import { captureGridCellAnchor, refocusGridCell } from '../../utils/gridFocus';
 import {
   defaultLookupHighlight,
@@ -30,6 +30,8 @@ type LookupAutocompleteInputProps = {
   onInputChange: (value: string) => void;
   onCommit: (option: LookupOption | null) => void; // zapis + wyjście z edycji; null = wyczyszczone pole
   onCancel: () => void;              // anulowanie (Esc lub niepasujący tekst)
+  // Etykieta pozycji tworzącej nową wartość z wpisanego tekstu; bez niej nie da się tworzyć.
+  createLabel?: (text: string) => string;
 };
 
 const NAVIGATION_KEYS = new Set<string>([
@@ -43,10 +45,12 @@ const NAVIGATION_KEYS = new Set<string>([
   'PageDown'
 ]);
 
-const SECTION_LABELS: Record<LookupOption['kind'], string> = {
+const SECTION_LABELS: Record<Exclude<LookupOption['kind'], 'create'>, string> = {
   entry: 'Sklepy',
   transfer: 'Przelew na konto'
 };
+
+const CREATE_OPTION_ID = '__create__';
 
 const LookupAutocompleteInput = ({
   inputValue,
@@ -56,7 +60,8 @@ const LookupAutocompleteInput = ({
   inputId,
   onInputChange,
   onCommit,
-  onCancel
+  onCancel,
+  createLabel
 }: LookupAutocompleteInputProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -74,16 +79,34 @@ const LookupAutocompleteInput = ({
     () => (dirty ? filterLookupOptions(options, inputValue) : options),
     [dirty, inputValue, options]
   );
+  // Pozycja „Utwórz…” na końcu listy, gdy wpisany tekst nie jest dokładnie żadną z pozycji.
+  const createOption = useMemo<LookupOption | null>(() => {
+    const text = inputValue.trim();
+    if (!createLabel || !dirty || !text) return null;
+    if (findSelectedLookupIndex(options, text) >= 0) return null;
+    return { id: CREATE_OPTION_ID, label: text, rowLabel: createLabel(text), kind: 'create' };
+  }, [createLabel, dirty, inputValue, options]);
+  const menuOptions = useMemo(
+    () => (createOption ? [...filteredOptions, createOption] : filteredOptions),
+    [createOption, filteredOptions]
+  );
   const selectedOption = options[findSelectedLookupIndex(options, initialValue)];
   const hasSections = options.some((option) => option.kind === 'transfer');
 
+  // Dopasowana pozycja ma pierwszeństwo; „Utwórz…” podświetlamy, gdy nic innego nie pasuje.
+  const highlightFor = (filtered: LookupOption[], value: string) => {
+    const index = defaultLookupHighlight(filtered, value);
+    if (index >= 0 || !createLabel || !value.trim()) return index;
+    return findSelectedLookupIndex(options, value) >= 0 ? index : filtered.length;
+  };
+
   const openMenu = () => {
     settledRef.current = false;
-    if (!filteredOptions.length) return;
+    if (!menuOptions.length) return;
     setIsOpen(true);
     setHighlightedIndex(
       dirty
-        ? defaultLookupHighlight(filteredOptions, inputValue)
+        ? highlightFor(filteredOptions, inputValue)
         : findSelectedLookupIndex(options, inputValue)
     );
   };
@@ -111,7 +134,7 @@ const LookupAutocompleteInput = ({
     activeOptionRef.current.scrollIntoView({
       block: 'nearest'
     });
-  }, [highlightedIndex, isOpen, filteredOptions.length]);
+  }, [highlightedIndex, isOpen, menuOptions.length]);
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     settledRef.current = false;
@@ -119,7 +142,7 @@ const LookupAutocompleteInput = ({
     setDirty(true);
     onInputChange(value);
     setIsOpen(true);
-    setHighlightedIndex(defaultLookupHighlight(filterLookupOptions(options, value), value));
+    setHighlightedIndex(highlightFor(filterLookupOptions(options, value), value));
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -140,7 +163,7 @@ const LookupAutocompleteInput = ({
       event.preventDefault();
       event.stopPropagation();
 
-      const chosen = filteredOptions[highlightedIndex];
+      const chosen = menuOptions[highlightedIndex];
       if (chosen) {
         commit(chosen, { focusCell: true });
       } else if (!inputValue.trim()) {
@@ -152,13 +175,13 @@ const LookupAutocompleteInput = ({
 
     if (key === 'ArrowDown' || key === 'ArrowUp') {
       event.stopPropagation();
-      if (!filteredOptions.length) return;
+      if (!menuOptions.length) return;
       event.preventDefault();
 
       setIsOpen(true);
       setHighlightedIndex((prev) => {
         const delta = key === 'ArrowDown' ? 1 : -1;
-        const len = filteredOptions.length;
+        const len = menuOptions.length;
         if (prev < 0) return key === 'ArrowDown' ? 0 : len - 1;
         return (prev + delta + len) % len; // zawijanie góra/dół
       });
@@ -199,7 +222,7 @@ const LookupAutocompleteInput = ({
 
   const renderRowLabel = (option: LookupOption) => {
     const text = option.rowLabel ?? option.label;
-    const parts = dirty ? splitLookupMatch(text, inputValue) : null;
+    const parts = dirty && option.kind !== 'create' ? splitLookupMatch(text, inputValue) : null;
     return (
       <span className="lookup-autocomplete__label" title={text}>
         {parts ? (
@@ -239,15 +262,16 @@ const LookupAutocompleteInput = ({
         }}
       />
 
-      {isOpen && filteredOptions.length > 0 && (
+      {isOpen && menuOptions.length > 0 && (
         <div className="lookup-autocomplete__menu lookup-autocomplete__menu--rows">
-          {filteredOptions.map((option, index) => {
+          {menuOptions.map((option, index) => {
             const isSelected = option === selectedOption;
-            const startsSection = hasSections && filteredOptions[index - 1]?.kind !== option.kind;
+            const startsSection =
+              hasSections && option.kind !== 'create' && menuOptions[index - 1]?.kind !== option.kind;
             return (
               <Fragment key={`${option.kind}-${option.id}`}>
                 {startsSection && (
-                  <div className="lookup-autocomplete__section">{SECTION_LABELS[option.kind]}</div>
+                  <div className="lookup-autocomplete__section">{option.kind !== 'create' && SECTION_LABELS[option.kind]}</div>
                 )}
                 <button
                   type="button"
@@ -255,12 +279,14 @@ const LookupAutocompleteInput = ({
                   aria-current={isSelected ? 'true' : undefined}
                   className={
                     'lookup-autocomplete__option' +
+                    (option.kind === 'create' ? ' lookup-autocomplete__option--create' : '') +
                     (isSelected ? ' lookup-autocomplete__option--selected' : '') +
                     (index === highlightedIndex ? ' lookup-autocomplete__option--active' : '')
                   }
                   onMouseDown={(event) => handleOptionMouseDown(option, event)}
                 >
                   {option.kind === 'transfer' && <ArrowLeftRight size={14} aria-hidden="true" />}
+                  {option.kind === 'create' && <Plus size={14} aria-hidden="true" />}
                   {renderRowLabel(option)}
                 </button>
               </Fragment>
