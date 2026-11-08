@@ -239,3 +239,40 @@ def test_dump_end_to_end_with_pagination(
     saved = json.loads(dumps[0].read_text())
     assert [t["entry_reference"] for t in saved["accounts"][0]["transactions"]] == ["REF1", "REF2"]
     assert "transakcji: 2" in capsys.readouterr().out
+
+
+def test_stability_detects_shifted_numbering() -> None:
+    old = {
+        "accounts": [
+            {
+                "uid": "u1",
+                "transactions": [
+                    _tx(entry_reference="O;2"),
+                    _tx(
+                        entry_reference="O;1",
+                        booking_date="2026-10-03",
+                        transaction_amount={"amount": "1.00", "currency": "PLN"},
+                    ),
+                ],
+            }
+        ]
+    }
+    # Okno historii przesunęło się o jedną operację: numery wskazują inne transakcje.
+    new = {
+        "accounts": [
+            {
+                "uid": "u1",
+                "transactions": [
+                    _tx(entry_reference="O;1"),
+                    _tx(
+                        entry_reference="O;2",
+                        booking_date="2026-10-03",
+                        transaction_amount={"amount": "1.00", "currency": "PLN"},
+                    ),
+                ],
+            }
+        ]
+    }
+    text = "\n".join(eb.stability(old, new))
+    assert "stare id obecne w nowym zrzucie: 2/2" in text
+    assert "to samo id, INNA transakcja: 2" in text

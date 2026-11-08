@@ -570,6 +570,28 @@ def stability(old: dict, new: dict) -> list[str]:
         lost = [r for r in old_in if r.external_id not in new_ids]
         lines.append(f"Konto {label}: wspólny okres od {start}")
         lines.append(f"  stare id obecne w nowym zrzucie: {_pct(len(kept), len(old_in))}")
+        # Samo istnienie id nie wystarcza: numeracja kolejna (PKO: „O;62") po
+        # przesunięciu okna historii wskazałaby tym samym id INNĄ transakcję.
+        new_by_id = {r.external_id: r for r in new_rows}
+        moved = [
+            (r, new_by_id[r.external_id])
+            for r in kept
+            if (r.date, r.amount_cents, r.raw.get("balance_after_transaction"))
+            != (
+                new_by_id[r.external_id].date,
+                new_by_id[r.external_id].amount_cents,
+                new_by_id[r.external_id].raw.get("balance_after_transaction"),
+            )
+        ]
+        if moved:
+            lines.append(f"  UWAGA: to samo id, INNA transakcja: {len(moved)}")
+            for r, n in moved[:5]:
+                lines.append(
+                    f"    {r.external_id}: było {r.date} {r.amount_cents}, "
+                    f"jest {n.date} {n.amount_cents}"
+                )
+        else:
+            lines.append(f"  to samo id → ta sama data, kwota i saldo po: {len(kept)}/{len(kept)}")
         by_status = Counter(r.status for r in lost)
         if lost:
             lines.append(
