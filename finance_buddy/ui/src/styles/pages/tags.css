@@ -33,6 +33,30 @@
   color: var(--text);
 }
 
+.tag-chip--with-parent {
+  align-items: flex-start;
+}
+
+/* Kropka na wysokości pierwszej linii (nazwy), nie środka dwóch linii */
+.tag-chip--with-parent .tag-dot {
+  margin-top: calc((var(--leading-13) - 8px) / 2);
+}
+
+.tag-chip__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tag-chip__parent {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-12);
+  line-height: var(--leading-12);
+  color: var(--text-muted);
+}
+
 .tag-color-picker {
   position: relative;
   flex-shrink: 0;

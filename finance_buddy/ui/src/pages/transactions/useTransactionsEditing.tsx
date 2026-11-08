@@ -553,7 +553,7 @@ export const useTransactionsEditing = ({
     if (!category) {
       return null;
     }
-    return <TagChip category={category} byId={categoryMap} />;
+    return <TagChip category={category} byId={categoryMap} showParent />;
   };
 
   const renderAmountCell = (transaction: Transaction, field: EditableAmountField) => {
@@ -604,7 +604,7 @@ export const useTransactionsEditing = ({
         </div>
       );
     }
-    return category ? <TagChip category={category} byId={categoryMap} /> : null;
+    return category ? <TagChip category={category} byId={categoryMap} showParent /> : null;
   };
 
   const renderTimeCell = (transaction: Transaction) => {
