@@ -15,7 +15,6 @@ from ..db import get_db_session
 from ..dependencies import get_current_user
 from ..helpers import (
     _is_internal_report_transaction,
-    _is_internal_transfer,
     _iter_months,
     _month_end,
     _month_floor,
@@ -382,8 +381,8 @@ def _age_of_money_snapshot(
     if account_filter:
         balance_conditions.append(Account.id.in_(account_filter))
         spending_conditions.append(Account.id.in_(account_filter))
-    # transfery nie są wydatkiem – pomijamy je w outflow
-    spending_conditions.append(~_is_internal_transfer())
+    # transfery i korekty salda nie są wydatkiem – pomijamy je w outflow
+    spending_conditions.append(~_is_internal_report_transaction())
 
     balance_stmt = (
         select(func.coalesce(func.sum(Transaction.total_cents), 0))
@@ -395,6 +394,8 @@ def _age_of_money_snapshot(
     spending_stmt = (
         select(func.coalesce(func.sum(-Transaction.total_cents), 0))
         .join(Account, Transaction.account_id == Account.id)
+        .outerjoin(Store, Transaction.store_id == Store.id)
+        .outerjoin(Category, Transaction.category_id == Category.id)
         .where(*spending_conditions)
     )
     total_outflow = int(db.scalar(spending_stmt) or 0)

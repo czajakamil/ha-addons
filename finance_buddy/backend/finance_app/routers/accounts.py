@@ -14,6 +14,7 @@ from ..dependencies import (
     apply_pagination,
     get_current_user,
 )
+from ..helpers import BALANCE_ADJUSTMENT_COMMENT
 from ..models import (
     Account,
     AccountDebtTerms,
@@ -230,7 +231,7 @@ def adjust_account_balance(
             account_id=account.id,
             total_cents=difference,
             currency=account.currency,
-            comment="Wyrównanie salda konta",
+            comment=BALANCE_ADJUSTMENT_COMMENT,
             recorded_at=dt.datetime.now(dt.UTC),
             date=dt.datetime.now(dt.UTC).date(),
         )

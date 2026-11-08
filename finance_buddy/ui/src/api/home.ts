@@ -29,12 +29,30 @@ export interface HomeRecentTransaction {
   needs_tag: boolean;
 }
 
+export interface HomePace {
+  days_in_month: number;
+  /** Narastająco od 1. dnia do dziś; [i] = suma do (i+1). dnia. */
+  current_cents: number[];
+  /** Średnia narastająco z poprzednich pełnych miesięcy, na każdy dzień miesiąca. */
+  average_cents: number[];
+  average_months: number;
+}
+
+export interface HomeTopCategory {
+  category_id: string;
+  path: string;
+  spent_cents: number;
+}
+
 export interface HomeSummary {
   today: string;
   month: string;
   untagged_count: number;
   receipts_todo: number;
   ready_to_assign_cents: number;
+  /** Suma kopert bez kopert spłaty karty, pomniejszona o przypisane ponad stan kont. */
+  spendable_cents: number;
+  on_budget_account_count: number;
   overspent_count: number;
   envelopes: HomeEnvelope[];
   spent_month_cents: number;
@@ -44,6 +62,9 @@ export interface HomeSummary {
   stale_threshold_days: number;
   stale_accounts: HomeStaleAccount[];
   recent: HomeRecentTransaction[];
+  pace: HomePace;
+  top_categories: HomeTopCategory[];
+  uncategorized_spent_cents: number;
 }
 
 export const getHomeSummary = () => request<HomeSummary>('/home/summary');

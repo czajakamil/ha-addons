@@ -1012,12 +1012,32 @@ class HomeRecentTransaction(BaseModel):
     needs_tag: bool = False
 
 
+class HomePace(BaseModel):
+    days_in_month: int
+    # Wydatki narastająco: [i] = suma od 1. do (i+1). dnia miesiąca.
+    current_cents: list[int]
+    # Średnia narastająco z poprzednich pełnych miesięcy, na każdy dzień bieżącego.
+    average_cents: list[int]
+    average_months: int
+
+
+class HomeTopCategory(BaseModel):
+    category_id: str
+    path: str
+    spent_cents: int
+
+
 class HomeSummary(BaseModel):
     today: dt.date
     month: str
     untagged_count: int
     receipts_todo: int
     ready_to_assign_cents: int
+    # Ile można jeszcze wydać zgodnie z budżetem: suma kopert (bez kopert
+    # spłaty karty, z przekroczeniami na minusie), pomniejszona o to, co
+    # przypisano ponad stan kont. Patrz `services.home.spendable_cents`.
+    spendable_cents: int
+    on_budget_account_count: int
     overspent_count: int
     envelopes: list[HomeEnvelope]
     spent_month_cents: int
@@ -1027,6 +1047,10 @@ class HomeSummary(BaseModel):
     stale_threshold_days: int
     stale_accounts: list[HomeStaleAccount]
     recent: list[HomeRecentTransaction]
+    pace: HomePace
+    top_categories: list[HomeTopCategory]
+    # Część „Wydanych" bez kategorii — top kategorii + ta kwota = spent_month_cents.
+    uncategorized_spent_cents: int
 
 
 class YnabAuth(BaseModel):

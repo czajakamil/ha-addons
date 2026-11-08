@@ -83,17 +83,31 @@ def _normalize_account_kind(value: str | None) -> str:
     return (value or "").strip().lower().replace(" ", "").replace("_", "")
 
 
+# Komentarz, z którym „Wyrównaj saldo" na stronie kont zapisuje korektę.
+BALANCE_ADJUSTMENT_COMMENT = "Wyrównanie salda konta"
+
+
 def _is_internal_transfer():
-    """Identify transfers/adjustments that shouldn't count as spending or income."""
+    """Przelew między własnymi kontami — nie jest ani wydatkiem, ani przychodem.
+
+    Transakcja bez kategorii i bez sklepu NIE jest przelewem: tak wygląda
+    każdy wiersz z wyciągu, którego odbiorcy nie znamy (BLIK do osoby,
+    nieznany sklep). To wydatek czekający na kategorię — liczy się do
+    „Wydanych" i do kolejki „Bez kategorii" jednocześnie. Korekty salda,
+    które też nie mają sklepu, łapie `_is_reconciliation_adjustment`.
+    """
     return or_(
         Transaction.transfer_account_id.is_not(None),
         Transaction.transfer_transaction_id.is_not(None),
-        and_(Transaction.category_id.is_(None), Transaction.store_id.is_(None)),
     )
 
 
 def _is_reconciliation_adjustment():
-    """Detect the balance corrections that reconciling an account leaves behind."""
+    """Detect the balance corrections that reconciling an account leaves behind.
+
+    Korekty z importu YNAB-a mają odbiorcę „Reconciliation Balance Adjustment",
+    a własne — tylko komentarz `BALANCE_ADJUSTMENT_COMMENT`, bez sklepu i kategorii.
+    """
     payee_label = func.lower(func.coalesce(Store.group_name, Store.name, ""))
     category_label = func.lower(func.coalesce(Category.name, ""))
     reconciliation_label = "reconciliation balance adjustment"
@@ -101,6 +115,11 @@ def _is_reconciliation_adjustment():
     return or_(
         payee_label.like(f"%{reconciliation_label}%"),
         category_label.like(f"%{reconciliation_label}%"),
+        and_(
+            Transaction.store_id.is_(None),
+            Transaction.category_id.is_(None),
+            Transaction.comment == BALANCE_ADJUSTMENT_COMMENT,
+        ),
     )
 
 
