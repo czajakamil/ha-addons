@@ -218,3 +218,113 @@
     }
   }
 }
+
+/* Rachunek z banku w karcie połączenia: nagłówek z saldem, pod nim powiązanie i zakres */
+@layer components {
+  .bank-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+    padding-block: var(--s-16);
+    border-block-start: 1px solid var(--border);
+  }
+
+  .bank-link:last-child {
+    padding-block-end: 0;
+  }
+
+  .bank-link__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-8) var(--s-16);
+  }
+
+  .bank-link__title {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+  }
+
+  .bank-link__balance {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--s-4);
+    text-align: end;
+  }
+
+  .bank-link__amount {
+    color: var(--text);
+    font-size: var(--text-14);
+    line-height: var(--leading-14);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bank-link__fields {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 420px);
+    gap: var(--s-12) var(--s-16);
+    align-items: start;
+  }
+
+  .bank-link__label {
+    min-height: 36px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin: 0;
+    color: var(--text-secondary);
+    font-weight: var(--weight-medium);
+  }
+
+  .bank-link__control,
+  .bank-link__date {
+    height: 36px;
+    padding-block: 0;
+    font-size: var(--text-13);
+  }
+
+  .bank-link__range {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-8);
+  }
+
+  .bank-link__range .segmented {
+    height: 36px;
+    align-items: center;
+  }
+
+  .bank-link__range .segmented__option {
+    height: 28px;
+  }
+
+  .bank-link__date {
+    flex: 1 1 140px;
+    min-width: 140px;
+    max-width: 180px;
+    text-align: start;
+  }
+
+  @media (max-width: 640px) {
+    .bank-link__fields {
+      grid-template-columns: 1fr;
+      gap: var(--s-4);
+    }
+
+    .bank-link__label {
+      min-height: 0;
+      padding-block-start: var(--s-8);
+    }
+
+    .bank-link__balance {
+      align-items: flex-start;
+      text-align: start;
+    }
+  }
+}

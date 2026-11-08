@@ -21,7 +21,9 @@ import {
   type BankSyncResult,
   type BankSyncSettings
 } from '../../api';
+import { DateInput } from '../../components/ui/DateTimeInput';
 import { formatSignedMoney } from '../../components/ui/Money';
+import SegmentedControl from '../../components/ui/SegmentedControl';
 import { errorDetail, formatDate, formatDateTime } from './format';
 
 type Pending = { connectionId: string; url: string; bank: string };
@@ -129,17 +131,29 @@ const KeyForm = ({
   );
 };
 
-const balanceNote = (link: BankConnectionAccount) => {
-  if (link.bank_balance_cents == null || link.account_balance_cents == null) return null;
+const BalanceSummary = ({ link }: { link: BankConnectionAccount }) => {
+  if (link.bank_balance_cents == null) return null;
   const currency = link.currency || 'PLN';
-  const diff = link.account_balance_cents - link.bank_balance_cents;
-  const bank = formatSignedMoney(link.bank_balance_cents, currency);
-  if (diff === 0) return `Saldo w banku ${bank} — zgadza się z aplikacją.`;
-  return `Saldo w banku ${bank}, w aplikacji ${formatSignedMoney(
-    link.account_balance_cents,
-    currency
-  )} (różnica ${formatSignedMoney(diff, currency)}).`;
+  const diff =
+    link.account_balance_cents == null ? null : link.account_balance_cents - link.bank_balance_cents;
+  return (
+    <div className="bank-link__balance">
+      <span className="account-hint">Saldo w banku</span>
+      <span className="bank-link__amount">{formatSignedMoney(link.bank_balance_cents, currency)}</span>
+      {diff === 0 && <span className="account-hint">Zgadza się z aplikacją</span>}
+      {diff != null && diff !== 0 && link.account_balance_cents != null && (
+        <span
+          className="panel-badge panel-badge--warning panel-numbers"
+          title={`W aplikacji ${formatSignedMoney(link.account_balance_cents, currency)}`}
+        >
+          Różnica {formatSignedMoney(diff, currency)}
+        </span>
+      )}
+    </div>
+  );
 };
+
+type SyncMode = 'recent' | 'date';
 
 const AccountLinkRow = ({
   link,
@@ -151,8 +165,18 @@ const AccountLinkRow = ({
   onChanged: (connection: BankConnection) => void;
 }) => {
   const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<SyncMode>(link.sync_from ? 'date' : 'recent');
+  const [draft, setDraft] = useState(link.sync_from ?? '');
+  const [synced, setSynced] = useState(link.sync_from ?? '');
+  // Zmiana z serwera (np. domyślna data po wyborze konta) nadpisuje pole
+  if ((link.sync_from ?? '') !== synced) {
+    setSynced(link.sync_from ?? '');
+    setDraft(link.sync_from ?? '');
+    setMode(link.sync_from ? 'date' : 'recent');
+  }
   const options = accounts.filter((a) => !link.currency || a.currency === link.currency);
-  const label = [link.name, link.iban_masked].filter(Boolean).join(' ') || 'Rachunek';
+  const title = link.name || 'Rachunek';
+  const meta = [link.iban_masked, link.currency].filter(Boolean).join(' · ');
 
   const save = async (payload: { account_id?: string | null; sync_from?: string | null }) => {
     setSaving(true);
@@ -166,20 +190,41 @@ const AccountLinkRow = ({
     }
   };
 
-  const note = balanceNote(link);
+  // Datę zapisujemy dopiero po wyjściu z pola: wpisywanie roku z klawiatury
+  // przechodzi przez daty w rodzaju 0002-09-01.
+  const commitDate = () => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(draft) && draft !== (link.sync_from ?? '')) {
+      void save({ sync_from: draft });
+    }
+  };
+
+  const changeMode = (next: SyncMode) => {
+    setMode(next);
+    if (next === 'recent') {
+      setDraft('');
+      if (link.sync_from) void save({ sync_from: null });
+    }
+  };
+
   return (
-    <div className="account-settings__row">
-      <label className="account-field-label" htmlFor={`eb-link-${link.id}`}>
-        {label}
-        <span className="account-hint">
-          {link.currency ?? ''}
-          {link.last_synced_at ? ` · pobrano ${formatDateTime(link.last_synced_at)}` : ''}
-        </span>
-      </label>
-      <div className="panel-stack">
+    <div className="bank-link">
+      <div className="bank-link__head">
+        <div className="bank-link__title">
+          <span className="account-field-label">{title}</span>
+          <span className="account-hint panel-numbers">
+            {meta}
+            {link.last_synced_at ? ` · pobrano ${formatDateTime(link.last_synced_at)}` : ''}
+          </span>
+        </div>
+        <BalanceSummary link={link} />
+      </div>
+      <div className="bank-link__fields">
+        <label className="account-hint bank-link__label" htmlFor={`eb-link-${link.id}`}>
+          Konto w aplikacji
+        </label>
         <select
           id={`eb-link-${link.id}`}
-          className="form-select"
+          className="form-select bank-link__control"
           value={link.account_id ?? ''}
           disabled={saving}
           onChange={(event) => void save({ account_id: event.target.value || null })}
@@ -193,25 +238,41 @@ const AccountLinkRow = ({
         </select>
         {link.account_id && (
           <>
-            <label className="account-hint" htmlFor={`eb-from-${link.id}`}>
-              Pobieraj od
-            </label>
-            <input
-              id={`eb-from-${link.id}`}
-              type="date"
-              className="form-control"
-              value={link.sync_from ?? ''}
-              disabled={saving}
-              onChange={(event) => void save({ sync_from: event.target.value || null })}
-            />
-            <span className="account-hint">
-              {link.sync_from
-                ? 'Starszych transakcji nie pobierzemy — są już w aplikacji z wyciągu.'
-                : 'Pierwsze pobranie sięga 90 dni wstecz.'}
-            </span>
+            <span className="account-hint bank-link__label">Pobieraj od</span>
+            <div className="panel-stack">
+              <div className="bank-link__range">
+                <SegmentedControl
+                  label="Pobieraj od"
+                  value={mode}
+                  options={[
+                    { value: 'recent', label: 'Ostatnie 90 dni' },
+                    { value: 'date', label: 'Wybranego dnia' }
+                  ]}
+                  onChange={changeMode}
+                />
+                {mode === 'date' && (
+                  <DateInput
+                    aria-label="Pobieraj od dnia"
+                    className="form-control bank-link__date"
+                    value={draft}
+                    disabled={saving}
+                    autoFocus={!link.sync_from}
+                    onChange={setDraft}
+                    onBlur={commitDate}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitDate();
+                    }}
+                  />
+                )}
+              </div>
+              <span className="account-hint">
+                {mode === 'date'
+                  ? 'Starszych transakcji nie pobierzemy — są już w aplikacji z wyciągu.'
+                  : 'Pierwsze pobranie sięga 90 dni wstecz.'}
+              </span>
+            </div>
           </>
         )}
-        {note && <span className="account-hint panel-numbers">{note}</span>}
       </div>
     </div>
   );

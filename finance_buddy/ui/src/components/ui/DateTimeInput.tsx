@@ -21,7 +21,7 @@ type TypedInputProps = FieldProps & {
   hint: string;
 };
 
-const TypedInput = ({ value, onChange, parse, format, hint, ...rest }: TypedInputProps) => {
+const TypedInput = ({ value, onChange, onBlur, parse, format, hint, ...rest }: TypedInputProps) => {
   const [draft, setDraft] = useState(() => format(value));
   const [synced, setSynced] = useState(value);
   // Zmiana z zewnątrz (reset formularza, inna transakcja) nadpisuje wpisywany tekst
@@ -47,8 +47,9 @@ const TypedInput = ({ value, onChange, parse, format, hint, ...rest }: TypedInpu
           onChange(parsed);
         }
       }}
-      onBlur={() => {
+      onBlur={(event) => {
         if (parse(draft) !== null) setDraft(format(parse(draft) ?? ''));
+        onBlur?.(event);
       }}
     />
   );
