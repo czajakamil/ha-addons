@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.33
+
+- Kategoria w Transakcjach pokazuje pod nazwą, mniejszym tekstem, kategorię główną, np. „Zakupy Spożywcze”
+  z „Jedzenie” pod spodem. Od razu widać, z której grupy jest podkategoria.
+- Dwuklik na słowo w otwartym polu edycji (sklep, kategoria, konto, kwota, godzina) zaznacza je i zostawia
+  zaznaczone. Wcześniej zaznaczenie od razu znikało, a w kwocie i godzinie kasował się też wpisany tekst.
+
 ## 0.1.32
 
 - W Transakcjach sklep, którego jeszcze nie ma, tworzysz od razu w polu Sklep: wpisz nazwę i wybierz
