@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.27
+
+- Przygotowanie do automatycznego pobierania transakcji z banku: dodany skrypt testowy Enable Banking,
+  który podpina konto, pobiera transakcje i porównuje je z wyciągiem CSV. W aplikacji nic się jeszcze nie zmienia.
+
 ## 0.1.26
 
 - Nowa transakcja na telefonie: pole „Komentarz” nie jest już ucięte, a formularz przewija się na niższych
