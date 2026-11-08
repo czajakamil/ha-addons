@@ -170,6 +170,22 @@ const DataTable = <R,>({
     };
   }, [onCellDoubleClick, onCellKeyDown]);
 
+  // Dwuklik w otwartym polu edycji (np. zaznaczanie słowa) bąbelkuje do komórki.
+  // Bez tego filtra ponownie startowałby edycję i nadpisywał wartość pola,
+  // co kasuje zaznaczenie i wpisany tekst.
+  const mergedOnCellDoubleClick = useMemo(() => {
+    if (!onCellDoubleClick) return undefined;
+
+    return (args: CellClickArgs<R>, event: CellMouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        event.preventGridDefault();
+        return;
+      }
+      onCellDoubleClick(args, event);
+    };
+  }, [onCellDoubleClick]);
+
   const handleGridFocusCapture = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
       if (hasSelectedCellRef.current) return;
@@ -203,7 +219,7 @@ const DataTable = <R,>({
         style={mergedStyle}
         rowHeight={rowHeight}
         headerRowHeight={headerRowHeight}
-        onCellDoubleClick={onCellDoubleClick}
+        onCellDoubleClick={mergedOnCellDoubleClick}
         onCellKeyDown={mergedOnCellKeyDown}
         onSelectedCellChange={mergedOnSelectedCellChange}
         onColumnResize={mergedOnColumnResize}
