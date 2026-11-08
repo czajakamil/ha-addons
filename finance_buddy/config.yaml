@@ -1,7 +1,7 @@
 name: "Finance Buddy"
 slug: "finance_buddy"
 description: "Domowy budżet: konta, koperty, paragony z OCR, import z YNAB i CSV z banku."
-version: "0.1.29"
+version: "0.1.30"
 url: "https://github.com/czajakamil/ha-addons/tree/main/finance_buddy"
 init: false
 

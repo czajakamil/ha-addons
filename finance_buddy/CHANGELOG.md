@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.30
+
+- Gdy bank nie udostępnia żadnego rachunku, aplikacja mówi, co zrobić: prywatna aplikacja w Enable Banking
+  widzi tylko rachunki podpięte w swoim panelu. Dodaj tam rachunek (np. z Revoluta) i kliknij „Połącz ponownie”.
+
 ## 0.1.29
 
 - Połączenie z Revolutem pokazuje rachunki. Wcześniej po zgodzie widniało „Bank nie udostępnił żadnego rachunku”,
