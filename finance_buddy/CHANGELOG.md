@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.31
+
+- Płatności kartą z PKO mają nazwę sklepu zamiast sklejonego napisu z banku. Z „NOWY TARGKAUFLANDPL · CARD-PAYMENT”
+  robi się sklep „KAUFLAND” z komentarzem „Nowy Targ”, a transakcja sama trafia do sklepu, który ma taką nazwę
+  lub alias. Już pobrane transakcje poprawią się przy najbliższym pobraniu; komentarzy, które zmieniłeś, nie ruszamy.
+- Komentarze z banku nie kończą się już kodami w rodzaju „TRANSFER” czy „CARD-PAYMENT”.
+- Rachunki w Panelu są czytelniejsze: przy każdym widać saldo w banku i różnicę z aplikacją, a „Pobieraj od”
+  przełączasz między „Ostatnie 90 dni” i „Wybranego dnia”. Powrót do 90 dni wreszcie kasuje wybraną datę.
+- Komentarz w Transakcjach znów da się wygodnie edytować: po dwukliku pole otwiera się nad wierszem,
+  zamiast ściskać się do cienkiego paska.
+- PKO podaje przez bankowe API tylko datę zaksięgowania, więc płatność kartą widać 1–3 dni później niż w
+  rzeczywistości. Jeśli dodasz ją wcześniej ręcznie albo z paragonu, połączy się z bankową i zachowa Twoją datę.
+
 ## 0.1.30
 
 - Gdy bank nie udostępnia żadnego rachunku, aplikacja mówi, co zrobić: prywatna aplikacja w Enable Banking
