@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.28
+
+- Transakcje mogą spływać z banku same. W Panelu, w sekcji „Połączenia z bankiem”, wgrywasz klucz
+  z Enable Banking (bezpłatnie dla własnych kont), logujesz się w banku i wybierasz, do którego konta
+  trafia każdy rachunek. Instrukcja jest w dokumentacji dodatku.
+- Aplikacja pobiera transakcje co 12 godzin, a „Pobierz teraz” od razu. Łączy je z tymi, które już masz
+  (ręczne, z YNAB, z paragonów), i nie dubluje wyciągów CSV. Każde pobranie można cofnąć w historii importu.
+- Przy rachunku widać saldo w banku obok salda w aplikacji. Gdy zgoda banku wygaśnie, kliknij „Połącz ponownie”.
+
 ## 0.1.27
 
 - Przygotowanie do automatycznego pobierania transakcji z banku: dodany skrypt testowy Enable Banking,
