@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.24
+
+- Na telefonie na dole ekranu jest pasek kart: Start, Budżet, Transakcje, Raporty i „Więcej” (reszta menu).
+- Nowe dodawanie transakcji na telefonie — pełny ekran z dużą kwotą. Stuknij „−”, żeby zmienić wydatek
+  na wpływ. Sklep wybierasz z ostatnich albo wpisujesz nowy, a kategoria podpowiada się sama („Jak zwykle
+  w Żabka”). Przelew to wybór konta zamiast sklepu.
+- Nowe transakcje z telefonu są domyślnie zatwierdzone; przełącznik „Zatwierdzona” to zmienia.
+
 ## 0.1.23
 
 - Transakcje na telefonie w nowym układzie: lista pogrupowana po dniach z przyklejonym nagłówkiem i sumą dnia.
