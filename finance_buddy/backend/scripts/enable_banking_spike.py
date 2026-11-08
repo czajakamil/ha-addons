@@ -1,7 +1,7 @@
 r"""Spike Enable Banking: podpięcie własnego konta, zrzut surowych transakcji i analiza.
 
 Jednorazowe narzędzie badawcze, nie część aplikacji. Ma odpowiedzieć na trzy
-pytania przed wpięciem API do importu (patrz rozmowa o Enable Banking):
+pytania przed wpięciem API do importu (wyniki: docs/design/enable-banking.md):
 
 1. czy bank podaje `entry_reference` / `transaction_id` i czy są stałe,
 2. czy te identyfikatory pokrywają się z czymkolwiek w CSV z tego samego banku,
