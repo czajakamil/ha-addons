@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.34
+
+- Nowy ekran Start. Na górze duża kwota, którą możesz jeszcze wydać w tym miesiącu, i ile to wychodzi
+  dziennie. Gdy przypiszesz więcej, niż masz, zamiast niej zobaczysz czerwone ostrzeżenie z nadwyżką,
+  realną kwotą do wydania i przyciskiem „Napraw w Budżecie”.
+- Pod spodem trzy liczby: Wydane, saldo kont budżetowych i ile transakcji czeka na kategorię.
+- „Do zrobienia” ma przy każdej sprawie krótki opis i przycisk (Kategoryzuj, Przejrzyj, Importuj).
+  Kategorie ponad budżet i blisko limitu są w jednym wierszu, który rozwijasz, żeby zobaczyć paski.
+- Nowa karta „Tempo wydatków”: ile wydałeś od początku miesiąca na tle średniej z poprzednich miesięcy,
+  z podpowiedzią, czy wydajesz szybciej, czy wolniej niż zwykle. Obok „Najwięcej w tym miesiącu”.
+- „Wydane” na Start i wydatki w Raportach liczą też wydatki z nieznanym odbiorcą (np. BLIK do osoby),
+  zanim nadasz im kategorię. Wcześniej pomijaliśmy je, więc kwoty mogły wyglądać na mniejsze.
+- Korekta salda z „Wyrównaj saldo” nie trafia już do kolejki „Bez kategorii”.
+- „Możesz jeszcze wydać” nie wlicza pieniędzy odłożonych na spłatę karty.
+- Opłacone co do grosza rachunki nie pokazują się już jako „blisko limitu”.
+
 ## 0.1.33
 
 - Kategoria w Transakcjach pokazuje pod nazwą, mniejszym tekstem, kategorię główną, np. „Zakupy Spożywcze”
