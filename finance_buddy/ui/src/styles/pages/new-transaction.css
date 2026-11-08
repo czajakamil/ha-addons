@@ -457,3 +457,85 @@
     font-size: var(--text-13);
   }
 }
+
+@layer components {
+  .new-tx__files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: var(--s-8);
+  }
+
+  .new-tx__file {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  .new-tx__file img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .new-tx__file-doc {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-4);
+    height: 100%;
+    padding: var(--s-8);
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 14px;
+    text-align: center;
+    word-break: break-all;
+  }
+
+  .new-tx__file-doc span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .new-tx__file-remove {
+    position: absolute;
+    inset-block-start: 4px;
+    inset-inline-end: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.6);
+    color: #fff;
+  }
+
+  /* Niewidoczny obszar dotyku 44 px wokół małego przycisku */
+  .new-tx__file-remove::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  .new-tx__file-add {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-4);
+    border-style: dashed;
+    border-color: var(--border-strong);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-13);
+    font-weight: var(--weight-regular);
+  }
+}

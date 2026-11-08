@@ -2,10 +2,10 @@
 // lub kategorii na osobnych podekranach. Natywny <dialog> daje warstwę nad stroną, pułapkę
 // fokusu i Esc (Esc na podekranie wraca do formularza).
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeftRight, Camera, Check, ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { ArrowLeftRight, Camera, Check, ChevronLeft, ChevronRight, FileText, Plus, Search, X } from 'lucide-react';
 import type { Account, Category, Store, Transaction, TransactionCreate } from '../../api';
-import { createStore, createTransaction } from '../../api';
+import { createStore, createTransaction, uploadTransactionAttachment } from '../../api';
 import { resolveTagColor } from '../tags/tagColors';
 import { toIsoDate, toRecordedAt } from '../../utils/date';
 import { parseAmountToCents } from '../../utils/format';
@@ -27,6 +27,15 @@ type Payee =
   | { kind: 'store'; storeId: string }
   | { kind: 'newStore'; name: string }
   | { kind: 'transfer'; accountId: string };
+
+// Plik czeka w formularzu do zapisu: załącznik wymaga istniejącej transakcji
+type PendingFile = { id: number; file: File; previewUrl: string | null };
+
+const ACCEPTED_FILES = 'image/*,application/pdf';
+
+// Podgląd zdjęcia to adres blob: — zwalniamy go przy usunięciu pliku, nowym otwarciu i zamknięciu
+const revokePreviews = (list: readonly PendingFile[]) =>
+  list.forEach((entry) => entry.previewUrl && URL.revokeObjectURL(entry.previewUrl));
 
 type NewTransactionScreenProps = {
   open: boolean;
@@ -88,7 +97,6 @@ const NewTransactionScreen = ({
   onCreated,
   onStoreCreated
 }: NewTransactionScreenProps) => {
-  const navigate = useNavigate();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [screen, setScreen] = useState<Screen>('form');
   const [search, setSearch] = useState('');
@@ -103,6 +111,11 @@ const NewTransactionScreen = ({
   const [time, setTime] = useState('');
   const [comment, setComment] = useState('');
   const [cleared, setCleared] = useState(true);
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  // Ostatnia lista plików dla sprzątania przy nowym otwarciu i odmontowaniu
+  const filesRef = useRef<PendingFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const nextFileId = useRef(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,11 +139,33 @@ const NewTransactionScreen = ({
       setTime(nowTime());
       setComment('');
       setCleared(true);
+      revokePreviews(filesRef.current);
+      setFiles([]);
       setError(null);
       dialog.showModal();
     }
     if (!open && dialog.open) dialog.close();
   }, [open, defaultAccountId, accounts]);
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+  useEffect(() => () => revokePreviews(filesRef.current), []);
+
+  const addFiles = (list: FileList | null) => {
+    if (!list?.length) return;
+    const added = Array.from(list).map((file) => ({
+      id: nextFileId.current++,
+      file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+    }));
+    setFiles((prev) => [...prev, ...added]);
+  };
+
+  const removeFile = (id: number) => {
+    revokePreviews(files.filter((entry) => entry.id === id));
+    setFiles((prev) => prev.filter((entry) => entry.id !== id));
+  };
 
   const account = accounts.find((entry) => entry.id === accountId);
   const currency = account?.currency ?? 'PLN';
@@ -219,9 +254,23 @@ const NewTransactionScreen = ({
         items: [],
         total_cents: signedCents
       };
-      await createTransaction(payload);
+      const created = await createTransaction(payload);
+      let failedUploads = 0;
+      for (const entry of files) {
+        try {
+          await uploadTransactionAttachment(created.id, entry.file);
+        } catch (err) {
+          console.error(err);
+          failedUploads += 1;
+        }
+      }
       await onCreated();
       onClose();
+      if (failedUploads) {
+        toast.error(
+          `Transakcja zapisana, ale nie udało się dołączyć plików: ${failedUploads} z ${files.length}. Dodasz je w szczegółach transakcji.`
+        );
+      }
     } catch (err) {
       console.error(err);
       setError('Nie udało się zapisać transakcji. Spróbuj ponownie.');
@@ -536,26 +585,62 @@ const NewTransactionScreen = ({
           </button>
         </div>
 
-        <button
-          type="button"
-          className="new-tx__receipt"
-          onClick={() => {
-            onClose();
-            navigate('/receipts');
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_FILES}
+          multiple
+          hidden
+          onChange={(event) => {
+            addFiles(event.target.files);
+            // Ten sam plik wybrany drugi raz też ma wywołać onChange
+            event.target.value = '';
           }}
-        >
-          <Camera size={20} className="new-tx__muted-icon" aria-hidden="true" />
-          <span className="new-tx__row-value new-tx__row-value--stack">
-            <span>Zdjęcia paragonu</span>
-            <span className="new-tx__hint">Rozpoznamy pozycje i podzielimy kategorie</span>
-          </span>
-        </button>
+        />
+        {files.length === 0 ? (
+          <button type="button" className="new-tx__receipt" onClick={() => fileInputRef.current?.click()}>
+            <Camera size={20} className="new-tx__muted-icon" aria-hidden="true" />
+            <span className="new-tx__row-value new-tx__row-value--stack">
+              <span>Zdjęcie paragonu lub plik</span>
+              <span className="new-tx__hint">Zrób zdjęcie albo wybierz z galerii lub PDF — dołączymy je do transakcji</span>
+            </span>
+          </button>
+        ) : (
+          <div className="new-tx__files" role="group" aria-label="Załączniki">
+            {files.map((entry) => (
+              <div key={entry.id} className="new-tx__file">
+                {entry.previewUrl ? (
+                  <img src={entry.previewUrl} alt={entry.file.name} />
+                ) : (
+                  <span className="new-tx__file-doc">
+                    <FileText size={22} aria-hidden="true" />
+                    <span>{entry.file.name}</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="new-tx__file-remove"
+                  aria-label={`Usuń ${entry.file.name}`}
+                  onClick={() => removeFile(entry.id)}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+            <button type="button" className="new-tx__file new-tx__file-add" onClick={() => fileInputRef.current?.click()}>
+              <Plus size={20} aria-hidden="true" />
+              Dodaj
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="new-tx__footer">
         <button type="submit" className="new-tx__submit" disabled={submitting}>
           {submitting
-            ? 'Zapisywanie…'
+            ? files.length
+              ? 'Zapisywanie i dołączanie plików…'
+              : 'Zapisywanie…'
             : `Dodaj transakcję${amountCents ? ` · ${formatSignedMoney(signedCents, currency)}` : ''}`}
         </button>
       </div>
