@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.23
+
+- Transakcje na telefonie w nowym układzie: lista pogrupowana po dniach z przyklejonym nagłówkiem i sumą dnia.
+  Wiersz pokazuje sklep, kategorię z kolorową kropką (przy paragonie „3 kategorie”), konto, komentarz, kwotę
+  i godzinę. Niezatwierdzone mają pomarańczową kropkę, wydatki bez kategorii — pomarańczową etykietę.
+- Przesuń wiersz w lewo, żeby zmienić kategorię albo zatwierdzić transakcję bez wchodzenia w szczegóły.
+- Filtry na telefonie siedzą w panelu od dołu (okres, konto, kategoria, „Tylko bez kategorii”, „Do zatwierdzenia”),
+  a aktywne widać jako chipy pod wyszukiwarką.
+- Nad listą baner „Do zatwierdzenia” z liczbą niezatwierdzonych — „Przejrzyj” pokazuje tylko je.
+  Nową transakcję dodaje okrągły przycisk „+”.
+
 ## 0.1.22
 
 - Paragony z pozycjami liczą się teraz do kategorii produktów — w Budżecie, Raportach i na ekranie Kategorie.
