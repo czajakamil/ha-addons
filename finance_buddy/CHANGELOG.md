@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.29
+
+- Połączenie z Revolutem pokazuje rachunki. Wcześniej po zgodzie widniało „Bank nie udostępnił żadnego rachunku”,
+  bo Revolut podaje listę rachunków później niż inne banki. Jeśli masz już takie połączenie, kliknij „Pobierz teraz”,
+  a rachunki się pojawią, bez łączenia od nowa.
+
 ## 0.1.28
 
 - Transakcje mogą spływać z banku same. W Panelu, w sekcji „Połączenia z bankiem”, wgrywasz klucz
