@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.35
+
+- Gdy w Transakcjach wybierzesz sklep, a transakcja nie ma jeszcze kategorii, wpisze się ta z reguły
+  sklepu. Jeśli sklep nie ma reguły, wpisze się kategoria z jego ostatniej transakcji. Komórka kategorii
+  na chwilę się podświetli, żeby było widać, że wpisała się sama.
+- Kategorii, którą już ustawiłeś, zmiana sklepu nie rusza. Transakcji podzielonych na pozycje też nie.
+
 ## 0.1.34
 
 - Nowy ekran Start. Na górze duża kwota, którą możesz jeszcze wydać w tym miesiącu, i ile to wychodzi
