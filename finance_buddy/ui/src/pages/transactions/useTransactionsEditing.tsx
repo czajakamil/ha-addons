@@ -23,6 +23,7 @@ import {
   buildTransferOptions,
   type LookupOption
 } from '../../components/transactions/lookupOptions';
+import { suggestedCategoryId } from '../../components/transactions/newTransactionModel';
 import CommentEditCell from '../../components/transactions/CommentEditCell';
 import AmountEditCell from '../../components/transactions/AmountEditCell';
 import { TagChip } from '../../components/tags/TagChip';
@@ -34,6 +35,7 @@ import { formatRecordedTime, parseTypedTime, toRecordedAt } from '../../utils/da
 import { BALANCE_ADJUSTMENT_LABEL, isBalanceAdjustment, userComment } from '../../utils/transactionLabels';
 import {
   UNRECONCILE_CONFIRM,
+  categoryForStoreChange,
   getToggleReconciledPayload,
   getToggleStatusPayload,
   type StatusUpdatePayload,
@@ -87,6 +89,15 @@ export const useTransactionsEditing = ({
   // odmówi, jeśli ma jeszcze jakieś transakcje.
   const createdStoreIdsRef = useRef(new Set<string>());
   const categoryOptions = useMemo(() => buildCategoryOptions(categories), [categories]);
+  const categoryIds = useMemo(() => new Set(categories.map((category) => category.id)), [categories]);
+  // Transakcja, której kategorię przed chwilą dopisał sklep — komórka krótko się podświetla
+  const [autoCategorizedId, setAutoCategorizedId] = useState<string | null>(null);
+  const autoCategoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashAutoCategory = (transactionId: string) => {
+    if (autoCategoryTimerRef.current) clearTimeout(autoCategoryTimerRef.current);
+    setAutoCategorizedId(transactionId);
+    autoCategoryTimerRef.current = setTimeout(() => setAutoCategorizedId(null), 1600);
+  };
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [savingFieldTransactionId, setSavingFieldTransactionId] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
@@ -258,10 +269,17 @@ export const useTransactionsEditing = ({
               transfer_account_id: null,
               transfer_transaction_id: null
             };
+      // Reguła sklepu (albo jego ostatnia kategoria) wypełnia pustą kategorię w tym samym zapisie
+      const autoCategoryId =
+        option?.kind === 'transfer' || !newId
+          ? null
+          : categoryForStoreChange(tx, suggestedCategoryId(storeMap.get(newId), transactions, categoryIds));
+      if (autoCategoryId) payload.category_id = autoCategoryId;
       try {
         const updated = await updateTransaction(tx.id, payload);
         setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         setInlineError(null);
+        if (autoCategoryId) flashAutoCategory(updated.id);
         if (
           previousStoreId &&
           previousStoreId !== updated.store_id &&
@@ -553,7 +571,14 @@ export const useTransactionsEditing = ({
     if (!category) {
       return null;
     }
-    return <TagChip category={category} byId={categoryMap} showParent />;
+    const chip = <TagChip category={category} byId={categoryMap} showParent />;
+    return autoCategorizedId === transaction.id ? (
+      <span className="transactions-auto-category" title="Kategoria z reguły sklepu">
+        {chip}
+      </span>
+    ) : (
+      chip
+    );
   };
 
   const renderAmountCell = (transaction: Transaction, field: EditableAmountField) => {

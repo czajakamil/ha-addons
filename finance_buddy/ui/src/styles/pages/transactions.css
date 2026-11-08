@@ -248,6 +248,30 @@
     color: var(--text-muted);
   }
 
+  /* Kategoria dopisana przez regułę sklepu — krótkie podświetlenie, żeby było widać skąd się wzięła */
+  .transactions-auto-category {
+    display: inline-flex;
+    max-width: 100%;
+    border-radius: 999px;
+    animation: transactions-auto-category 1.6s ease-out;
+  }
+
+  @keyframes transactions-auto-category {
+    0%,
+    40% {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 3px transparent;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .transactions-auto-category {
+      animation: none;
+    }
+  }
+
   .transactions-grid .truncate {
     line-height: var(--row-height);
   }

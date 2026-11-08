@@ -100,3 +100,16 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TransactionColumnId, number>>
 };
 export type EditableLookupField = 'account' | 'store' | 'category';
 export type EditableAmountField = 'outflow' | 'inflow';
+
+/**
+ * Kategoria, którą dopisujemy przy zmianie sklepu w tabeli: tylko gdy transakcja nie ma
+ * jeszcze kategorii ani pozycji (te niosą tagi same). Ustawionej kategorii nie ruszamy —
+ * poprawka literówki w sklepie nie może po cichu przetagować wydatku.
+ */
+export const categoryForStoreChange = (
+  transaction: Pick<Transaction, 'category_id' | 'items'>,
+  suggested: string | null
+): string | null => {
+  if (transaction.category_id || transaction.items?.length) return null;
+  return suggested;
+};

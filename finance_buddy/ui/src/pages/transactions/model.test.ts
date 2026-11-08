@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Transaction } from '../../api';
-import { getToggleReconciledPayload, getToggleStatusPayload } from './model';
+import { categoryForStoreChange, getToggleReconciledPayload, getToggleStatusPayload } from './model';
 
 const tx = (cleared: boolean, reconciled: boolean) => ({ cleared, reconciled }) as Transaction;
 
@@ -26,5 +26,25 @@ describe('getToggleReconciledPayload', () => {
 
   it('cofa uzgodnienie do zatwierdzonej', () => {
     expect(getToggleReconciledPayload(tx(true, true))).toEqual({ cleared: true, reconciled: false });
+  });
+});
+
+describe('categoryForStoreChange', () => {
+  const base = { category_id: null, items: [] } as unknown as Transaction;
+
+  it('dopisuje podpowiedź do transakcji bez kategorii', () => {
+    expect(categoryForStoreChange(base, 'fuel')).toBe('fuel');
+  });
+
+  it('nie nadpisuje ustawionej kategorii', () => {
+    expect(categoryForStoreChange({ ...base, category_id: 'groceries' }, 'fuel')).toBeNull();
+  });
+
+  it('pomija transakcje z pozycjami', () => {
+    expect(categoryForStoreChange({ ...base, items: [{}] } as unknown as Transaction, 'fuel')).toBeNull();
+  });
+
+  it('bez podpowiedzi zostawia pustą', () => {
+    expect(categoryForStoreChange(base, null)).toBeNull();
   });
 });
