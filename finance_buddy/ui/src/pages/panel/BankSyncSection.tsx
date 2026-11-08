@@ -236,6 +236,8 @@ const ConnectionCard = ({
 }) => {
   const expired = connection.status === 'expired';
   const linked = connection.accounts.some((a) => a.account_id);
+  // Bez rachunków „Pobierz teraz” dopytuje bank o listę (Revolut oddaje ją z opóźnieniem).
+  const canSync = linked || connection.accounts.length === 0;
   return (
     <div className="account-settings__card">
       <div className="panel-section__head">
@@ -253,8 +255,8 @@ const ConnectionCard = ({
               className="account-button"
               type="button"
               onClick={onSync}
-              disabled={busy || !linked}
-              title={linked ? undefined : 'Najpierw wybierz konto dla rachunku.'}
+              disabled={busy || !canSync}
+              title={canSync ? undefined : 'Najpierw wybierz konto dla rachunku.'}
             >
               <Download size={14} aria-hidden="true" />
               {busy ? 'Pobieram…' : 'Pobierz teraz'}
@@ -288,7 +290,9 @@ const ConnectionCard = ({
         </div>
       )}
       {connection.accounts.length === 0 ? (
-        <p className="account-hint">Bank nie udostępnił żadnego rachunku.</p>
+        <p className="account-hint">
+          Bank nie udostępnił jeszcze żadnego rachunku. „Pobierz teraz” zapyta go ponownie.
+        </p>
       ) : (
         connection.accounts.map((link) => (
           <AccountLinkRow key={link.id} link={link} accounts={accounts} onChanged={onChanged} />
@@ -395,6 +399,13 @@ const BankSyncSection = () => {
       replace(result.connection);
       const failed = result.accounts.find((a) => a.error);
       if (failed) toast.error(failed.error);
+      else if (result.connection.last_error) toast.error(result.connection.last_error);
+      else if (connection.accounts.length === 0)
+        toast(
+          result.connection.accounts.length
+            ? 'Bank udostępnił rachunki — wybierz dla nich konta.'
+            : 'Bank nadal nie udostępnia rachunków. Spróbuj połączyć ponownie.'
+        );
       else toast(syncSummary(result));
     } catch (err) {
       toast.error(errorDetail(err, 'Nie udało się pobrać transakcji.'));

@@ -388,43 +388,53 @@ def _parse_datetime(raw: object) -> dt.datetime | None:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
-def complete_connection(
-    db: Session,
-    user_id: str,
-    connection_id: str,
-    redirect: str,
-    headers: dict[str, str],
-) -> BankConnectionRead:
-    """Kończy zgodę wklejonym adresem powrotu i zakłada rachunki z sesji.
+def _usable_accounts(client: eb.Client, session_id: str | None, accounts: object) -> list[dict]:
+    """Rachunki z `uid`; gdy odpowiedź `POST /sessions` ich nie ma, dopytuje sesję.
 
-    Rachunek, który już był powiązany w starszym połączeniu (ten sam IBAN),
-    przejmuje powiązanie i punkt startu — po ponownej zgodzie bank nadaje
-    nowe `uid`, a historia ma się ciągnąć dalej bez dubli.
+    Część banków (np. Revolut) oddaje przy autoryzacji pustą listę albo rachunki
+    bez `uid`, a pełna lista jest dopiero w `GET /sessions/{id}` (same `uid`)
+    — szczegóły rachunku dociągamy wtedy z `/accounts/{uid}/details`.
     """
-    connection = _connection_or_404(db, user_id, connection_id)
-    if connection.status != "pending":
-        raise _http(status.HTTP_409_CONFLICT, "To połączenie jest już zakończone.")
+    given = [a for a in accounts if isinstance(a, dict)] if isinstance(accounts, list) else []
+    usable = [a for a in given if a.get("uid")]
+    if usable or not session_id:
+        return usable
     try:
-        code, state = eb.parse_redirect(redirect)
+        data = client.get_session(session_id)
     except eb.EnableBankingError as exc:
-        raise _http(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
-    if state is not None and not secrets.compare_digest(state, connection.auth_state or ""):
-        raise _http(
-            status.HTTP_400_BAD_REQUEST,
-            "Ten adres jest z innej zgody. Zacznij łączenie z bankiem od nowa.",
-        )
-    try:
-        session = client_for(user_id, headers).create_session(code)
-    except eb.EnableBankingError as exc:
-        raise _bank_error(exc) from exc
+        if exc.session_invalid:
+            raise
+        log.warning("Could not read Enable Banking session accounts: %s", exc)
+        return []
+    uids = [u for u in data.get("accounts") or [] if isinstance(u, str) and u]
+    for extra in data.get("accounts_data") or []:
+        uid = extra.get("uid") if isinstance(extra, dict) else None
+        if uid and uid not in uids:
+            uids.append(uid)
+    log.info(
+        "Enable Banking session gave %d account(s) at authorization (%d without uid), "
+        "%d in GET /sessions.",
+        len(given),
+        len(given) - len(usable),
+        len(uids),
+    )
+    found: list[dict] = []
+    for uid in uids:
+        try:
+            details = client.account_details(uid) or {}
+        except eb.EnableBankingError as exc:
+            if exc.session_invalid:
+                raise
+            log.info("Account details unavailable for %s: %s", uid, exc)
+            details = {}
+        found.append({**details, "uid": uid})
+    return found
 
-    connection.status = "active"
-    connection.session_id = session.get("session_id")
-    connection.auth_state = None
-    connection.last_error = None
-    access = session.get("access") or {}
-    connection.valid_until = _parse_datetime(access.get("valid_until")) or connection.valid_until
 
+def _add_accounts(
+    db: Session, user_id: str, connection: BankConnection, accounts: list[dict]
+) -> None:
+    """Zakłada rachunki połączenia; powiązania ze starszych zgód przechodzą po IBAN-ie."""
     previous = {
         link.iban_hash: link
         for link in db.scalars(
@@ -439,9 +449,7 @@ def complete_connection(
         )
     }
     replaced: set[str] = set()
-    for account in session.get("accounts") or []:
-        if not account.get("uid"):
-            continue
+    for account in accounts:
         iban = eb.iban_of(account)
         digest = eb.iban_hash(iban)
         link = BankConnectionAccount(
@@ -471,6 +479,51 @@ def complete_connection(
             and not any(link.account_id for link in old_connection.accounts)
         ):
             db.delete(old_connection)
+
+
+def complete_connection(
+    db: Session,
+    user_id: str,
+    connection_id: str,
+    redirect: str,
+    headers: dict[str, str],
+) -> BankConnectionRead:
+    """Kończy zgodę wklejonym adresem powrotu i zakłada rachunki z sesji.
+
+    Rachunek, który już był powiązany w starszym połączeniu (ten sam IBAN),
+    przejmuje powiązanie i punkt startu — po ponownej zgodzie bank nadaje
+    nowe `uid`, a historia ma się ciągnąć dalej bez dubli.
+    """
+    connection = _connection_or_404(db, user_id, connection_id)
+    if connection.status != "pending":
+        raise _http(status.HTTP_409_CONFLICT, "To połączenie jest już zakończone.")
+    try:
+        code, state = eb.parse_redirect(redirect)
+    except eb.EnableBankingError as exc:
+        raise _http(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    if state is not None and not secrets.compare_digest(state, connection.auth_state or ""):
+        raise _http(
+            status.HTTP_400_BAD_REQUEST,
+            "Ten adres jest z innej zgody. Zacznij łączenie z bankiem od nowa.",
+        )
+    client = client_for(user_id, headers)
+    try:
+        session = client.create_session(code)
+    except eb.EnableBankingError as exc:
+        raise _bank_error(exc) from exc
+
+    connection.status = "active"
+    connection.session_id = session.get("session_id")
+    connection.auth_state = None
+    connection.last_error = None
+    access = session.get("access") or {}
+    connection.valid_until = _parse_datetime(access.get("valid_until")) or connection.valid_until
+
+    try:
+        accounts = _usable_accounts(client, connection.session_id, session.get("accounts"))
+    except eb.EnableBankingError as exc:
+        raise _bank_error(exc) from exc
+    _add_accounts(db, user_id, connection, accounts)
     db.commit()
     db.refresh(connection)
     return serialize(db, connection)
@@ -654,7 +707,19 @@ def sync_connection(
     client = client_for(user_id, headers)
     results: list[BankSyncAccountResult] = []
     errors: list[str] = []
-    for link in connection.accounts:
+    if not connection.accounts and connection.session_id:
+        # Zgoda bez rachunków (np. Revolut, który nie oddał ich przy autoryzacji)
+        # — dopytujemy sesję, zanim każemy łączyć się od nowa.
+        try:
+            _add_accounts(
+                db, user_id, connection, _usable_accounts(client, connection.session_id, [])
+            )
+        except eb.EnableBankingError as exc:
+            if not exc.session_invalid:
+                raise _bank_error(exc) from exc
+            connection.status = "expired"
+            errors.append("Bank odrzucił zgodę — połącz ponownie.")
+    for link in connection.accounts if not errors else []:
         if not link.account_id:
             continue
         savepoint = db.begin_nested()

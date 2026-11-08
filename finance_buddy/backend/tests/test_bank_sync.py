@@ -354,3 +354,76 @@ def test_complete_rejects_state_from_other_consent(db: Session) -> None:
     with pytest.raises(HTTPException) as exc:
         bank_sync.complete_connection(db, USER, "c2", "https://x/cb?code=a&state=zzz", {})
     assert exc.value.status_code == 400
+
+
+class SessionWithoutAccounts:
+    """Jak Revolut: `POST /sessions` bez rachunków, lista dopiero w `GET /sessions`."""
+
+    def __init__(self) -> None:
+        self.details_calls: list[str] = []
+
+    def create_session(self, _code: str) -> dict:
+        return {"session_id": "s2", "access": {}, "accounts": []}
+
+    def get_session(self, session_id: str) -> dict:
+        assert session_id == "s2"
+        return {
+            "accounts": ["rev-pln"],
+            "accounts_data": [{"uid": "rev-pln"}, {"uid": "rev-eur"}],
+        }
+
+    def account_details(self, uid: str) -> dict:
+        self.details_calls.append(uid)
+        if uid == "rev-eur":
+            raise eb.EnableBankingError("no details", status=400)
+        return {"uid": uid, "account_id": {"iban": "LT001234"}, "currency": "PLN", "name": "Main"}
+
+
+def pending_connection(db: Session) -> None:
+    db.add(
+        BankConnection(
+            id="c2",
+            user_id=USER,
+            aspsp_name="Revolut",
+            aspsp_country="PL",
+            status="pending",
+            auth_state="st",
+        )
+    )
+    db.commit()
+
+
+def test_complete_falls_back_to_session_accounts(db: Session, monkeypatch) -> None:
+    pending_connection(db)
+    fake = SessionWithoutAccounts()
+    monkeypatch.setattr(bank_sync, "client_for", lambda *_a, **_k: fake)
+    result = bank_sync.complete_connection(db, USER, "c2", "https://x/cb?code=a&state=st", {})
+
+    assert {a.uid for a in result.accounts} == {"rev-pln", "rev-eur"}
+    main = next(a for a in result.accounts if a.uid == "rev-pln")
+    assert main.name == "Main"
+    assert main.currency == "PLN"
+    assert main.iban_masked == "…1234"
+    assert fake.details_calls == ["rev-pln", "rev-eur"]
+
+
+def test_sync_fetches_accounts_for_connection_without_any(db: Session, monkeypatch) -> None:
+    db.add(
+        BankConnection(
+            id="c2",
+            user_id=USER,
+            aspsp_name="Revolut",
+            aspsp_country="PL",
+            status="active",
+            session_id="s2",
+            valid_until=utcnow() + dt.timedelta(days=90),
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(bank_sync, "client_for", lambda *_a, **_k: SessionWithoutAccounts())
+    conn = db.get(BankConnection, "c2")
+    result = bank_sync.sync_connection(db, USER, conn, {})
+
+    assert {a.uid for a in result.connection.accounts} == {"rev-pln", "rev-eur"}
+    assert result.accounts == []
+    assert result.connection.last_error is None

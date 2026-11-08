@@ -168,6 +168,12 @@ class Client:
     def create_session(self, code: str) -> dict:
         return self.request("POST", "/sessions", {"code": code})
 
+    def get_session(self, session_id: str) -> dict:
+        return self.request("GET", f"/sessions/{urllib.parse.quote(session_id)}")
+
+    def account_details(self, account_uid: str) -> dict:
+        return self.request("GET", f"/accounts/{urllib.parse.quote(account_uid)}/details")
+
     def delete_session(self, session_id: str) -> None:
         self.request("DELETE", f"/sessions/{urllib.parse.quote(session_id)}")
 
