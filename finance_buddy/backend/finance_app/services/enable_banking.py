@@ -22,6 +22,8 @@ from typing import Any
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
+from . import bank_descriptions as descriptions
+
 BASE_URL = "https://api.enablebanking.com"
 JWT_TTL_SECONDS = 3600
 REQUEST_TIMEOUT_SECONDS = 30
@@ -320,6 +322,10 @@ def _counterparty(tx: dict) -> str | None:
     return creditor or debtor or None
 
 
+def _remittance(tx: dict) -> list[str]:
+    return [s.strip() for s in tx.get("remittance_information") or [] if s and s.strip()]
+
+
 def _fingerprint(tx: dict) -> str:
     # Surowe pola bez `status` i `booking_date` — inaczej odcisk zmieniałby się
     # przy zaksięgowaniu (lekcja z Actual). Saldo po operacji odróżnia dwie
@@ -349,11 +355,18 @@ def normalize(transactions: list[dict]) -> list[ApiTransaction]:
     """
     result: list[ApiTransaction] = []
     fingerprints: Counter[str] = Counter()
+    cities = descriptions.learned_cities(
+        location
+        for tx in transactions
+        if (location := descriptions.card_location_of(_remittance(tx), _counterparty(tx)))
+    )
     for tx in transactions:
         if (tx.get("status") or "BOOK") != "BOOK":
             continue
+        # Data operacji, gdy bank ją poda; PKO BP zwraca tylko datę księgowania,
+        # więc płatność kartą z piątku bywa w aplikacji w poniedziałek.
         day = _iso_date(
-            tx.get("booking_date") or tx.get("value_date") or tx.get("transaction_date")
+            tx.get("transaction_date") or tx.get("booking_date") or tx.get("value_date")
         )
         cents = _signed_cents(tx)
         if day is None or cents is None:
@@ -366,17 +379,15 @@ def normalize(transactions: list[dict]) -> list[ApiTransaction]:
             count = fingerprints[base]
             fingerprints[base] += 1
             external_id = f"eb-fp:{base}" if count == 0 else f"eb-fp:{base}-{count}"
-        remittance = [s.strip() for s in tx.get("remittance_information") or [] if s and s.strip()]
-        payee = _counterparty(tx) or (remittance[0] if remittance else None)
-        memo = " · ".join(r for r in remittance if r != payee) or None
+        described = descriptions.describe(_counterparty(tx), _remittance(tx), cities)
         result.append(
             ApiTransaction(
                 external_id=external_id,
                 date=day,
                 amount_cents=cents,
                 currency=(tx.get("transaction_amount") or {}).get("currency"),
-                payee=payee,
-                memo=memo,
+                payee=described.payee,
+                memo=described.memo,
             )
         )
     return result

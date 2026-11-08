@@ -31,11 +31,12 @@ Narzędzie testowe: `backend/scripts/enable_banking_spike.py` (instrukcja w docs
 | Identyfikator | `entry_reference` = `O;N`, numer kolejnej operacji na koncie. `transaction_id` to jego base64 — nie niezależny id |
 | Stały przy innym `date_from` | **tak** (zrzut 90 i 30 dni: 45/45 tych samych id) |
 | Stały w czasie / po ponownej zgodzie | **do potwierdzenia** (`stability` na zrzutach z różnych dni; po ~90 dniach po reautoryzacji) |
-| Oczekujące (`PDNG`) | nie są zwracane — mimo blokad widocznych jako różnica `ITBD` − `ITAV` |
-| Daty | tylko `booking_date`; `value_date` i `transaction_date` puste |
+| Oczekujące (`PDNG`) | nie są zwracane — mimo blokad widocznych jako różnica `ITBD` − `ITAV`; Data insights pokazuje wyłącznie `status: BOOK` |
+| Daty | tylko `booking_date`; `value_date` i `transaction_date` nie istnieją (potwierdzone w Data insights Enable Banking, listopad 2026: wydatki z kont osobistych PKO mają same `booking_date`). Standard PolishAPI ma opcjonalne `tradeDate` („Data operacji”), ale PKO go nie wypełnia |
 | Salda | `ITBD`, `ITAV` (bez `CLBD`) |
-| Dodatkowe pola | `balance_after_transaction` przy każdej operacji, `merchant_category_code`, `reference_number` (pusty) |
-| Historia | od założenia konta (konto młodsze niż 90 dni, więc limit historii nieznany) |
+| Dodatkowe pola | `balance_after_transaction` przy każdej operacji; `merchant_category_code` i `reference_number` zawsze puste (Data insights ich nie wymienia) |
+| Historia | 1458 dni (ok. 4 lata) według Data insights Enable Banking |
+| Płatności kartą | bez `creditor` (jest w 69% wydatków, tylko przy przelewach); nazwa sklepu tylko w tytule, sklejona z miastem i krajem: `NOWY TARGKAUFLANDPL`, `CARD-PAYMENT` — rozcina ją `services/bank_descriptions.py` |
 
 ## 4. Decyzje dla integracji
 
@@ -49,6 +50,11 @@ Narzędzie testowe: `backend/scripts/enable_banking_spike.py` (instrukcja w docs
   rachunku — domyślnie dzień po ostatniej transakcji z CSV na koncie. Wiersze
   z CSV mają inne `external_id`, a sito 2 celowo pomija transakcje z banku,
   więc bez tej granicy pierwsze pobranie zdublowałoby wyciąg.
+- **Data transakcji:** `transaction_date`, a bez niej `booking_date`. PKO BP
+  podaje tylko datę księgowania (tak samo dostałby ją każdy pośrednik, także
+  YNAB), więc płatność kartą jest w aplikacji 1–3 dni później niż
+  w rzeczywistości (dłużej przez weekend). Ręcznie dodana wcześniej
+  transakcja scala się z bankową w oknie ±4 dni i zachowuje swoją datę.
 - **Tylko zaksięgowane.** Okno pobierania: od ostatniej zaksięgowanej daty
   minus ~7 dni; duplikaty wycina sito 1.
 - **Kompletność:** porównanie `balance_after_transaction` i salda `ITBD`

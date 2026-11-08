@@ -45,8 +45,10 @@ from ..schemas import (
     BankSyncSettingsUpdate,
 )
 from . import bank_csv
+from . import bank_descriptions as descriptions
 from . import bank_import as importer
 from . import enable_banking as eb
+from .store_aliases import load_matcher
 
 try:  # Ten sam pęk kluczy co klucz YNAB (/data/.keyring w dodatku HA).
     import keyring
@@ -616,6 +618,61 @@ def _rows(transactions: list[eb.ApiTransaction]) -> list[importer.AnalyzedRow]:
     ]
 
 
+def _outdated(description: str) -> list[str] | None:
+    """Pola starego opisu („NOWY TARGKAUFLANDPL · CARD-PAYMENT”), gdy da się go poprawić."""
+    parts = description.split(descriptions.SEPARATOR)
+    code = parts[-1]
+    if len(parts) < 2 or code not in descriptions.OPERATION_LABELS:
+        return None
+    return None if descriptions.OPERATION_LABELS[code] == code else parts
+
+
+def refresh_descriptions(db: Session, user_id: str, account_ids: list[str]) -> int:
+    """Poprawia opisy transakcji pobranych przed rozcinaniem miejsca płatności kartą.
+
+    Komentarz zmieniamy tylko, gdy nikt go nie ruszał (równy opisowi z banku), a sklep
+    dobieramy tylko transakcjom bez sklepu. Nowe opisy nie kończą się kodem operacji,
+    więc kolejne wywołania nic nie robią.
+    """
+    if not account_ids:
+        return 0
+    rows = db.scalars(
+        select(Transaction).where(
+            Transaction.user_id == user_id,
+            Transaction.account_id.in_(account_ids),
+            Transaction.bank_description.is_not(None),
+            Transaction.external_id.like("eb%"),
+        )
+    ).all()
+    outdated = [(tx, parts) for tx in rows if (parts := _outdated(tx.bank_description or ""))]
+    if not outdated:
+        return 0
+    cities = descriptions.learned_cities(
+        parts[0] for _, parts in outdated if parts[-1] == descriptions.CARD_PAYMENT
+    )
+    stores = load_matcher(db, user_id)
+    for tx, parts in outdated:
+        if parts[-1] == descriptions.CARD_PAYMENT:
+            described = descriptions.describe(None, parts, cities)
+        else:
+            described = descriptions.describe(parts[0], parts[1:])
+        text = descriptions.SEPARATOR.join(p for p in (described.payee, described.memo) if p)
+        if tx.comment == tx.bank_description:
+            tx.comment = text or None
+        tx.bank_description = text or None
+        if tx.store_id is None and tx.transfer_account_id is None:
+            store = stores.match(described.payee)
+            if store is not None:
+                tx.store_id = store.id
+                if (
+                    tx.category_id is None
+                    and store.automatically_categorize_payee
+                    and store.automatic_category_id
+                ):
+                    tx.category_id = store.automatic_category_id
+    return len(outdated)
+
+
 def _window(link: BankConnectionAccount, today: dt.date) -> dt.date:
     start = today - dt.timedelta(days=INITIAL_DAYS)
     if link.last_booked_date:
@@ -719,6 +776,7 @@ def sync_connection(
                 raise _bank_error(exc) from exc
             connection.status = "expired"
             errors.append("Bank odrzucił zgodę — połącz ponownie.")
+    refresh_descriptions(db, user_id, [a.account_id for a in connection.accounts if a.account_id])
     for link in connection.accounts if not errors else []:
         if not link.account_id:
             continue

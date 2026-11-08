@@ -427,3 +427,103 @@ def test_sync_fetches_accounts_for_connection_without_any(db: Session, monkeypat
     assert {a.uid for a in result.connection.accounts} == {"rev-pln", "rev-eur"}
     assert result.accounts == []
     assert result.connection.last_error is None
+
+
+# --- opisy płatności kartą -------------------------------------------------------------
+
+
+def card_tx(ref: str, place: str) -> dict:
+    return {
+        "entry_reference": ref,
+        "booking_date": "2026-11-01",
+        "transaction_amount": {"amount": "10.00", "currency": "PLN"},
+        "credit_debit_indicator": "DBIT",
+        "remittance_information": [place, "CARD-PAYMENT"],
+    }
+
+
+def test_normalize_splits_card_place_into_store_and_city() -> None:
+    rows = eb.normalize(
+        [card_tx("O;1", "Nowy TargMcDonaldsPL"), card_tx("O;2", "NOWY TARGLIDL 2265PL")]
+    )
+    assert [(r.payee, r.memo) for r in rows] == [
+        ("McDonalds", "Nowy Targ"),
+        ("LIDL 2265", "Nowy Targ"),
+    ]
+
+
+def test_sync_matches_store_by_merchant_name(db: Session, monkeypatch) -> None:
+    from backend.finance_app.models import Store
+    from backend.finance_app.services.store_aliases import register_store_name
+
+    kaufland = Store(user_id=USER, name="Kaufland")
+    db.add(kaufland)
+    db.flush()
+    register_store_name(db, kaufland)
+    link = connection(db)
+    client = FakeClient([card_tx("O;1", "NOWY TARGKAUFLANDPL")])
+    monkeypatch.setattr(bank_sync, "client_for", lambda *_a, **_k: client)
+
+    bank_sync.sync_connection(db, USER, link.connection)
+
+    tx = db.scalars(select(Transaction)).one()
+    assert tx.store_id == kaufland.id
+    assert tx.comment == "KAUFLAND · Nowy Targ"
+
+
+def test_refresh_fixes_descriptions_imported_before_splitting(db: Session) -> None:
+    from backend.finance_app.models import Store
+    from backend.finance_app.services.store_aliases import register_store_name
+
+    kaufland = Store(user_id=USER, name="Kaufland")
+    db.add(kaufland)
+    db.flush()
+    register_store_name(db, kaufland)
+    old = "NOWY TARGKAUFLANDPL · CARD-PAYMENT"
+    untouched = Transaction(
+        user_id=USER,
+        account_id="pko",
+        date=dt.date(2026, 10, 1),
+        total_cents=-100,
+        comment=old,
+        bank_description=old,
+        external_id="eb:1",
+    )
+    edited = Transaction(
+        user_id=USER,
+        account_id="pko",
+        date=dt.date(2026, 10, 1),
+        total_cents=-200,
+        comment="Zakupy na weekend",
+        bank_description="MARIA ANTOLEC · MARIA · TRANSFER",
+        external_id="eb:2",
+    )
+    csv_row = Transaction(
+        user_id=USER,
+        account_id="pko",
+        date=dt.date(2026, 10, 1),
+        total_cents=-300,
+        comment=old,
+        bank_description=old,
+        external_id="csv:1",
+    )
+    db.add_all([untouched, edited, csv_row])
+    db.flush()
+
+    assert bank_sync.refresh_descriptions(db, USER, ["pko"]) == 2
+    assert (untouched.comment, untouched.bank_description) == (
+        "KAUFLAND · Nowy Targ",
+        "KAUFLAND · Nowy Targ",
+    )
+    assert untouched.store_id == kaufland.id
+    assert edited.comment == "Zakupy na weekend"
+    assert edited.bank_description == "MARIA ANTOLEC · MARIA"
+    assert csv_row.bank_description == old
+    assert bank_sync.refresh_descriptions(db, USER, ["pko"]) == 0
+
+
+def test_normalize_prefers_transaction_date_over_booking_date() -> None:
+    tx = card_tx("O;1", "NOWY TARGKAUFLANDPL")
+    tx["booking_date"], tx["transaction_date"] = "2026-11-08", "2026-11-06"
+    [row] = eb.normalize([tx])
+    assert row.date == dt.date(2026, 11, 6)
