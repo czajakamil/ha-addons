@@ -431,7 +431,9 @@ def _new_transaction(
         currency=account.currency,
         comment=description,
         bank_description=description,
-        cleared=True,
+        # Nowy wiersz z banku czeka na kategorię i zatwierdzenie (żółty status),
+        # nawet gdy sklep podpowiedział kategorię.
+        cleared=False,
         external_id=parsed.external_id,
         import_batch_id=batch.id,
     )

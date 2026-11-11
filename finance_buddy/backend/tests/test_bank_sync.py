@@ -191,7 +191,10 @@ def test_sync_creates_transactions_once_and_records_batch(db: Session) -> None:
     assert client.windows[1][0] == dt.date(2026, 11, 5) - dt.timedelta(days=bank_sync.OVERLAP_DAYS)
     # Saldo pobrane niedawno — w tle nie pytamy o nie drugi raz.
     assert client.balance_calls == 1
-    assert len(db.scalars(select(Transaction)).all()) == 2
+    created = db.scalars(select(Transaction)).all()
+    assert len(created) == 2
+    # Nowe wiersze z banku czekają na kategorię i zatwierdzenie.
+    assert not any(tx.cleared for tx in created)
 
 
 def test_sync_merges_manual_transaction_and_undo_unlinks(db: Session) -> None:
