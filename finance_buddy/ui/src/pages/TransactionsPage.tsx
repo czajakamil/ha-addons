@@ -184,7 +184,8 @@ const TransactionsPage = ({ scope }: { scope?: TransactionsAccountScope }) => {
     getLookupDisplayValue,
     openTransactionDetails,
     addStore,
-    removeStore
+    removeStore,
+    onTransfersChanged: () => void loadTransactions(filters)
   });
 
   const scopedAccountId = scope?.accountId;

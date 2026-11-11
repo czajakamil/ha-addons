@@ -249,6 +249,115 @@ def _validate_item_products(
         )
 
 
+# --- Transfers --------------------------------------------------------------
+
+TRANSFER_WINDOW = dt.timedelta(days=3)
+
+
+def _transfer_partner(db: Session, tx: Transaction) -> Transaction | None:
+    if not tx.transfer_transaction_id:
+        return None
+    partner = db.get(Transaction, tx.transfer_transaction_id)
+    if partner is None or partner.user_id != tx.user_id or partner.id == tx.id:
+        return None
+    return partner
+
+
+def _release_partner(db: Session, partner: Transaction) -> None:
+    """Druga połówka przestaje być potrzebna.
+
+    Dopisana przez nas (bez wiersza z banku, pozycji i załączników) znika razem
+    z przelewem; prawdziwy ruch z wyciągu zostaje jako zwykła transakcja.
+    """
+    if partner.external_id is None and not partner.items and not partner.attachments:
+        db.delete(partner)
+        return
+    partner.transfer_account_id = None
+    partner.transfer_transaction_id = None
+
+
+def _mirror_partner(tx: Transaction, partner: Transaction) -> None:
+    """Kwota i data dopisanej połówki idą za edycją; ruchu z banku nie ruszamy."""
+    if partner.external_id is not None or partner.currency != tx.currency:
+        return
+    partner.total_cents = -tx.total_cents
+    partner.date = tx.date
+    partner.recorded_at = tx.recorded_at
+
+
+def _pairing_candidate(db: Session, tx: Transaction, other: Account) -> Transaction | None:
+    """Niesparowana transakcja na drugim koncie, która jest tym samym przelewem.
+
+    Ta sama kwota z przeciwnym znakiem, ±3 dni, bez kategorii i pozycji — i to
+    dokładnie jedna, żeby nie zgadywać.
+    """
+    has_items = select(TransactionItem.id).where(TransactionItem.transaction_id == Transaction.id)
+    rows = db.scalars(
+        select(Transaction).where(
+            Transaction.user_id == tx.user_id,
+            Transaction.account_id == other.id,
+            Transaction.id != tx.id,
+            Transaction.total_cents == -tx.total_cents,
+            Transaction.date.between(tx.date - TRANSFER_WINDOW, tx.date + TRANSFER_WINDOW),
+            Transaction.transfer_account_id.is_(None),
+            Transaction.transfer_transaction_id.is_(None),
+            Transaction.category_id.is_(None),
+            ~has_items.exists(),
+        )
+    ).all()
+    return rows[0] if len(rows) == 1 else None
+
+
+def _sync_transfer(db: Session, tx: Transaction, previous_partner: Transaction | None) -> None:
+    """Przelew między własnymi kontami widać na obu kontach.
+
+    Przy ustawieniu konta docelowego paruje z istniejącą drugą połówką albo ją
+    dopisuje (bez `external_id`, więc synchronizacja drugiego konta ją scali,
+    zamiast zdublować). Zmiana lub usunięcie konta docelowego zwalnia starą.
+    Inna waluta zostaje jednostronna — bez kursu nie znamy kwoty po drugiej stronie.
+    """
+    partner = _transfer_partner(db, tx) or previous_partner
+    if partner is not None and partner.account_id != tx.transfer_account_id:
+        _release_partner(db, partner)
+        tx.transfer_transaction_id = None
+        partner = None
+
+    if not tx.transfer_account_id:
+        tx.transfer_transaction_id = None
+        return
+    tx.store_id = None
+    tx.category_id = None
+
+    if partner is not None:
+        partner.transfer_account_id = tx.account_id
+        partner.transfer_transaction_id = tx.id
+        tx.transfer_transaction_id = partner.id
+        _mirror_partner(tx, partner)
+        return
+
+    other = db.get(Account, tx.transfer_account_id)
+    if other is None or other.id == tx.account_id or other.currency != tx.currency:
+        return
+    partner = _pairing_candidate(db, tx, other)
+    if partner is None:
+        partner = Transaction(
+            user_id=tx.user_id,
+            account_id=other.id,
+            date=tx.date,
+            recorded_at=tx.recorded_at,
+            total_cents=-tx.total_cents,
+            currency=other.currency,
+            comment=tx.comment,
+            cleared=False,
+        )
+        db.add(partner)
+    partner.store_id = None
+    partner.transfer_account_id = tx.account_id
+    db.flush()
+    partner.transfer_transaction_id = tx.id
+    tx.transfer_transaction_id = partner.id
+
+
 # --- Use cases ------------------------------------------------------------
 
 
@@ -294,6 +403,8 @@ def create_transaction(db: Session, payload: TransactionCreate, user_id: str) ->
         tx.total_cents = 0
 
     db.add(tx)
+    db.flush()
+    _sync_transfer(db, tx, None)
     db.commit()
     db.refresh(tx)
     return tx
@@ -322,6 +433,7 @@ def update_transaction(
     if items_payload is not None:
         _validate_item_products(db, items_payload, user_id)
 
+    previous_partner = _transfer_partner(db, tx)
     _apply_transaction_payload(tx, data)
 
     _ensure_transaction_dates(tx, data)
@@ -336,6 +448,10 @@ def update_transaction(
         tx.total_cents = manual_total
 
     db.add(tx)
+    if "transfer_account_id" in data or "transfer_transaction_id" in data:
+        _sync_transfer(db, tx, previous_partner)
+    elif previous_partner is not None:
+        _mirror_partner(tx, previous_partner)
     db.commit()
     db.refresh(tx)
     return tx
@@ -349,6 +465,9 @@ def delete_transaction(db: Session, transaction_id: str, user_id: str) -> None:
         if path.exists():
             path.unlink(missing_ok=True)
 
+    partner = _transfer_partner(db, tx)
+    if partner is not None:
+        _release_partner(db, partner)
     db.delete(tx)
     db.commit()
 

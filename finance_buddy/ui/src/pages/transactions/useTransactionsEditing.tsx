@@ -57,6 +57,8 @@ type UseTransactionsEditingParams = {
   openTransactionDetails: (transactionId: string) => void;
   addStore: (store: Store) => void;
   removeStore: (storeId: string) => void;
+  /** Przelew dopisuje albo zabiera drugą połówkę na innym koncie — lista musi ją dociągnąć. */
+  onTransfersChanged?: () => void;
 };
 
 /**
@@ -82,7 +84,8 @@ export const useTransactionsEditing = ({
   getLookupDisplayValue,
   openTransactionDetails,
   addStore,
-  removeStore
+  removeStore,
+  onTransfersChanged
 }: UseTransactionsEditingParams) => {
   // Sklepy utworzone z pola Sklep na tym ekranie. Gdy transakcję zaraz przepniemy na
   // inny sklep (poprawka literówki), porzucony nowy sklep usuwamy — backend i tak
@@ -280,6 +283,7 @@ export const useTransactionsEditing = ({
         setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         setInlineError(null);
         if (autoCategoryId) flashAutoCategory(updated.id);
+        if (option?.kind === 'transfer' || tx.transfer_account_id) onTransfersChanged?.();
         if (
           previousStoreId &&
           previousStoreId !== updated.store_id &&
