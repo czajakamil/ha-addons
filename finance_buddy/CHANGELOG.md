@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.38
+
+- Ulubione konta możesz przypiąć do paska bocznego, jak w YNAB-ie. Pod nawigacją pojawia się sekcja
+  „Ulubione konta” z aktualnym saldem każdego z nich, a kliknięcie otwiera konto z jego transakcjami.
+- Konto przypinasz gwiazdką „Przypnij do paska bocznego” pod nazwą na stronie konta albo z menu akcji
+  na liście kont. Tak samo je odpinasz.
+- Saldo w pasku odświeża się przy przejściu na inną stronę i po powrocie do karty. Ujemne saldo jest
+  na czerwono, a w zwiniętym pasku zostaje sama ikona konta.
+
 ## 0.1.37
 
 - Przelew między własnymi kontami widać teraz na obu kontach. Gdy w Transakcjach oznaczysz wiersz jako
