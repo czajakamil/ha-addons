@@ -24,6 +24,7 @@ type AccountsTableProps = {
   onReconcile: (account: Account) => void;
   onImport: (account: Account) => void;
   onToggleArchived: (account: Account) => void;
+  onToggleFavorite: (account: Account) => void;
   onRename: (account: Account, name: string) => void;
   onDebt: (account: Account) => void;
 };
@@ -36,6 +37,7 @@ const AccountsTable = ({
   onReconcile,
   onImport,
   onToggleArchived,
+  onToggleFavorite,
   onRename,
   onDebt
 }: AccountsTableProps) => {
@@ -137,6 +139,9 @@ const AccountsTable = ({
                       </DropdownMenu.Item>
                       <DropdownMenu.Item className="menu__item" onSelect={() => onImport(account)}>
                         {labels.importCsv}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item className="menu__item" onSelect={() => onToggleFavorite(account)}>
+                        {account.is_favorite ? labels.unpin : labels.pin}
                       </DropdownMenu.Item>
                       <DropdownMenu.Item className="menu__item" onSelect={() => onToggleArchived(account)}>
                         {account.is_closed ? labels.restore : labels.archive}

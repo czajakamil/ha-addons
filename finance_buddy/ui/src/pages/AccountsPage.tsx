@@ -121,6 +121,13 @@ const AccountsPage = () => {
           { message: account.is_closed ? labels.settings.restored : labels.settings.archived }
         );
       }}
+      onToggleFavorite={(account) =>
+        void saveAccount(
+          account,
+          { is_favorite: !account.is_favorite },
+          { message: account.is_favorite ? labels.unpinned : labels.pinned }
+        )
+      }
       onRename={(account, name) => void saveAccount(account, { name })}
       onDebt={(account) => setDebtAccountId(account.id)}
     />

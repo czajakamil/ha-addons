@@ -1,5 +1,6 @@
 // Pasek boczny: grupy nawigacji, zwijanie w nagłówku i menu użytkownika na dole.
-import { NavLink } from 'react-router-dom';
+import { useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   ArrowLeftRight,
@@ -23,7 +24,10 @@ import {
 } from 'lucide-react';
 import type { AuthUser } from '../api';
 import { copy } from '../copy/pl';
+import { refreshFavoriteAccounts, useFavoriteAccounts } from '../hooks/useFavoriteAccounts';
 import type { ThemeMode } from '../hooks/useTheme';
+import { formatSignedMoney } from './ui/Money';
+import AccountAvatar from '../pages/accounts/components/AccountAvatar';
 import ReceiptsNavBadge from './ReceiptsNavBadge';
 import UntaggedNavBadge from './UntaggedNavBadge';
 
@@ -84,6 +88,19 @@ const AppSidebar = ({
   const userName = user.display_name || user.username || copy.user.fallbackName;
   const collapseLabel = isCollapsed ? copy.nav.expand : copy.nav.collapse;
   const CollapseIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
+  const favorites = useFavoriteAccounts();
+  const { pathname } = useLocation();
+
+  // Salda zmieniają się na każdej stronie z transakcjami — odświeżamy przy
+  // zmianie trasy i powrocie do karty. Jedno lekkie żądanie, dzielone.
+  useEffect(() => {
+    void refreshFavoriteAccounts();
+  }, [pathname]);
+  useEffect(() => {
+    const onFocus = () => void refreshFavoriteAccounts();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   return (
     <aside id="app-sidebar" className={classes}>
@@ -126,6 +143,32 @@ const AppSidebar = ({
             ))}
           </div>
         ))}
+
+        {favorites.length > 0 && (
+          <div className="sidebar__group sidebar__favorites">
+            <p className="sidebar__group-label">{copy.nav.favorites}</p>
+            {favorites.map((account) => {
+              const balance = formatSignedMoney(account.balance_cents, account.currency);
+              return (
+                <NavLink
+                  key={account.id}
+                  to={`/accounts/${account.id}`}
+                  className={({ isActive }) => `sidebar__link sidebar__account${isActive ? ' is-active' : ''}`}
+                  title={isCollapsed ? `${account.name} · ${balance}` : account.name}
+                  onClick={onNavigate}
+                >
+                  <AccountAvatar icon={account.icon} color={account.color} size="xs" />
+                  <span className="sidebar__text">{account.name}</span>
+                  <span
+                    className={`sidebar__account-balance${account.balance_cents < 0 ? ' is-negative' : ''}`}
+                  >
+                    {balance}
+                  </span>
+                </NavLink>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       <div className="sidebar__footer">

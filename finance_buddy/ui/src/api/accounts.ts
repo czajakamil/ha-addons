@@ -13,7 +13,10 @@ export interface Account {
   color?: string | null;
   balance_cents: number;
   is_closed: boolean;
+  is_deleted?: boolean;
   is_on_budget: boolean;
+  /** Przypięte do paska bocznego. */
+  is_favorite?: boolean;
 }
 
 export interface YnabBudgetSnapshot {
@@ -35,6 +38,7 @@ export interface AccountUpdate {
   color?: string | null;
   is_closed?: boolean;
   is_on_budget?: boolean;
+  is_favorite?: boolean;
 }
 
 export interface AccountCreate {

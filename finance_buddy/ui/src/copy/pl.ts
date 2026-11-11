@@ -20,6 +20,7 @@ export const copy = {
     close: 'Zamknij menu',
     mainNavigation: 'Główna nawigacja',
     tabBar: 'Nawigacja dolna',
+    favorites: 'Ulubione konta',
     more: 'Więcej'
   },
   user: {
@@ -549,6 +550,10 @@ export const copy = {
     archive: 'Zarchiwizuj',
     restore: 'Przywróć',
     debt: 'Szczegóły długu',
+    pin: 'Przypnij do paska bocznego',
+    unpin: 'Odepnij od paska bocznego',
+    pinned: 'Przypięto do paska bocznego',
+    unpinned: 'Odpięto od paska bocznego',
     empty: 'Żadne konto nie pasuje do tej frazy.',
     emptyAll: 'Nie masz jeszcze kont.',
     loadFailed: 'Nie udało się wczytać kont.',

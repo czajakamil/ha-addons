@@ -315,6 +315,10 @@ class Account(Base):
     is_on_budget: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="1"
     )
+    # Przypięte do paska bocznego (saldo + szybkie przejście), jak ulubione w YNAB-ie.
+    is_favorite: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
     # Data ostatniego uzgodnienia salda. Wypełnia ją wyłącznie import z YNAB-a;
     # dla kont zakładanych ręcznie zostaje None, bo nie mamy własnego procesu
     # uzgadniania — flaga `reconciled` na transakcji to co innego.

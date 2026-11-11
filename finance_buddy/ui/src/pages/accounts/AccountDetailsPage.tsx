@@ -1,7 +1,7 @@
 // Strona konta: nagłówek z saldem i wykres, a pod nimi zakładki Transakcje i Ustawienia.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Pencil, Wallet } from 'lucide-react';
+import { ChevronLeft, Pencil, Star, Wallet } from 'lucide-react';
 import { type Account, getAccounts, getTransactions, type Transaction } from '../../api';
 import EmptyState from '../../components/ui/EmptyState';
 import Money from '../../components/ui/Money';
@@ -110,9 +110,27 @@ const AccountDetailsPage = () => {
                   </button>
                 </h1>
               )}
-              <span className="accounts-name__meta">
-                {getAccountKindLabel(account.account_kind)} · {account.currency}
-              </span>
+              <div className="account-details__meta-row">
+                <span className="accounts-name__meta">
+                  {getAccountKindLabel(account.account_kind)} · {account.currency}
+                </span>
+                <button
+                  type="button"
+                  className={`account-details__pin${account.is_favorite ? ' is-active' : ''}`}
+                  aria-pressed={Boolean(account.is_favorite)}
+                  title={account.is_favorite ? labels.unpin : labels.pin}
+                  onClick={() =>
+                    void save(
+                      account,
+                      { is_favorite: !account.is_favorite },
+                      { message: account.is_favorite ? labels.unpinned : labels.pinned }
+                    )
+                  }
+                >
+                  <Star size={14} aria-hidden="true" fill={account.is_favorite ? 'currentColor' : 'none'} />
+                  {account.is_favorite ? labels.unpin : labels.pin}
+                </button>
+              </div>
             </div>
             <div className="account-details__balance-block">
               <Money

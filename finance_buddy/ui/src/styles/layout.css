@@ -212,6 +212,40 @@
     margin-inline-start: auto;
   }
 
+  /* Ulubione konta: nazwa ucinana, saldo zawsze w całości po prawej */
+  .sidebar__account .sidebar__text {
+    flex: 1;
+  }
+
+  .sidebar__account-balance {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    font-size: var(--text-12);
+    line-height: var(--leading-12);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--text-muted);
+  }
+
+  .sidebar__account:hover .sidebar__account-balance,
+  .sidebar__account.is-active .sidebar__account-balance {
+    color: var(--text);
+  }
+
+  .sidebar__account-balance.is-negative {
+    color: var(--negative);
+  }
+
+  .sidebar__account .account-avatar--xs {
+    width: var(--s-16);
+    height: var(--s-16);
+    border-radius: var(--s-4);
+  }
+
+  .app__sidebar.is-collapsed .sidebar__account-balance {
+    display: none;
+  }
+
   /* Zwinięty pasek: same ikony */
   .app__sidebar.is-collapsed {
     width: var(--sidebar-collapsed-width);

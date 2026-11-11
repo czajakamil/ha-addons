@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { type Account, type AccountUpdate, updateAccount } from '../../api';
 import { copy } from '../../copy/pl';
+import { refreshFavoriteAccounts } from '../../hooks/useFavoriteAccounts';
 
 const labels = copy.accounts;
 const UNDO_TOAST_MS = 8000;
@@ -20,6 +21,7 @@ export const useAccountSave = (onUpdated: (account: Account) => void) =>
     async (account: Account, payload: AccountUpdate, { message = labels.saved, undoable = true }: SaveOptions = {}) => {
       try {
         onUpdated(await updateAccount(account.id, payload));
+        void refreshFavoriteAccounts();
       } catch (err) {
         console.error(err);
         toast.error(labels.saveFailed);
@@ -28,6 +30,7 @@ export const useAccountSave = (onUpdated: (account: Account) => void) =>
       const undo = async () => {
         try {
           onUpdated(await updateAccount(account.id, previousValues(account, payload)));
+          void refreshFavoriteAccounts();
           toast(labels.undone);
         } catch (err) {
           console.error(err);

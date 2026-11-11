@@ -20,6 +20,7 @@ class AccountBase(BaseModel):
     color: str | None = Field(default=None, max_length=24)
     is_closed: bool = False
     is_deleted: bool = False
+    is_favorite: bool = False
 
 
 class AccountCreate(AccountBase):
@@ -57,6 +58,7 @@ class AccountUpdate(BaseModel):
     is_closed: bool | None = None
     is_deleted: bool | None = None
     is_on_budget: bool | None = None
+    is_favorite: bool | None = None
 
 
 class AccountBalanceAdjustment(BaseModel):
