@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.36
+
+- Transakcje, które przychodzą z synchronizacji z bankiem lub z importu wyciągu CSV, mają teraz żółty
+  status „do zatwierdzenia”, a nie zielony. Najpierw je kategoryzujesz i potwierdzasz. Dotyczy to też
+  transakcji, którym kategorię podpowiedziała reguła sklepu.
+- Gdy wiersz z banku scali się z transakcją, którą wpisałeś wcześniej sam, ta transakcja nadal staje
+  się zatwierdzona.
+
 ## 0.1.35
 
 - Gdy w Transakcjach wybierzesz sklep, a transakcja nie ma jeszcze kategorii, wpisze się ta z reguły
