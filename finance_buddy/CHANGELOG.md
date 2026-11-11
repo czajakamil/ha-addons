@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.37
+
+- Przelew między własnymi kontami widać teraz na obu kontach. Gdy w Transakcjach oznaczysz wiersz jako
+  przelew (np. PKO → Revolut), na drugim koncie pojawi się jego druga połówka z przeciwną kwotą. Jeśli
+  pasujący wiersz już tam jest (np. przyszedł z banku), zostanie z nim sparowany zamiast dublowania.
+- Gdy zmienisz przelew z powrotem na sklep albo go usuniesz, dopisana połówka znika. Wiersz, który
+  przyszedł z banku, zostaje jako zwykła transakcja. Zmiana kwoty lub daty przelewu przenosi się na
+  dopisaną połówkę.
+- Przelewy na konto w innej walucie nadal zostają jednostronne, bo bez kursu nie znamy kwoty po drugiej
+  stronie. Starsze jednostronne przelewy uzupełnisz, wybierając konto docelowe jeszcze raz.
+
 ## 0.1.36
 
 - Transakcje, które przychodzą z synchronizacji z bankiem lub z importu wyciągu CSV, mają teraz żółty
