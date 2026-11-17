@@ -10,6 +10,7 @@ import { resolveTagColor } from '../tags/tagColors';
 import { toIsoDate, toRecordedAt } from '../../utils/date';
 import { parseAmountToCents } from '../../utils/format';
 import { formatSignedMoney } from '../ui/Money';
+import { DateInput, TimeInput } from '../ui/DateTimeInput';
 import {
   categoryParentPrefix,
   categoryPickerRows,
@@ -554,8 +555,8 @@ const NewTransactionScreen = ({
           <div className="new-tx__row">
             <span className="new-tx__row-label">Kiedy</span>
             <span className="new-tx__row-value new-tx__when">
-              <input type="date" aria-label="Data" value={date} required onChange={(event) => setDate(event.target.value)} />
-              <input type="time" aria-label="Godzina" value={time} onChange={(event) => setTime(event.target.value)} />
+              <DateInput aria-label="Data" value={date} required onChange={setDate} />
+              <TimeInput aria-label="Godzina" value={time} onChange={setTime} />
             </span>
           </div>
 

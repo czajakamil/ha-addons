@@ -8,12 +8,32 @@ type FieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' |
   onChange: (value: string) => void;
 };
 
-// Prawdziwe przeglądarki na Macu mają w user agencie Safari albo Firefox; osadzony WebView nie ma.
+type WebkitWindow = Window & { webkit?: { messageHandlers?: unknown } };
+
+// Aplikacja HA rejestruje w WKWebView handlery wiadomości; Safari ich nie ma. Panel dodatku działa
+// w ramce ingressu, więc sprawdzamy też okno nadrzędne (ten sam origin, ale dostęp może rzucić).
+const hasWebkitMessageHandlers = () => {
+  const has = (win: Window | null) => {
+    try {
+      return Boolean((win as WebkitWindow | null)?.webkit?.messageHandlers);
+    } catch {
+      return false;
+    }
+  };
+  return typeof window !== 'undefined' && (has(window) || has(window.parent) || has(window.top));
+};
+
+// Prawdziwe przeglądarki na Macu mają w user agencie Safari albo Firefox; osadzony WebView zwykle nie,
+// ale aplikacja HA może dopisywać „Safari”, więc liczy się też jej nazwa i handlery WKWebView.
 // iPad też podaje się za Macintosh, ale ma ekran dotykowy.
 export const isMacEmbeddedWebView = (
   userAgent = navigator.userAgent,
-  maxTouchPoints = navigator.maxTouchPoints
-) => /Macintosh/.test(userAgent) && maxTouchPoints === 0 && !/Safari|Firefox/.test(userAgent);
+  maxTouchPoints = navigator.maxTouchPoints,
+  webkitHandlers = hasWebkitMessageHandlers()
+) =>
+  /Macintosh/.test(userAgent) &&
+  maxTouchPoints === 0 &&
+  (webkitHandlers || /Home ?Assistant/i.test(userAgent) || !/Safari|Firefox/.test(userAgent));
 
 type TypedInputProps = FieldProps & {
   parse: (text: string) => string | null;
