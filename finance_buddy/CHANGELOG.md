@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.39
+
+- Wpisanie daty lub godziny transakcji w aplikacji Home Assistant na Macu już jej nie wywraca. Pola są
+  tam tekstowe (DD.MM.RRRR, GG:MM) także na ekranie nowej transakcji w wąskim oknie.
+
 ## 0.1.38
 
 - Ulubione konta możesz przypiąć do paska bocznego, jak w YNAB-ie. Pod nawigacją pojawia się sekcja
